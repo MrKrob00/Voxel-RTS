@@ -40,7 +40,7 @@ class Buffers extends RefCounted:
 		return arrays
 
 
-static func _get(snap: Array, x: int, y: int, z: int) -> int:
+static func _voxel(snap: Array, x: int, y: int, z: int) -> int:
 	var arr: PackedByteArray = snap[((x >> 4) + 1) + ((z >> 4) + 1) * 3 + ((y >> 4) + 1) * 9]
 	if arr.is_empty():
 		return Blocks.AIR
@@ -61,7 +61,7 @@ static func build(snap: Array, origin: Vector3i) -> Array:
 				var is_water := id == Blocks.WATER
 				for f in 6:
 					var n := FACE_NORMALS[f]
-					var nid := _get(snap, x + n.x, y + n.y, z + n.z)
+					var nid := _voxel(snap, x + n.x, y + n.y, z + n.z)
 					if is_water:
 						if nid != Blocks.AIR:
 							continue
@@ -102,9 +102,9 @@ static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int
 			var px := x + n.x
 			var py := y + n.y
 			var pz := z + n.z
-			var s1 := 1 if Blocks.is_opaque(_get(snap, px + u.x * s.x, py + u.y * s.x, pz + u.z * s.x)) else 0
-			var s2 := 1 if Blocks.is_opaque(_get(snap, px + v.x * s.y, py + v.y * s.y, pz + v.z * s.y)) else 0
-			var c := 1 if Blocks.is_opaque(_get(snap, px + u.x * s.x + v.x * s.y, py + u.y * s.x + v.y * s.y, pz + u.z * s.x + v.z * s.y)) else 0
+			var s1 := 1 if Blocks.is_opaque(_voxel(snap, px + u.x * s.x, py + u.y * s.x, pz + u.z * s.x)) else 0
+			var s2 := 1 if Blocks.is_opaque(_voxel(snap, px + v.x * s.y, py + v.y * s.y, pz + v.z * s.y)) else 0
+			var c := 1 if Blocks.is_opaque(_voxel(snap, px + u.x * s.x + v.x * s.y, py + u.y * s.x + v.y * s.y, pz + u.z * s.x + v.z * s.y)) else 0
 			ao[k] = 0 if (s1 == 1 and s2 == 1) else 3 - (s1 + s2 + c)
 		var shade: float = AO_LEVELS[ao[k]]
 		buf.verts.append(corners[k])

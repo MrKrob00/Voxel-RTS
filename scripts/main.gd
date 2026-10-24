@@ -29,6 +29,7 @@ func _ready() -> void:
 
 	_setup_hover()
 	_setup_ui()
+	add_child(load("res://scripts/tools/screenshot.gd").new())
 
 
 func _process(_delta: float) -> void:
