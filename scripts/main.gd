@@ -20,8 +20,9 @@ func _ready() -> void:
 	rig = RTSCamera.new()
 	rig.name = "Camera"
 	var s := world.size_blocks()
+	var spawn := world.spawn_point()
 	rig.bounds = Rect2(0, 0, s.x, s.z)
-	rig.focus = Vector3(s.x * 0.5, 24, s.z * 0.5)
+	rig.focus = Vector3(spawn.x, spawn.y, spawn.z)
 	rig.ground_height = world.surface_y
 	add_child(rig)
 	rig.primary_action.connect(_on_primary)
@@ -99,7 +100,7 @@ func _on_primary(pos: Vector2) -> void:
 	if hit.is_empty():
 		return
 	if placing:
-		world.set_block(hit.cell + hit.normal, Blocks.STONE)
+		world.place_block(hit.cell + hit.normal, Blocks.STONE)
 	elif Blocks.is_diggable(hit.id):
 		world.set_block(hit.cell, Blocks.AIR)
 
@@ -107,4 +108,4 @@ func _on_primary(pos: Vector2) -> void:
 func _on_secondary(pos: Vector2) -> void:
 	var hit := _pick(pos)
 	if not hit.is_empty():
-		world.set_block(hit.cell + hit.normal, Blocks.STONE)
+		world.place_block(hit.cell + hit.normal, Blocks.STONE)

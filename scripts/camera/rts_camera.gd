@@ -9,18 +9,18 @@ signal primary_action(screen_pos: Vector2)
 signal secondary_action(screen_pos: Vector2)
 
 @export var min_distance := 8.0
-@export var max_distance := 140.0
+@export var max_distance := 200.0
 @export var pan_speed := 1.1          ## world units per second per unit of distance
 @export var rotate_speed := 1.8       ## radians per second (keys)
 @export var edge_scroll := false
-@export var bounds := Rect2(0, 0, 128, 128)
+@export var bounds := Rect2(0, 0, 256, 256)
 @export var tap_max_move := 14.0
 @export var tap_max_time := 0.35
 
 var yaw := deg_to_rad(35.0)
 var pitch := deg_to_rad(52.0)
 var distance := 55.0
-var focus := Vector3(64, 24, 64)
+var focus := Vector3(128, 48, 128)
 ## Optional: lets the camera glide along the ground (set by the game to world.surface_y).
 var ground_height := Callable()
 
@@ -37,7 +37,7 @@ var _prev_pinch_mid := Vector2.ZERO
 
 func _ready() -> void:
 	camera = Camera3D.new()
-	camera.far = 600.0
+	camera.far = 900.0
 	camera.fov = 60.0
 	add_child(camera)
 	_apply()

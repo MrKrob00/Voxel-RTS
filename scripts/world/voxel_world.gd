@@ -7,7 +7,7 @@ extends Node3D
 signal generation_finished
 signal chunk_meshed(cpos: Vector3i)
 
-@export var size_chunks := Vector3i(8, 4, 8)
+@export var size_chunks := Vector3i(16, 6, 16)
 @export var world_seed := 1337
 ## Meshes committed to the scene per frame. Lower is smoother on tablets.
 @export var meshes_per_frame := 6
@@ -39,14 +39,11 @@ var _mutex := Mutex.new()
 var _gen_results: Array = []
 var _mesh_results: Array = []
 
-var _solid_chunk := PackedByteArray()
 var _solid_material: StandardMaterial3D
 var _water_material: StandardMaterial3D
 
 
 func _ready() -> void:
-	_solid_chunk.resize(Blocks.CHUNK_VOLUME)
-	_solid_chunk.fill(Blocks.STONE)
 	_solid_material = StandardMaterial3D.new()
 	_solid_material.vertex_color_use_as_albedo = true
 	_solid_material.roughness = 1.0
@@ -64,7 +61,7 @@ func size_blocks() -> Vector3i:
 
 
 func start() -> void:
-	generator = WorldGen.new(world_seed, size_blocks().y)
+	generator = WorldGen.new(world_seed, size_blocks())
 	_gen_total = size_chunks.x * size_chunks.y * size_chunks.z
 	# Generate from the middle of the map outwards so the visible area appears first.
 	var centre := Vector3(size_chunks) * 0.5
@@ -93,7 +90,7 @@ func get_block(p: Vector3i) -> int:
 	if not in_bounds(p):
 		return Blocks.AIR
 	var c: Chunk = _chunks.get(Vector3i(p.x >> 4, p.y >> 4, p.z >> 4))
-	if c == null or not c.generated:
+	if c == null or not c.generated or c.data.is_empty():
 		return Blocks.AIR
 	return c.data[(p.x & 15) + ((p.z & 15) << 4) + ((p.y & 15) << 8)]
 
@@ -105,6 +102,11 @@ func set_block(p: Vector3i, id: int) -> bool:
 	var c: Chunk = _chunks.get(cpos)
 	if c == null or not c.generated:
 		return false
+	if c.data.is_empty():
+		if id == Blocks.AIR:
+			return false
+		c.data.resize(Blocks.CHUNK_VOLUME)
+		c.data.fill(Blocks.AIR)
 	var idx := (p.x & 15) + ((p.z & 15) << 4) + ((p.y & 15) << 8)
 	if c.data[idx] == id:
 		return false
@@ -121,6 +123,26 @@ func set_block(p: Vector3i, id: int) -> bool:
 					n.dirty = true
 					_try_mesh(n)
 	return true
+
+
+## A block may only be placed into free space that touches an existing solid block (no building in mid-air).
+func can_place(p: Vector3i) -> bool:
+	if not in_bounds(p) or Blocks.is_solid(get_block(p)):
+		return false
+	for n in ChunkMesher.FACE_NORMALS:
+		if Blocks.is_solid(get_block(p + n)):
+			return true
+	return false
+
+
+func place_block(p: Vector3i, id: int) -> bool:
+	return can_place(p) and set_block(p, id)
+
+
+## A spot on the start island with the y of the top block, for the camera and the first units.
+func spawn_point() -> Vector3i:
+	var xz := generator.spawn_column()
+	return Vector3i(xz.x, generator.column(xz.x, xz.y).x, xz.y)
 
 
 static func _edge_offsets(local: int) -> Array[int]:
@@ -223,6 +245,9 @@ func _drain_generated() -> void:
 func _try_mesh(c: Chunk) -> void:
 	if c.meshing or not c.dirty or not c.generated:
 		return
+	if c.data.is_empty():
+		c.dirty = false
+		return
 	# Wait for every neighbour so border faces are not drawn against ungenerated (empty) space.
 	var snap := []
 	snap.resize(27)
@@ -233,8 +258,7 @@ func _try_mesh(c: Chunk) -> void:
 				var slot := (dx + 1) + (dz + 1) * 3 + (dy + 1) * 9
 				var n: Chunk = _chunks.get(np)
 				if n == null:
-					# Below the world counts as solid (hides bottom faces), everywhere else as open air.
-					snap[slot] = _solid_chunk if np.y < 0 else PackedByteArray()
+					snap[slot] = PackedByteArray()  # outside the world is open sky
 				elif not n.generated:
 					return
 				else:
