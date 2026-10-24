@@ -55,8 +55,12 @@ static func build(snap: Array, origin: Vector3i, preset: MapPreset) -> Array:
 	for y in 16:
 		for z in 16:
 			for x in 16:
-				var id := center[x + (z << 4) + (y << 8)]
+				var raw := center[x + (z << 4) + (y << 8)]
+				var id := raw & 31
 				if id == Blocks.AIR:
+					continue
+				if raw >> 5 != Blocks.SHAPE_CUBE:
+					_emit_shape(solid, snap, x, y, z, id, raw >> 5, origin, preset)
 					continue
 				var is_water := id == Blocks.WATER
 				for f in 6:
@@ -76,7 +80,60 @@ static func build(snap: Array, origin: Vector3i, preset: MapPreset) -> Array:
 	return out
 
 
-static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int, id: int, origin: Vector3i, is_water: bool, preset: MapPreset) -> void:
+## Slabs (half height) and ramp wedges. Neighbours never hide them fully, so only faces against full cubes are skipped.
+static func _emit_shape(buf: Buffers, snap: Array, x: int, y: int, z: int, id: int, shape: int, origin: Vector3i, preset: MapPreset) -> void:
+	if shape == Blocks.SHAPE_SLAB:
+		for f in 6:
+			var n := FACE_NORMALS[f]
+			if f != 2 and Blocks.is_opaque(_voxel(snap, x + n.x, y + n.y, z + n.z)):
+				continue
+			_emit_face(buf, snap, x, y, z, f, id, origin, false, preset, 0.5)
+		return
+	# Wedge, built for "high side towards +X" and rotated about the cell's vertical axis for the other three.
+	var rot := shape - 1   # 0 +X, 1 -X, 2 +Z, 3 -Z
+	var tris: Array = []   # each: [a, b, c, kind]; counter-clockwise seen from outside; kind 0 slope, 1 side, 2 bottom
+	var below := Blocks.is_opaque(_voxel(snap, x, y - 1, z))
+	if not below:
+		tris.append([Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 0, 1), 2])
+		tris.append([Vector3(0, 0, 0), Vector3(1, 0, 1), Vector3(0, 0, 1), 2])
+	tris.append([Vector3(0, 0, 0), Vector3(0, 0, 1), Vector3(1, 1, 1), 0])   # the slope
+	tris.append([Vector3(0, 0, 0), Vector3(1, 1, 1), Vector3(1, 1, 0), 0])
+	tris.append([Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(1, 1, 1), 1])   # back wall (high side)
+	tris.append([Vector3(1, 0, 0), Vector3(1, 1, 1), Vector3(1, 0, 1), 1])
+	tris.append([Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(1, 0, 0), 1])   # left triangle (z = 0)
+	tris.append([Vector3(0, 0, 1), Vector3(1, 0, 1), Vector3(1, 1, 1), 1])   # right triangle (z = 1)
+	for t in tris:
+		var pts: Array[Vector3] = []
+		for i in 3:
+			var p: Vector3 = t[i]
+			match rot:
+				1: p = Vector3(1.0 - p.x, p.y, 1.0 - p.z)
+				2: p = Vector3(1.0 - p.z, p.y, p.x)
+				3: p = Vector3(p.z, p.y, 1.0 - p.x)
+			pts.append(p + Vector3(x, y, z))
+		var nrm := (pts[1] - pts[0]).cross(pts[2] - pts[0]).normalized()
+		var kind: int = t[3]
+		if kind == 1:
+			var nb := Vector3i(roundi(nrm.x), 0, roundi(nrm.z))
+			if Blocks.is_opaque(_voxel(snap, x + nb.x, y, z + nb.z)):
+				continue
+		var start := buf.verts.size()
+		for p in pts:
+			var col: Color
+			if kind == 0:
+				col = preset.vertex_color(id, Blocks.FACE_TOP, origin.x + p.x, origin.z + p.z)
+			elif kind == 1:
+				col = Blocks.color_of(id, Blocks.FACE_SIDE) * 0.78
+			else:
+				col = Blocks.color_of(id, Blocks.FACE_BOTTOM) * 0.55
+			col.a = 1.0
+			buf.verts.append(p)
+			buf.normals.append(nrm)
+			buf.colors.append(col)
+		buf.indices.append_array([start, start + 2, start + 1])   # clockwise for Godot
+
+
+static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int, id: int, origin: Vector3i, is_water: bool, preset: MapPreset, height := 1.0) -> void:
 	var n := FACE_NORMALS[f]
 	var u := FACE_U[f]
 	var v := FACE_V[f]
@@ -107,7 +164,9 @@ static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int
 			var c := 1 if Blocks.is_opaque(_voxel(snap, px + u.x * s.x + v.x * s.y, py + u.y * s.x + v.y * s.y, pz + u.z * s.x + v.z * s.y)) else 0
 			ao[k] = 0 if (s1 == 1 and s2 == 1) else 3 - (s1 + s2 + c)
 		var shade: float = AO_LEVELS[ao[k]]
-		buf.verts.append(corners[k])
+		var pos: Vector3 = corners[k]
+		pos.y = y + (pos.y - y) * height
+		buf.verts.append(pos)
 		buf.normals.append(Vector3(n))
 		var vc := preset.vertex_color(id, face_kind, origin.x + corners[k].x, origin.z + corners[k].z)
 		var mul := shade * shade_f

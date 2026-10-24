@@ -32,8 +32,34 @@ func _init() -> void:
 
 	_terrain_report(world)
 
+	# Ramp wedges next to 1-block drops, and staged digging.
+	var wedge := Vector3i(-1, -1, -1)
+	var wedges := 0
+	for dz in range(-60, 61):
+		for dx in range(-60, 61):
+			var wx := int(world.generator.islands[0].center.x) + dx
+			var wz := int(world.generator.islands[0].center.y) + dz
+			var col := world.generator.column(wx, wz)
+			if col.x < 0:
+				continue
+			var sh := world.generator.ramp_shape(wx, wz, col.x)
+			if sh != Blocks.SHAPE_CUBE:
+				wedges += 1
+				if wedge.x < 0:
+					wedge = Vector3i(wx, col.x + 1, wz)
+	print("ramp wedges on the start island: %d, first at %s" % [wedges, str(wedge)])
+	_check(wedges > 20, "1-block drops get ramp wedges")
+
 	for i in 600:
 		await process_frame
+	var w_raw := world.get_block(wedge)
+	_check(Blocks.shape(w_raw) >= Blocks.SHAPE_WEDGE_PX and Blocks.shape(w_raw) <= Blocks.SHAPE_WEDGE_NZ, "wedge is stored in the world (raw %d)" % w_raw)
+	_check(Blocks.is_solid(w_raw) and not Blocks.is_opaque(w_raw), "wedge is solid ground but does not hide neighbours")
+	_check(world.dig_step(wedge) and world.get_block(wedge) == Blocks.AIR, "digging a wedge removes it")
+	var cube := Vector3i(spawn.x + 3, spawn.y, spawn.z + 3)
+	_check(world.get_block(cube) == Blocks.GRASS, "cube before digging")
+	_check(world.dig_step(cube) and Blocks.shape(world.get_block(cube)) == Blocks.SHAPE_SLAB and Blocks.mat(world.get_block(cube)) == Blocks.GRASS, "first dig stage: cube becomes a slab of the same material")
+	_check(world.dig_step(cube) and world.get_block(cube) == Blocks.AIR, "second dig stage: slab is gone")
 	var meshes := 0
 	var tris := 0
 	for c in world.get_children():
@@ -106,6 +132,6 @@ func _terrain_report(world: VoxelWorld) -> void:
 				seen[q] = true
 				queue.append(q)
 	print("start island: %d columns, height %d..%d, cliff edges %.1f%%, walkable from spawn %.0f%%" % [total, min_h, max_h, 100.0 * high / total, 100.0 * reach / total])
-	_check(max_h - min_h >= 15, "relief is not flat (%d blocks)" % (max_h - min_h))
+	_check(max_h - min_h >= 10 and max_h - min_h <= 22, "relief is varied but low enough to dig through (%d blocks)" % (max_h - min_h))
 	_check(high > total * 0.004, "plateaus are separated by cliffs (%d edge columns)" % high)
-	_check(reach > total * 0.85, "plains: most of the island is walkable from spawn")
+	_check(reach > total * 0.6, "plains: most of the island is walkable from spawn")

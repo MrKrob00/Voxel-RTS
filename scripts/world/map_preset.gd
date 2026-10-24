@@ -9,12 +9,12 @@ var sky_color := Color("9cc7ee")
 var ambient_color := Color(0.72, 0.76, 0.85)
 
 # Terrain shape.
-var hills_amp := 15.0             ## raw height spread before it is cut into plateaus, +- blocks
-var mountain_amp := 26.0          ## max ridge height above the island base
-var mountain_region := Vector2(0.28, 0.62)   ## smoothstep edges on the region noise: higher = fewer mountains
+var hills_amp := 13.0             ## raw height spread before it is cut into plateaus, +- blocks
+var mountain_amp := 11.0          ## max ridge height above the island base
+var mountain_region := Vector2(0.20, 0.56)   ## smoothstep edges on the region noise: higher = fewer mountains
 var pass_width := Vector2(0.05, 0.22)        ## smoothstep edges on |pass noise|: wider = bigger valleys between peaks
-var flat_share := 0.30            ## share of the island radius kept flat around the island centre (build area)
-var terrace_step := 5.0           ## plateaus are this many blocks apart; between them are cliffs...
+var flat_share := 0.24            ## share of the island radius kept flat around the island centre (build area)
+var terrace_step := 4.0           ## plateaus are this many blocks apart; between them are cliffs...
 var pass_ramp := Vector2(0.03, 0.16)   ## ...except where the pass noise is near zero: there the ground slopes (a pass)
 var dirt_depth := 2               ## dirt layers under the surface block, stone below
 var top_block := Blocks.GRASS

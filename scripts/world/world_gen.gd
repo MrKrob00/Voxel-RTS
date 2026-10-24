@@ -51,7 +51,7 @@ func _init(world_seed: int, size: Vector3i, map_preset: MapPreset) -> void:
 	_ridge = _make_noise(world_seed + 7, 0.024, 3)
 	_pass = _make_noise(world_seed + 8, 0.016, 2)
 	_region = _make_noise(world_seed + 9, 0.013, 2)
-	_detail = _make_noise(world_seed + 2, 0.09, 2)
+	_detail = _make_noise(world_seed + 2, 0.045, 2)
 	_under = _make_noise(world_seed + 3, 0.05, 2)
 	_cave = _make_noise(world_seed + 4, 0.055, 2)
 	_coal = _make_noise(world_seed + 5, 0.12, 1)
@@ -130,7 +130,9 @@ func column(wx: int, wz: int) -> Vector2i:
 	var step := preset.terrace_step
 	var level := floorf(rel / step + 0.5) * step
 	var slope := 1.0 - smoothstep(preset.pass_ramp.x, preset.pass_ramp.y, absf(_pass.get_noise_2d(wx, wz)))
-	var top := best.base_top + lerpf(level, rel, slope)
+	# Gentle undulation inside a plateau: 1-block steps that the ramp wedges smooth out.
+	var bumps := roundf(_detail.get_noise_2d(wx, wz) * 1.7) * rim * (1.0 - flat * 0.85)
+	var top := best.base_top + lerpf(level, rel, slope) + bumps
 	var depth := 3.0 + best.thickness * pow(best_m, 0.75) + _under.get_noise_2d(wx, wz) * 4.0 * best_m
 	var top_i := clampi(int(top), 4, _max_y)
 	var bottom_i := clampi(top_i - int(depth), 1, top_i)
@@ -158,6 +160,24 @@ func block_at(wx: int, wy: int, wz: int, top: int, bottom: int) -> int:
 	return Blocks.STONE
 
 
+## Shape of the cell right above a column's top: a ramp wedge when exactly one neighbouring column is one block higher
+## (and none is higher still), so a 1-block drop becomes a slope: the high side of the wedge leans on that neighbour.
+func ramp_shape(wx: int, wz: int, top: int) -> int:
+	var found := 0
+	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for i in 4:
+		var n := column(wx + dirs[i].x, wz + dirs[i].y)
+		if n.x < 0:
+			continue
+		if n.x >= top + 2:
+			return Blocks.SHAPE_CUBE
+		if n.x == top + 1:
+			if found != 0:
+				return Blocks.SHAPE_CUBE
+			found = i + 1
+	return found   # 0 none, 1..4 = wedge high side +X, -X, +Z, -Z
+
+
 ## Returns an empty array when the chunk is entirely open sky (nothing stored, nothing meshed).
 func generate_chunk(cpos: Vector3i) -> PackedByteArray:
 	var cs := Blocks.CHUNK_SIZE
@@ -175,7 +195,7 @@ func generate_chunk(cpos: Vector3i) -> PackedByteArray:
 			var i := x + (z << 4)
 			tops[i] = col.x
 			bottoms[i] = col.y
-			if col.x >= 0 and col.x >= oy and col.y <= oy + cs - 1:
+			if col.x >= 0 and col.x + 1 >= oy and col.y <= oy + cs - 1:
 				any = true
 	if not any:
 		return PackedByteArray()
@@ -190,4 +210,9 @@ func generate_chunk(cpos: Vector3i) -> PackedByteArray:
 			var bottom := bottoms[i]
 			for y in cs:
 				data[x + (z << 4) + (y << 8)] = block_at(ox + x, oy + y, oz + z, top, bottom)
+			var ramp_y := top + 1 - oy
+			if ramp_y >= 0 and ramp_y < cs and top + 1 <= _max_y:
+				var shape := ramp_shape(ox + x, oz + z, top)
+				if shape != Blocks.SHAPE_CUBE:
+					data[x + (z << 4) + (ramp_y << 8)] = Blocks.make(block_at(ox + x, top, oz + z, top, bottom), shape)
 	return data

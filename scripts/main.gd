@@ -176,8 +176,8 @@ func _on_primary(pos: Vector2) -> void:
 		Mode.DIG:
 			if hit.brick:
 				bricks.remove(bricks.brick_at(hit.cell))
-			elif Blocks.is_diggable(hit.id):
-				world.set_block(hit.cell, Blocks.AIR)
+			else:
+				world.dig_step(hit.cell)
 		Mode.VOXEL:
 			world.place_block(hit.cell + hit.normal, Blocks.STONE)
 		_:
@@ -191,5 +191,5 @@ func _on_secondary(pos: Vector2) -> void:
 		return
 	if hit.brick:
 		bricks.remove(bricks.brick_at(hit.cell))
-	elif Blocks.is_diggable(hit.id):
-		world.set_block(hit.cell, Blocks.AIR)
+	else:
+		world.dig_step(hit.cell)

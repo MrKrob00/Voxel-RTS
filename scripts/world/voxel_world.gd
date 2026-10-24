@@ -131,6 +131,17 @@ func set_block(p: Vector3i, id: int) -> bool:
 	return true
 
 
+## One stage of digging: a full cube is cut down to a half-height slab, anything else is removed.
+## A worker repeats this while the task runs, so pits take shape gradually instead of vanishing block by block.
+func dig_step(p: Vector3i) -> bool:
+	var raw := get_block(p)
+	if not Blocks.is_diggable(raw):
+		return false
+	if Blocks.shape(raw) == Blocks.SHAPE_CUBE:
+		return set_block(p, Blocks.make(Blocks.mat(raw), Blocks.SHAPE_SLAB))
+	return set_block(p, Blocks.AIR)
+
+
 ## A block may only be placed into free space that touches an existing solid block (no building in mid-air).
 func can_place(p: Vector3i) -> bool:
 	if not in_bounds(p) or Blocks.is_solid(get_block(p)):
