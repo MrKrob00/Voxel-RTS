@@ -56,11 +56,11 @@ static func build(snap: Array, origin: Vector3i, preset: MapPreset) -> Array:
 		for z in 16:
 			for x in 16:
 				var raw := center[x + (z << 4) + (y << 8)]
-				var id := raw & 31
+				var id := raw & 15
 				if id == Blocks.AIR:
 					continue
-				if raw >> 5 != Blocks.SHAPE_CUBE:
-					_emit_shape(solid, snap, x, y, z, id, raw >> 5, origin, preset)
+				if raw >> 4 != Blocks.SHAPE_CUBE:
+					_emit_shape(solid, snap, x, y, z, id, raw >> 4, origin, preset)
 					continue
 				var is_water := id == Blocks.WATER
 				for f in 6:
@@ -89,48 +89,82 @@ static func _emit_shape(buf: Buffers, snap: Array, x: int, y: int, z: int, id: i
 				continue
 			_emit_face(buf, snap, x, y, z, f, id, origin, false, preset, 0.5)
 		return
-	# Wedge, built for "high side towards +X" and rotated about the cell's vertical axis for the other three.
-	var rot := shape - 1   # 0 +X, 1 -X, 2 +Z, 3 -Z
-	var tris: Array = []   # each: [a, b, c, kind]; counter-clockwise seen from outside; kind 0 slope, 1 side, 2 bottom
-	var below := Blocks.is_opaque(_voxel(snap, x, y - 1, z))
-	if not below:
-		tris.append([Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 0, 1), 2])
-		tris.append([Vector3(0, 0, 0), Vector3(1, 0, 1), Vector3(0, 0, 1), 2])
-	tris.append([Vector3(0, 0, 0), Vector3(0, 0, 1), Vector3(1, 1, 1), 0])   # the slope
-	tris.append([Vector3(0, 0, 0), Vector3(1, 1, 1), Vector3(1, 1, 0), 0])
-	tris.append([Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(1, 1, 1), 1])   # back wall (high side)
-	tris.append([Vector3(1, 0, 0), Vector3(1, 1, 1), Vector3(1, 0, 1), 1])
-	tris.append([Vector3(0, 0, 0), Vector3(1, 1, 0), Vector3(1, 0, 0), 1])   # left triangle (z = 0)
-	tris.append([Vector3(0, 0, 1), Vector3(1, 0, 1), Vector3(1, 1, 1), 1])   # right triangle (z = 1)
-	for t in tris:
-		var pts: Array[Vector3] = []
-		for i in 3:
-			var p: Vector3 = t[i]
-			match rot:
-				1: p = Vector3(1.0 - p.x, p.y, 1.0 - p.z)
-				2: p = Vector3(1.0 - p.z, p.y, p.x)
-				3: p = Vector3(p.z, p.y, 1.0 - p.x)
-			pts.append(p + Vector3(x, y, z))
-		var nrm := (pts[1] - pts[0]).cross(pts[2] - pts[0]).normalized()
-		var kind: int = t[3]
-		if kind == 1:
-			var nb := Vector3i(roundi(nrm.x), 0, roundi(nrm.z))
-			if Blocks.is_opaque(_voxel(snap, x + nb.x, y, z + nb.z)):
-				continue
-		var start := buf.verts.size()
-		for p in pts:
-			var col: Color
-			if kind == 0:
-				col = preset.vertex_color(id, Blocks.FACE_TOP, origin.x + p.x, origin.z + p.z)
-			elif kind == 1:
-				col = Blocks.color_of(id, Blocks.FACE_SIDE) * 0.78
-			else:
-				col = Blocks.color_of(id, Blocks.FACE_BOTTOM) * 0.55
-			col.a = 1.0
-			buf.verts.append(p)
-			buf.normals.append(nrm)
-			buf.colors.append(col)
-		buf.indices.append_array([start, start + 2, start + 1])   # clockwise for Godot
+	# Any other ramp shape: described by the heights (0 or 1) of the four top corners.
+	var h: Array = Blocks.SHAPE_CORNERS[shape]
+	var base := Vector3(x, y, z)
+	var cx := [0.0, 1.0, 1.0, 0.0]
+	var cz := [0.0, 0.0, 1.0, 1.0]
+	var top: Array[Vector3] = []
+	var floor_pts: Array[Vector3] = []
+	for k in 4:
+		top.append(base + Vector3(cx[k], h[k], cz[k]))
+		floor_pts.append(base + Vector3(cx[k], 0.0, cz[k]))
+	# Split the top along the diagonal that makes a ridge (one corner up) or a valley (one corner down).
+	var up_count: int = h[0] + h[1] + h[2] + h[3]
+	var diag := 0   # 0: split 0-2, 1: split 1-3
+	if up_count == 1:
+		diag = 0 if (h[0] == 1 or h[2] == 1) else 1
+	elif up_count == 3:
+		diag = 0 if (h[0] == 0 or h[2] == 0) else 1
+	elif h[0] != h[2] or h[1] != h[3]:
+		diag = 0 if h[0] == h[2] else 1
+	if diag == 0:
+		_shape_tri(buf, [top[0], top[1], top[2]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
+		_shape_tri(buf, [top[0], top[2], top[3]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
+	else:
+		_shape_tri(buf, [top[0], top[1], top[3]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
+		_shape_tri(buf, [top[1], top[2], top[3]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
+	if not Blocks.is_opaque(_voxel(snap, x, y - 1, z)):
+		_shape_tri(buf, [floor_pts[0], floor_pts[1], floor_pts[2]], Vector3.DOWN, id, Blocks.FACE_BOTTOM, origin, preset)
+		_shape_tri(buf, [floor_pts[0], floor_pts[2], floor_pts[3]], Vector3.DOWN, id, Blocks.FACE_BOTTOM, origin, preset)
+	# Four side walls: each runs between two neighbouring corners; a wall whose corners are both 0 has no area.
+	var walls := [[0, 1, Vector3i(0, 0, -1)], [1, 2, Vector3i(1, 0, 0)], [2, 3, Vector3i(0, 0, 1)], [3, 0, Vector3i(-1, 0, 0)]]
+	for w in walls:
+		var a: int = w[0]
+		var b: int = w[1]
+		var out: Vector3i = w[2]
+		if h[a] == 0 and h[b] == 0:
+			continue
+		if Blocks.is_opaque(_voxel(snap, x + out.x, y, z + out.z)):
+			continue
+		var n := Vector3(out)
+		if h[a] == 1 and h[b] == 1:
+			_shape_tri(buf, [floor_pts[a], floor_pts[b], top[b]], n, id, Blocks.FACE_SIDE, origin, preset)
+			_shape_tri(buf, [floor_pts[a], top[b], top[a]], n, id, Blocks.FACE_SIDE, origin, preset)
+		elif h[a] == 1:
+			_shape_tri(buf, [floor_pts[a], floor_pts[b], top[a]], n, id, Blocks.FACE_SIDE, origin, preset)
+		else:
+			_shape_tri(buf, [floor_pts[a], floor_pts[b], top[b]], n, id, Blocks.FACE_SIDE, origin, preset)
+
+
+## One triangle of a ramp shape, wound clockwise (Godot front face) as seen from the side `outward` points to.
+static func _shape_tri(buf: Buffers, pts: Array, outward: Vector3, id: int, face_kind: int, origin: Vector3i, preset: MapPreset) -> void:
+	var a: Vector3 = pts[0]
+	var b: Vector3 = pts[1]
+	var c: Vector3 = pts[2]
+	var nrm := (b - a).cross(c - a)
+	if nrm.length_squared() < 0.000001:
+		return
+	nrm = nrm.normalized()
+	if nrm.dot(outward) < 0.0:
+		nrm = -nrm
+		var t := b
+		b = c
+		c = t   # now counter-clockwise from outside
+	var start := buf.verts.size()
+	for p in [a, b, c]:
+		var col: Color
+		if face_kind == Blocks.FACE_TOP:
+			col = preset.vertex_color(id, Blocks.FACE_TOP, origin.x + p.x, origin.z + p.z)
+		elif face_kind == Blocks.FACE_SIDE:
+			col = Blocks.color_of(id, Blocks.FACE_SIDE) * 0.78
+		else:
+			col = Blocks.color_of(id, Blocks.FACE_BOTTOM) * 0.55
+		col.a = 1.0
+		buf.verts.append(p)
+		buf.normals.append(nrm)
+		buf.colors.append(col)
+	buf.indices.append_array([start, start + 2, start + 1])
 
 
 static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int, id: int, origin: Vector3i, is_water: bool, preset: MapPreset, height := 1.0) -> void:

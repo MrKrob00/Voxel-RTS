@@ -160,22 +160,42 @@ func block_at(wx: int, wy: int, wz: int, top: int, bottom: int) -> int:
 	return Blocks.STONE
 
 
-## Shape of the cell right above a column's top: a ramp wedge when exactly one neighbouring column is one block higher
-## (and none is higher still), so a 1-block drop becomes a slope: the high side of the wedge leans on that neighbour.
+## Shape of the cell right above a column's top. Neighbouring columns exactly one block higher raise the matching
+## corners of that cell, which gives wedges (one side higher), inner corners (two adjacent sides higher), outer corners
+## (only a diagonal neighbour higher) and, for a 1-wide dip or trench, a half-height slab. Any neighbour 2+ higher is a
+## cliff: no ramp there.
 func ramp_shape(wx: int, wz: int, top: int) -> int:
-	var found := 0
-	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
-	for i in 4:
-		var n := column(wx + dirs[i].x, wz + dirs[i].y)
-		if n.x < 0:
-			continue
-		if n.x >= top + 2:
-			return Blocks.SHAPE_CUBE
-		if n.x == top + 1:
-			if found != 0:
+	var hi := {}
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			if dx == 0 and dz == 0:
+				continue
+			var n := column(wx + dx, wz + dz)
+			if n.x < 0:
+				continue
+			if n.x >= top + 2:
 				return Blocks.SHAPE_CUBE
-			found = i + 1
-	return found   # 0 none, 1..4 = wedge high side +X, -X, +Z, -Z
+			if n.x == top + 1:
+				hi[Vector2i(dx, dz)] = true
+	if hi.is_empty():
+		return Blocks.SHAPE_CUBE
+	var px: bool = hi.has(Vector2i(1, 0))
+	var nx: bool = hi.has(Vector2i(-1, 0))
+	var pz: bool = hi.has(Vector2i(0, 1))
+	var nz: bool = hi.has(Vector2i(0, -1))
+	var sides := int(px) + int(nx) + int(pz) + int(nz)
+	if sides >= 3 or (px and nx) or (pz and nz):
+		return Blocks.SHAPE_SLAB   # a 1-wide dip or trench: only half-filled
+	# Corner raised if one of the two sides touching it, or the diagonal, is higher.
+	var c0: bool = nx or nz or hi.has(Vector2i(-1, -1))    # (0,0)
+	var c1: bool = px or nz or hi.has(Vector2i(1, -1))     # (1,0)
+	var c2: bool = px or pz or hi.has(Vector2i(1, 1))      # (1,1)
+	var c3: bool = nx or pz or hi.has(Vector2i(-1, 1))     # (0,1)
+	var key := [int(c0), int(c1), int(c2), int(c3)]
+	for shape in Blocks.SHAPE_CORNERS:
+		if Blocks.SHAPE_CORNERS[shape] == key:
+			return shape
+	return Blocks.SHAPE_CUBE   # saddle or fully raised: leave it
 
 
 ## Returns an empty array when the chunk is entirely open sky (nothing stored, nothing meshed).

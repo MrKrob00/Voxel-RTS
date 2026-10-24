@@ -32,9 +32,9 @@ func _init() -> void:
 
 	_terrain_report(world)
 
-	# Ramp wedges next to 1-block drops, and staged digging.
+	# Ramp shapes next to 1-block drops: count each kind on the start island.
 	var wedge := Vector3i(-1, -1, -1)
-	var wedges := 0
+	var kinds := {}
 	for dz in range(-60, 61):
 		for dx in range(-60, 61):
 			var wx := int(world.generator.islands[0].center.x) + dx
@@ -44,11 +44,24 @@ func _init() -> void:
 				continue
 			var sh := world.generator.ramp_shape(wx, wz, col.x)
 			if sh != Blocks.SHAPE_CUBE:
-				wedges += 1
-				if wedge.x < 0:
+				kinds[sh] = int(kinds.get(sh, 0)) + 1
+				if sh >= Blocks.SHAPE_WEDGE_PX and sh <= Blocks.SHAPE_WEDGE_NZ and wedge.x < 0:
 					wedge = Vector3i(wx, col.x + 1, wz)
-	print("ramp wedges on the start island: %d, first at %s" % [wedges, str(wedge)])
-	_check(wedges > 20, "1-block drops get ramp wedges")
+	print("ramp shapes on the start island (shape: count): %s" % str(kinds))
+	var wedges := 0
+	var outer := 0
+	var inner := 0
+	for k in kinds:
+		if k >= 1 and k <= 4:
+			wedges += kinds[k]
+		elif k >= 6 and k <= 9:
+			outer += kinds[k]
+		elif k >= 10 and k <= 13:
+			inner += kinds[k]
+	_check(wedges > 20, "wedges beside 1-block drops (%d)" % wedges)
+	_check(outer > 0, "outer corners (%d)" % outer)
+	_check(inner > 0, "inner corners (%d)" % inner)
+	_check(int(kinds.get(Blocks.SHAPE_SLAB, 0)) > 0, "half-height slabs in 1-wide dips (%d)" % int(kinds.get(Blocks.SHAPE_SLAB, 0)))
 
 	for i in 600:
 		await process_frame
