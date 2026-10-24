@@ -24,7 +24,9 @@ func _init() -> void:
 	_check(world.get_block(spawn + Vector3i(0, 1, 0)) == Blocks.AIR, "air above spawn")
 	_check(world.get_block(Vector3i(spawn.x, 0, spawn.z)) == Blocks.AIR, "open sky far below the island")
 	_check(world.get_block(Vector3i(2, spawn.y, 2)) == Blocks.AIR, "corner of the map is empty sky")
-	_check(world.generator.islands.size() >= 5, "%d islands laid out" % world.generator.islands.size())
+	_check(world.generator.islands.size() >= 1 and world.generator.islands.size() <= 5, "one main island plus 0-4 extra (%d islands, %d bridges)" % [world.generator.islands.size(), world.generator.bridges.size()])
+	_check(world.generator.bridges.size() <= world.generator.islands.size() - 1, "at most one bridge per extra island")
+	_bridge_report(world)
 	for i in range(1, world.generator.islands.size()):
 		var isl: WorldGen.Island = world.generator.islands[i]
 		var col := world.generator.column(int(isl.center.x), int(isl.center.y))
@@ -171,3 +173,53 @@ func _terrain_report(world: VoxelWorld) -> void:
 	_check(max_h - min_h >= 10 and max_h - min_h <= 30, "relief is varied but low enough to dig through (%d blocks)" % (max_h - min_h))
 	_check(high > total * 0.004, "plateaus are separated by cliffs (%d edge columns)" % high)
 	_check(reach > total * 0.6, "plains: most of the island is walkable from spawn")
+
+
+## Walks every bridge deck sample by sample (up 1 / down 2 per step) and checks both ends touch real island ground;
+## then walks the whole map on foot from the spawn and checks every island centre is reachable.
+func _bridge_report(world: VoxelWorld) -> void:
+	var gen := world.generator
+	for br in gen.bridges:
+		var steps := int(br.a.distance_to(br.b))
+		var prev := -1
+		var ok := true
+		for i in steps + 1:
+			var p: Vector2 = br.a.lerp(br.b, float(i) / maxf(steps, 1))
+			var col := gen.column(int(p.x), int(p.y))
+			if col == WorldGen.EMPTY:
+				ok = false
+				break
+			if prev >= 0 and (col.x - prev > 1 or prev - col.x > 2):
+				ok = false
+				break
+			prev = col.x
+		_check(ok, "bridge deck is continuous and walkable (%d blocks long)" % steps)
+	var cache := {}
+	var start := gen.spawn_column()
+	var queue: Array[Vector2i] = [start]
+	var seen := {start: true}
+	var targets := {}
+	for i in range(1, gen.islands.size()):
+		targets[i] = Vector2i(int(gen.islands[i].center.x), int(gen.islands[i].center.y))
+	var reached := 0
+	var visited := 0
+	while not queue.is_empty():
+		var p: Vector2i = queue.pop_back()
+		visited += 1
+		var h := gen.column(p.x, p.y).x
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var q: Vector2i = p + d
+			if seen.has(q):
+				continue
+			var qc := gen.column(q.x, q.y)
+			if qc.x < 0:
+				continue
+			var dh := qc.x - h
+			if dh <= 1 and dh >= -2:
+				seen[q] = true
+				queue.append(q)
+	for i in targets:
+		if seen.has(targets[i]):
+			reached += 1
+	print("on foot from the spawn: %d columns visited, %d of %d extra islands reached" % [visited, reached, targets.size()])
+	_check(reached == targets.size(), "every island is reachable on foot over the bridges")

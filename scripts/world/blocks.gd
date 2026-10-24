@@ -21,6 +21,7 @@ const IRON := 7
 const BEDROCK := 8
 const SNOW := 9
 const ORANGE_ORE := 10
+const PLANK := 11
 
 const SHAPE_CUBE := 0
 const SHAPE_WEDGE_PX := 1
@@ -54,6 +55,7 @@ const _COLORS := {
 	BEDROCK: [Color("2a2a2c"), Color("2a2a2c"), Color("2a2a2c")],
 	SNOW: [Color("f2f6fa"), Color("8a8d91"), Color("c9d3dc")],
 	ORANGE_ORE: [Color("f08a1c"), Color("c4690f"), Color("e07a14")],
+	PLANK: [Color("b98a4e"), Color("7b5630"), Color("9c703b")],
 }
 
 

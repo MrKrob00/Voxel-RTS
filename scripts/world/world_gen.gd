@@ -1,14 +1,16 @@
 class_name WorldGen
 extends RefCounted
 ## Floating-island archipelago. Pure function of (seed, position): touches no scene, so it is safe on worker threads.
-## Islands are laid out once from the seed (one large start island in the middle, smaller ones around it),
-## then every column is answered independently: a top height and a bottom height, or nothing (open sky).
+## Islands are laid out once from the seed: ONE main island in the middle (the start) and 0-4 extra islands around it
+## (at most 5 in all), each joined to the nearest earlier island by a plank bridge. After that every column is
+## answered independently: a top height and a bottom height, or nothing (open sky).
 
 class Island extends RefCounted:
 	var center: Vector2
 	var radius: float
 	var base_top: int
 	var thickness: int
+	var anchor := 0   ## index of the island this one hangs off (for bridges)
 
 	func _init(c: Vector2, r: float, top: int, thick: int) -> void:
 		center = c
@@ -17,9 +19,26 @@ class Island extends RefCounted:
 		thickness = thick
 
 
-const EMPTY := Vector2i(-1, -1)
+class Bridge extends RefCounted:
+	var a: Vector2          ## first deck point, at the rim of one island
+	var b: Vector2          ## last deck point, at the rim of the other island
+	var ha: int             ## deck height at a
+	var hb: int
+	var half_width := 1.6   ## deck is ~3-4 blocks wide
 
-var islands: Array[Island] = []
+	func _init(pa: Vector2, pb: Vector2, ya: int, yb: int) -> void:
+		a = pa
+		b = pb
+		ha = ya
+		hb = yb
+
+
+const EMPTY := Vector2i(-1, -1)
+const MAX_EXTRA_ISLANDS := 4
+
+var islands: Array[Island] = []   ## [0] is the main (start) island
+var bridges: Array[Bridge] = []
+var extra_count := 0
 var cave_depth := 6
 var preset: MapPreset
 
@@ -43,7 +62,7 @@ var _region_cache := {}
 var _region_mutex := Mutex.new()
 
 
-func _init(world_seed: int, size: Vector3i, map_preset: MapPreset) -> void:
+func _init(world_seed: int, size: Vector3i, map_preset: MapPreset, forced_extra := -1) -> void:
 	preset = map_preset
 	_max_y = size.y - 2
 	rock_y = int(size.y * 0.62)
@@ -59,7 +78,8 @@ func _init(world_seed: int, size: Vector3i, map_preset: MapPreset) -> void:
 	_coal = _make_noise(world_seed + 5, 0.12, 1)
 	_iron = _make_noise(world_seed + 6, 0.14, 1)
 	_orange = _make_noise(world_seed + 10, 0.16, 1)
-	_layout_islands(world_seed, size)
+	_layout_islands(world_seed, size, forced_extra)
+	_build_bridges()
 
 
 static func _make_noise(noise_seed: int, freq: float, octaves: int) -> FastNoiseLite:
@@ -75,22 +95,84 @@ static func _make_noise(noise_seed: int, freq: float, octaves: int) -> FastNoise
 	return n
 
 
-func _layout_islands(world_seed: int, size: Vector3i) -> void:
+func _layout_islands(world_seed: int, size: Vector3i, forced_extra: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = world_seed
 	var mid := Vector2(size.x, size.z) * 0.5
 	var scale := minf(size.x, size.z) / 256.0
 	var mid_top := int(size.y * 0.42)
-	# Start island: big, flat enough to build a first base.
-	islands.append(Island.new(mid, 42.0 * scale, mid_top, 30))
-	# Outer islands in a ring, each separated from the start island by a gap of 14-22 blocks (needs bridges).
-	var outer := 4 if scale < 1.3 else 6
-	for i in outer:
-		var angle := TAU * (float(i) + 0.5) / outer + rng.randf_range(-0.15, 0.15)
-		var r := rng.randf_range(23.0, 29.0) * scale
-		var dist := (islands[0].radius + r) * 1.2 + rng.randf_range(14.0, 22.0)
-		var top := mid_top + rng.randi_range(-8, 8)
-		islands.append(Island.new(mid + Vector2.from_angle(angle) * dist, r, top, rng.randi_range(18, 24)))
+	# The main island: big, with a flat build area in the middle.
+	islands.append(Island.new(mid, 46.0 * scale, mid_top, 30))
+	extra_count = clampi(forced_extra, 0, MAX_EXTRA_ISLANDS) if forced_extra >= 0 else rng.randi_range(0, MAX_EXTRA_ISLANDS)
+	var placed := 0
+	var tries := 0
+	while placed < extra_count and tries < 400:
+		tries += 1
+		var r := rng.randf_range(18.0, 28.0) * scale
+		var anchor: Island = islands[rng.randi() % islands.size()]
+		var dist := (anchor.radius + r) * 1.05 + rng.randf_range(10.0, 16.0)
+		var c := anchor.center + Vector2.from_angle(rng.randf() * TAU) * dist
+		var margin := r * 1.15 + 4.0
+		if c.x < margin or c.y < margin or c.x > size.x - margin or c.y > size.z - margin:
+			continue
+		var clear := true
+		for other in islands:
+			if c.distance_to(other.center) < (other.radius + r) * 1.05 + 8.0:
+				clear = false
+				break
+		# The straight line to the anchor must not cut through a third island.
+		for k in islands.size():
+			var third := islands[k]
+			if third == anchor:
+				continue
+			var seg := Geometry2D.get_closest_point_to_segment(third.center, c, anchor.center)
+			if seg.distance_to(third.center) < third.radius * 1.3 + 6.0:
+				clear = false
+				break
+		if not clear:
+			continue
+		# Neighbouring islands sit at similar heights so the bridge between them stays walkable.
+		var top := clampi(anchor.base_top + rng.randi_range(-3, 3), mid_top - 6, mid_top + 6)
+		var isl := Island.new(c, r, top, rng.randi_range(16, 22))
+		isl.anchor = islands.find(anchor)
+		islands.append(isl)
+		placed += 1
+	extra_count = placed
+
+
+## One bridge from every extra island to the island it was placed next to, so the whole map is connected on foot.
+## Islands that already touch need none.
+func _build_bridges() -> void:
+	for i in range(1, islands.size()):
+		var isl := islands[i]
+		var other := islands[isl.anchor]
+		var edge_a := _rim_point(other, isl.center)   # leaving `other` towards `isl`
+		var edge_b := _rim_point(isl, other.center)
+		var dir := (isl.center - other.center).normalized()
+		if (edge_b[0] - edge_a[0]).dot(dir) < 3.0:
+			continue   # rims meet or overlap
+		bridges.append(Bridge.new(edge_a[0], edge_b[0], edge_a[1], edge_b[1]))
+
+
+## How far inside an island's own outline a point is (above 0 means ground belongs to this island).
+func _own_influence(isl: Island, p: Vector2) -> float:
+	var d := p.distance_to(isl.center) / isl.radius
+	d *= 1.0 + _shape.get_noise_2d(p.x, p.y) * 0.22
+	return 1.0 - d
+
+
+## Walks from an island's centre towards `target` and returns [last point still on this island, its top height].
+func _rim_point(isl: Island, target: Vector2) -> Array:
+	var dir := (target - isl.center).normalized()
+	var p := isl.center
+	var last := p
+	for i in int(isl.radius * 2.0) + 40:
+		if _own_influence(isl, p) <= 0.0:
+			break
+		last = p
+		p += dir
+	var col := _island_column(int(last.x), int(last.y))
+	return [last, col.x if col != EMPTY else isl.base_top]
 
 
 ## The point where the start island has ground, with the surface y measured by the generator.
@@ -100,7 +182,49 @@ func spawn_column() -> Vector2i:
 
 
 ## Top and bottom (inclusive) of solid ground in a column, or EMPTY for open sky.
+## Bridge decks are one block thick (top == bottom), islands are always thicker: block_at relies on that.
 func column(wx: int, wz: int) -> Vector2i:
+	var c := _island_column(wx, wz)
+	if bridges.is_empty():
+		return c
+	var p := Vector2(wx + 0.5, wz + 0.5)   # centre of the cell
+	if c != EMPTY:
+		return _landing_pad(p, c)
+	for br in bridges:
+		var ab := br.b - br.a
+		var len2 := ab.length_squared()
+		if len2 < 1.0:
+			continue
+		var t := (p - br.a).dot(ab) / len2
+		if t < -0.1 or t > 1.1:
+			continue
+		t = clampf(t, 0.0, 1.0)
+		if p.distance_to(br.a + ab * t) <= br.half_width:
+			var y := clampi(roundi(lerpf(br.ha, br.hb, t)), 4, _max_y)
+			return Vector2i(y, y)
+	return EMPTY
+
+
+## Near a bridge end the island ground is levelled to the deck height, so the bridge never ends against a ledge.
+func _landing_pad(p: Vector2, c: Vector2i) -> Vector2i:
+	# Only the nearest bridge end shapes the ground, so two bridges landing close together do not fight.
+	var best_d := 12.0
+	var best_h := -1
+	for br in bridges:
+		for end in 2:
+			var e: Vector2 = br.a if end == 0 else br.b
+			var d := p.distance_to(e)
+			if d < best_d:
+				best_d = d
+				best_h = br.ha if end == 0 else br.hb
+	if best_h < 0:
+		return c
+	var w := 1.0 - smoothstep(3.0, 12.0, best_d)
+	var top := clampi(roundi(lerpf(c.x, best_h, w)), 4, _max_y)
+	return Vector2i(top, clampi(c.y + top - c.x, 1, top))
+
+
+func _island_column(wx: int, wz: int) -> Vector2i:
 	var best: Island = null
 	var best_m := 0.0
 	var p := Vector2(wx, wz)
@@ -117,7 +241,7 @@ func column(wx: int, wz: int) -> Vector2i:
 	var rim := minf(1.0, best_m * 4.0)
 	# Flat build area in the middle of each island, fading into the wild terrain.
 	var flat := 1.0 - smoothstep(preset.flat_share, preset.flat_share + 0.25, 1.0 - best_m)
-	flat *= 0.92 if best == islands[0] else 0.4
+	flat *= 0.92 if best == islands[0] else 0.45
 	var hills := _hills.get_noise_2d(wx, wz) * preset.hills_amp
 	# Mountains: ridged noise, only inside "mountain regions", cut by winding passes (valleys) where the pass noise crosses 0.
 	var ridge_line := pow(1.0 - absf(_ridge.get_noise_2d(wx, wz)), 1.4)
@@ -144,6 +268,8 @@ func column(wx: int, wz: int) -> Vector2i:
 func block_at(wx: int, wy: int, wz: int, top: int, bottom: int) -> int:
 	if wy > top or wy < bottom:
 		return Blocks.AIR
+	if top - bottom <= 1:
+		return Blocks.PLANK   # a bridge deck
 	var depth := top - wy
 	if depth == 0:
 		if wy >= snow_y:

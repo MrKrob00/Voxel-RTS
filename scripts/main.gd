@@ -26,6 +26,11 @@ func _ready() -> void:
 	world = VoxelWorld.new()
 	world.name = "World"
 	world.preset = preset
+	for arg in OS.get_cmdline_user_args():   # debug: --extras=0..4, --seed=N
+		if arg.begins_with("--extras="):
+			world.extra_islands = int(arg.substr(9))
+		elif arg.begins_with("--seed="):
+			world.world_seed = int(arg.substr(7))
 	add_child(world)
 
 	props = PropField.new()

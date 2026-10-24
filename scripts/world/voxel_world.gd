@@ -10,6 +10,8 @@ signal block_changed(pos: Vector3i)
 
 @export var size_chunks := Vector3i(28, 7, 28)   ## 448 x 112 x 448 blocks, about 3x the area of the first 256 x 256 map
 @export var world_seed := 1337
+## -1 = random from the seed; 0-4 forces the number of extra islands (the map always has one main island).
+@export var extra_islands := -1
 ## Meshes committed to the scene per frame. Lower is smoother on tablets.
 @export var meshes_per_frame := 6
 @export var max_tasks_in_flight := 48
@@ -64,7 +66,7 @@ func size_blocks() -> Vector3i:
 
 
 func start() -> void:
-	generator = WorldGen.new(world_seed, size_blocks(), preset)
+	generator = WorldGen.new(world_seed, size_blocks(), preset, extra_islands)
 	var sc := generator.spawn_column()
 	preset.clear_center = Vector2(sc.x + 0.5, sc.y + 0.5)
 	_gen_total = size_chunks.x * size_chunks.y * size_chunks.z
