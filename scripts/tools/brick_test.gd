@@ -60,6 +60,17 @@ func _init() -> void:
 	_check(fell == 2, "bond: losing a second support drops that brick and the one resting only on it (%d)" % fell)
 	_check(bricks.brick_at(Vector3i(x + 2, y + 2, bz)) != null, "bond: neighbouring brick that still has a support stays")
 
+	# 2b. 1x1x1 cubes: a cube column drops as one, and a cube standing on a long brick falls when that brick goes.
+	var cz := z + 9
+	var c1 := bricks.place(Vector3i(x, y, cz), 0, BrickWorld.Kind.STONE, 1)
+	var c2 := bricks.place(Vector3i(x, y + 1, cz), 0, BrickWorld.Kind.WOOD, 1)
+	_check(c1 != null and c2 != null and c1.cells().size() == 1, "cube column placed")
+	_check(bricks.remove(c1) == 1, "cube: removing the bottom cube drops the one above")
+	var lb := bricks.place(Vector3i(x + 4, y, cz), 0)
+	var cb := bricks.place(Vector3i(x + 5, y + 1, cz), 0, BrickWorld.Kind.STONE, 1)
+	_check(lb != null and cb != null, "cube resting on the end of a long brick")
+	_check(bricks.remove(lb) == 1, "cube falls when its long brick is removed")
+
 	# 3. Debris settles on the terrain.
 	for i in 300:
 		await physics_frame
@@ -69,7 +80,7 @@ func _init() -> void:
 		if c is RigidBody3D:
 			bodies += 1
 			lowest = minf(lowest, (c as RigidBody3D).global_position.y)
-	_check(bodies >= 4, "debris bodies alive (%d)" % bodies)
+	_check(bodies >= 6, "debris bodies alive (%d)" % bodies)
 	_check(lowest > spawn.y + 0.2, "debris rests on the ground, not through it (lowest y=%.2f, ground top=%d)" % [lowest, spawn.y + 1])
 
 	quit(1 if _failed else 0)

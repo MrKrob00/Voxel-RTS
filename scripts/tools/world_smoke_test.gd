@@ -104,7 +104,6 @@ func _terrain_report(world: VoxelWorld) -> void:
 				seen[q] = true
 				queue.append(q)
 	print("start island: %d columns, height %d..%d, mountains %.0f%%, walkable from spawn %.0f%%" % [total, min_h, max_h, 100.0 * high / total, 100.0 * reach / total])
-	_check(max_h - min_h >= 25, "relief is not flat (%d blocks)" % (max_h - min_h))
-	_check(high > total * 0.08, "there are mountains")
-	_check(reach > total * 0.45, "walkable ground is connected from spawn")
-	_check(reach < total * 0.97, "mountains block part of the island (passes, not a plain)")
+	_check(max_h - min_h >= 15, "relief is not flat (%d blocks)" % (max_h - min_h))
+	_check(high > total * 0.003, "there are some hills / ridges")
+	_check(reach > total * 0.85, "plains: most of the island is walkable from spawn")

@@ -15,6 +15,7 @@ const COAL := 6
 const IRON := 7
 const BEDROCK := 8
 const SNOW := 9
+const ORANGE_ORE := 10
 
 # Face order used everywhere: top, bottom, side.
 const FACE_TOP := 0
@@ -31,6 +32,7 @@ const _COLORS := {
 	IRON: [Color("b89478"), Color("b89478"), Color("b89478")],
 	BEDROCK: [Color("2a2a2c"), Color("2a2a2c"), Color("2a2a2c")],
 	SNOW: [Color("f2f6fa"), Color("8a8d91"), Color("c9d3dc")],
+	ORANGE_ORE: [Color("f08a1c"), Color("c4690f"), Color("e07a14")],
 }
 
 

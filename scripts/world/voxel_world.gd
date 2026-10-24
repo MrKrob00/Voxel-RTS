@@ -15,6 +15,8 @@ signal block_changed(pos: Vector3i)
 @export var max_tasks_in_flight := 4
 
 var generator: WorldGen
+## Set before the node enters the tree to pick another map type.
+var preset: MapPreset = MapPreset.plains()
 
 class Chunk extends RefCounted:
 	var cpos: Vector3i
@@ -62,7 +64,7 @@ func size_blocks() -> Vector3i:
 
 
 func start() -> void:
-	generator = WorldGen.new(world_seed, size_blocks())
+	generator = WorldGen.new(world_seed, size_blocks(), preset)
 	_gen_total = size_chunks.x * size_chunks.y * size_chunks.z
 	# Generate from the middle of the map outwards so the visible area appears first.
 	var centre := Vector3(size_chunks) * 0.5
@@ -274,7 +276,7 @@ func _try_mesh(c: Chunk) -> void:
 
 
 func _mesh_task(c: Chunk, snap: Array) -> void:
-	var out := ChunkMesher.build(snap, c.cpos * Blocks.CHUNK_SIZE)
+	var out := ChunkMesher.build(snap, c.cpos * Blocks.CHUNK_SIZE, preset)
 	_mutex.lock()
 	_mesh_results.append([c, out])
 	_mutex.unlock()

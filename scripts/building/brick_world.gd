@@ -1,6 +1,6 @@
 class_name BrickWorld
 extends Node3D
-## Player-built bricks (2x1x1 cells, long side along X or Z) sitting on the voxel grid.
+## Player-built bricks sitting on the voxel grid: the long brick (2x1x1, long side along X or Z) and the cube (1x1x1).
 ##
 ## Stability rule: a brick stands while at least one cell under it is terrain or another standing brick.
 ## Stacked straight up, every brick has a single support, so knocking out the bottom one drops everything above.
@@ -21,15 +21,16 @@ const PATCH_KEEP_SECONDS := 3.0
 class Brick extends RefCounted:
 	var id: int
 	var origin: Vector3i
-	var axis: int      ## 0: spans origin and origin + X, 1: spans origin and origin + Z
+	var axis: int      ## long brick only. 0: spans origin and origin + X, 1: spans origin and origin + Z
+	var length: int    ## 2 = long brick, 1 = cube
 	var kind: int
 	var node: MeshInstance3D
 
 	func cells() -> Array[Vector3i]:
-		return [origin, origin + (Vector3i(1, 0, 0) if axis == 0 else Vector3i(0, 0, 1))]
+		return BrickWorld.cells_for(origin, axis, length)
 
 	func center() -> Vector3:
-		return Vector3(origin) + (Vector3(1, 0.5, 0.5) if axis == 0 else Vector3(0.5, 0.5, 1))
+		return BrickWorld.center_for(origin, axis, length)
 
 
 var world: VoxelWorld
@@ -39,19 +40,22 @@ var debris_seconds := 25.0
 var _cells := {}        # Vector3i -> Brick
 var _bricks := {}       # int -> Brick
 var _next_id := 1
-var _mesh: BoxMesh
+var _meshes := {}       # length -> BoxMesh
 var _materials := {}
-var _shape: BoxShape3D
+var _shapes := {}       # length -> BoxShape3D
 var _debris: Array = [] # [RigidBody3D, spawn_time_msec]
 var _patches := {}      # Vector3i -> [StaticBody3D, last_touched_msec]
 var _patch_shape: BoxShape3D
 
 
 func _ready() -> void:
-	_mesh = BoxMesh.new()
-	_mesh.size = SIZE * 0.97
-	_shape = BoxShape3D.new()
-	_shape.size = SIZE
+	for length in [1, 2]:
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(length, 1, 1) * 0.97
+		_meshes[length] = mesh
+		var shape := BoxShape3D.new()
+		shape.size = Vector3(length, 1, 1)
+		_shapes[length] = shape
 	_patch_shape = BoxShape3D.new()
 	_patch_shape.size = Vector3.ONE
 	for k in [Kind.STONE, Kind.WOOD]:
@@ -84,8 +88,16 @@ func debris_count() -> int:
 	return _debris.size()
 
 
-static func cells_for(origin: Vector3i, axis: int) -> Array[Vector3i]:
+static func cells_for(origin: Vector3i, axis: int, length: int = 2) -> Array[Vector3i]:
+	if length == 1:
+		return [origin]
 	return [origin, origin + (Vector3i(1, 0, 0) if axis == 0 else Vector3i(0, 0, 1))]
+
+
+static func center_for(origin: Vector3i, axis: int, length: int = 2) -> Vector3:
+	if length == 1:
+		return Vector3(origin) + Vector3(0.5, 0.5, 0.5)
+	return Vector3(origin) + (Vector3(1, 0.5, 0.5) if axis == 0 else Vector3(0.5, 0.5, 1))
 
 
 func _cell_free(cell: Vector3i) -> bool:
@@ -108,8 +120,8 @@ func _below(cells: Array[Vector3i], self_brick: Brick = null) -> Dictionary:
 
 
 ## Free, inside the world, and resting on terrain or a standing brick (no building in mid-air).
-func can_place(origin: Vector3i, axis: int) -> bool:
-	var cells := cells_for(origin, axis)
+func can_place(origin: Vector3i, axis: int, length: int = 2) -> bool:
+	var cells := cells_for(origin, axis, length)
 	for c in cells:
 		if not _cell_free(c):
 			return false
@@ -119,20 +131,21 @@ func can_place(origin: Vector3i, axis: int) -> bool:
 
 # --- building ---------------------------------------------------------------------------------------
 
-func place(origin: Vector3i, axis: int, kind: int = Kind.STONE) -> Brick:
-	if not can_place(origin, axis):
+func place(origin: Vector3i, axis: int, kind: int = Kind.STONE, length: int = 2) -> Brick:
+	if not can_place(origin, axis, length):
 		return null
 	var b := Brick.new()
 	b.id = _next_id
 	_next_id += 1
 	b.origin = origin
 	b.axis = axis
+	b.length = length
 	b.kind = kind
 	for c in b.cells():
 		_cells[c] = b
 	_bricks[b.id] = b
 	b.node = MeshInstance3D.new()
-	b.node.mesh = _mesh
+	b.node.mesh = _meshes[length]
 	b.node.material_override = _materials[kind]
 	b.node.transform = _transform_for(b)
 	add_child(b.node)
@@ -141,7 +154,8 @@ func place(origin: Vector3i, axis: int, kind: int = Kind.STONE) -> Brick:
 
 
 func _transform_for(b: Brick) -> Transform3D:
-	return Transform3D(Basis(Vector3.UP, PI * 0.5 if b.axis == 1 else 0.0), b.center())
+	var turned := b.length == 2 and b.axis == 1
+	return Transform3D(Basis(Vector3.UP, PI * 0.5 if turned else 0.0), b.center())
 
 
 ## Takes a brick out of the wall (a worker dismantling it). Returns how many other bricks fell as a result.
@@ -219,7 +233,7 @@ func _spawn_debris(b: Brick) -> void:
 	body.collision_mask = 1 | 2
 	body.can_sleep = true
 	var cs := CollisionShape3D.new()
-	cs.shape = _shape
+	cs.shape = _shapes[b.length]
 	body.add_child(cs)
 	b.node.get_parent().remove_child(b.node)
 	b.node.transform = Transform3D.IDENTITY

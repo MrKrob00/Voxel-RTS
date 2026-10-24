@@ -21,12 +21,11 @@ const EMPTY := Vector2i(-1, -1)
 
 var islands: Array[Island] = []
 var cave_depth := 6
+var preset: MapPreset
 
 ## Heights above the island's base_top where bare rock and then snow start (set from the world height).
 var rock_y := 70
 var snow_y := 88
-## Radius (as a share of the island radius) kept flat for a first base; mountains fade in beyond it.
-var flat_share := 0.30
 
 var _shape: FastNoiseLite
 var _ridge: FastNoiseLite
@@ -38,10 +37,12 @@ var _under: FastNoiseLite
 var _cave: FastNoiseLite
 var _coal: FastNoiseLite
 var _iron: FastNoiseLite
+var _orange: FastNoiseLite
 var _max_y: int
 
 
-func _init(world_seed: int, size: Vector3i) -> void:
+func _init(world_seed: int, size: Vector3i, map_preset: MapPreset) -> void:
+	preset = map_preset
 	_max_y = size.y - 2
 	rock_y = int(size.y * 0.62)
 	snow_y = int(size.y * 0.78)
@@ -55,6 +56,7 @@ func _init(world_seed: int, size: Vector3i) -> void:
 	_cave = _make_noise(world_seed + 4, 0.055, 2)
 	_coal = _make_noise(world_seed + 5, 0.12, 1)
 	_iron = _make_noise(world_seed + 6, 0.14, 1)
+	_orange = _make_noise(world_seed + 10, 0.16, 1)
 	_layout_islands(world_seed, size)
 
 
@@ -112,16 +114,16 @@ func column(wx: int, wz: int) -> Vector2i:
 		return EMPTY
 	var rim := minf(1.0, best_m * 4.0)
 	# Flat build area in the middle of each island, fading into the wild terrain.
-	var flat := 1.0 - smoothstep(flat_share, flat_share + 0.25, 1.0 - best_m)
-	flat *= 0.9 if best == islands[0] else 0.35
-	var hills := _hills.get_noise_2d(wx, wz) * 7.0 + _detail.get_noise_2d(wx, wz) * 1.5
+	var flat := 1.0 - smoothstep(preset.flat_share, preset.flat_share + 0.25, 1.0 - best_m)
+	flat *= 0.92 if best == islands[0] else 0.4
+	var hills := _hills.get_noise_2d(wx, wz) * preset.hills_amp + _detail.get_noise_2d(wx, wz) * 1.5
 	# Mountains: ridged noise, only inside "mountain regions", cut by winding passes (valleys) where the pass noise crosses 0.
 	var ridge_line := pow(1.0 - absf(_ridge.get_noise_2d(wx, wz)), 1.4)
 	var bulk := _ridge.get_noise_2d(wx * 0.45 + 500.0, wz * 0.45) * 0.5 + 0.5
 	var ridge := ridge_line * 0.6 + bulk * 0.4
-	var mountain_mask := smoothstep(-0.15, 0.3, _region.get_noise_2d(wx, wz))
-	var corridor := smoothstep(0.03, 0.17, absf(_pass.get_noise_2d(wx, wz)))
-	var amp := clampf(float(_max_y - best.base_top) - 14.0, 10.0, 38.0)
+	var mountain_mask := smoothstep(preset.mountain_region.x, preset.mountain_region.y, _region.get_noise_2d(wx, wz))
+	var corridor := smoothstep(preset.pass_width.x, preset.pass_width.y, absf(_pass.get_noise_2d(wx, wz)))
+	var amp := clampf(float(_max_y - best.base_top) - 14.0, 10.0, preset.mountain_amp)
 	var mountains := ridge * amp * mountain_mask * corridor
 	var top := best.base_top + (hills * (1.0 - flat * 0.8) + mountains * (1.0 - flat)) * rim + best_m * 5.0
 	var depth := 3.0 + best.thickness * pow(best_m, 0.75) + _under.get_noise_2d(wx, wz) * 4.0 * best_m
@@ -137,11 +139,13 @@ func block_at(wx: int, wy: int, wz: int, top: int, bottom: int) -> int:
 	if depth == 0:
 		if wy >= snow_y:
 			return Blocks.SNOW
-		return Blocks.STONE if wy >= rock_y else Blocks.GRASS
+		return Blocks.STONE if wy >= rock_y else preset.top_block
 	if depth <= 3:
-		return Blocks.STONE if wy >= rock_y else Blocks.DIRT
+		return Blocks.STONE if wy >= rock_y else preset.sub_block
 	if wy > bottom + 3 and depth > cave_depth and _cave.get_noise_3d(wx, wy * 1.6, wz) > 0.55:
 		return Blocks.AIR
+	if depth > 3 and _orange.get_noise_3d(wx, wy, wz) > 0.74:
+		return Blocks.ORANGE_ORE
 	if _coal.get_noise_3d(wx, wy, wz) > 0.62:
 		return Blocks.COAL
 	if depth > 10 and _iron.get_noise_3d(wx, wy, wz) > 0.66:

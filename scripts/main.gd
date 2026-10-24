@@ -1,10 +1,12 @@
 extends Node3D
 ## Sandbox scene: world + RTS camera + a tiny dig/place tool to exercise voxel editing.
 
+var preset := MapPreset.plains()
 var world: VoxelWorld
+var props: PropField
 var rig: RTSCamera
-enum Mode { DIG, VOXEL, STONE_BRICK, WOOD_BRICK }
-const MODE_NAMES := ["dig", "voxel", "stone brick", "wood brick"]
+enum Mode { DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
+const MODE_NAMES := ["dig", "voxel", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
 
 var bricks: BrickWorld
 var mode := Mode.DIG
@@ -23,7 +25,13 @@ func _ready() -> void:
 
 	world = VoxelWorld.new()
 	world.name = "World"
+	world.preset = preset
 	add_child(world)
+
+	props = PropField.new()
+	props.name = "Props"
+	add_child(props)
+	props.setup(world)
 
 	bricks = BrickWorld.new()
 	bricks.name = "Bricks"
@@ -54,9 +62,9 @@ func _process(_delta: float) -> void:
 func _setup_environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("9cc7ee")
+	env.background_color = preset.sky_color
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.72, 0.76, 0.85)
+	env.ambient_light_color = preset.ambient_color
 	env.ambient_light_energy = 0.9
 	var we := WorldEnvironment.new()
 	we.environment = env
@@ -77,7 +85,15 @@ func _rotate_brick() -> void:
 
 
 func _is_brick_mode() -> bool:
-	return mode == Mode.STONE_BRICK or mode == Mode.WOOD_BRICK
+	return mode >= Mode.STONE_BRICK
+
+
+func _brick_length() -> int:
+	return 1 if mode == Mode.STONE_CUBE or mode == Mode.WOOD_CUBE else 2
+
+
+func _brick_kind() -> int:
+	return BrickWorld.Kind.STONE if mode == Mode.STONE_BRICK or mode == Mode.STONE_CUBE else BrickWorld.Kind.WOOD
 
 
 func _setup_hover() -> void:
@@ -144,13 +160,12 @@ func _update_hover() -> void:
 	if _is_brick_mode():
 		var origin: Vector3i = hit.cell + hit.normal
 		_ghost.visible = true
-		_ghost.transform = Transform3D(Basis(Vector3.UP, PI * 0.5 if brick_axis == 1 else 0.0), _brick_center(origin))
-		var ok := bricks.can_place(origin, brick_axis)
+		var length := _brick_length()
+		(_ghost.mesh as BoxMesh).size = Vector3(length, 1, 1) * 1.02
+		var turned := length == 2 and brick_axis == 1
+		_ghost.transform = Transform3D(Basis(Vector3.UP, PI * 0.5 if turned else 0.0), BrickWorld.center_for(origin, brick_axis, length))
+		var ok := bricks.can_place(origin, brick_axis, length)
 		_ghost_mat.albedo_color = Color(0.2, 0.9, 0.9, 0.45) if ok else Color(0.95, 0.2, 0.2, 0.5)
-
-
-func _brick_center(origin: Vector3i) -> Vector3:
-	return Vector3(origin) + (Vector3(1, 0.5, 0.5) if brick_axis == 0 else Vector3(0.5, 0.5, 1))
 
 
 func _on_primary(pos: Vector2) -> void:
@@ -165,10 +180,8 @@ func _on_primary(pos: Vector2) -> void:
 				world.set_block(hit.cell, Blocks.AIR)
 		Mode.VOXEL:
 			world.place_block(hit.cell + hit.normal, Blocks.STONE)
-		Mode.STONE_BRICK:
-			bricks.place(hit.cell + hit.normal, brick_axis, BrickWorld.Kind.STONE)
-		Mode.WOOD_BRICK:
-			bricks.place(hit.cell + hit.normal, brick_axis, BrickWorld.Kind.WOOD)
+		_:
+			bricks.place(hit.cell + hit.normal, brick_axis, _brick_kind(), _brick_length())
 
 
 func _on_secondary(pos: Vector2) -> void:

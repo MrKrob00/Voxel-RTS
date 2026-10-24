@@ -48,7 +48,7 @@ static func _voxel(snap: Array, x: int, y: int, z: int) -> int:
 
 
 ## Returns [opaque_arrays, water_arrays]; an entry is null when that surface is empty.
-static func build(snap: Array, origin: Vector3i) -> Array:
+static func build(snap: Array, origin: Vector3i, preset: MapPreset) -> Array:
 	var center: PackedByteArray = snap[13]
 	var solid := Buffers.new()
 	var water := Buffers.new()
@@ -67,7 +67,7 @@ static func build(snap: Array, origin: Vector3i) -> Array:
 							continue
 					elif Blocks.is_opaque(nid):
 						continue
-					_emit_face(water if is_water else solid, snap, x, y, z, f, id, origin, is_water)
+					_emit_face(water if is_water else solid, snap, x, y, z, f, id, origin, is_water, preset)
 	var out := [null, null]
 	if not solid.indices.is_empty():
 		out[0] = solid.to_arrays()
@@ -76,7 +76,7 @@ static func build(snap: Array, origin: Vector3i) -> Array:
 	return out
 
 
-static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int, id: int, origin: Vector3i, is_water: bool) -> void:
+static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int, id: int, origin: Vector3i, is_water: bool, preset: MapPreset) -> void:
 	var n := FACE_NORMALS[f]
 	var u := FACE_U[f]
 	var v := FACE_V[f]
@@ -86,12 +86,12 @@ static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int
 		face_kind = Blocks.FACE_TOP
 	elif f == 3:
 		face_kind = Blocks.FACE_BOTTOM
-	var color := Blocks.color_of(id, face_kind)
-	# Cheap per-voxel variation so flat areas do not look like one slab.
+	# Cheap per-voxel variation so flat areas do not look like one slab; surface colour itself is per vertex.
 	var hash := ((origin.x + x) * 73856093) ^ ((origin.y + y) * 19349663) ^ ((origin.z + z) * 83492791)
-	var jitter := 0.94 + float(hash & 255) / 255.0 * 0.12
-	color = Color(color.r * jitter, color.g * jitter, color.b * jitter, color.a)
-	color *= FACE_SHADE[f]
+	var jitter := 0.97 + float(hash & 255) / 255.0 * 0.06
+	if face_kind == Blocks.FACE_SIDE and id != Blocks.GRASS and id != Blocks.DIRT:
+		jitter = 0.88 + float(hash & 255) / 255.0 * 0.24   # rough cobble look on cliff walls
+	var shade_f: float = FACE_SHADE[f] * jitter
 
 	var start := buf.verts.size()
 	var ao := [3, 3, 3, 3]
@@ -109,7 +109,9 @@ static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int
 		var shade: float = AO_LEVELS[ao[k]]
 		buf.verts.append(corners[k])
 		buf.normals.append(Vector3(n))
-		buf.colors.append(Color(color.r * shade, color.g * shade, color.b * shade, color.a))
+		var vc := preset.vertex_color(id, face_kind, origin.x + corners[k].x, origin.z + corners[k].z)
+		var mul := shade * shade_f
+		buf.colors.append(Color(vc.r * mul, vc.g * mul, vc.b * mul, vc.a))
 
 	# Godot front faces are clockwise; flip the diagonal to avoid AO anisotropy artefacts.
 	if ao[0] + ao[2] > ao[1] + ao[3]:
