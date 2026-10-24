@@ -27,9 +27,9 @@ func _init() -> void:
 	var z := spawn.z - 6
 	for dx in range(-1, 12):
 		for dz in range(-1, 14):
-			world.set_block(Vector3i(x + dx, spawn.y, z + dz), Blocks.STONE)
+			world.set_block(Vector3i(x + dx, spawn.y, z + dz), Blocks.STONE, false)
 			for dy in range(1, 8):
-				world.set_block(Vector3i(x + dx, spawn.y + dy, z + dz), Blocks.AIR)
+				world.set_block(Vector3i(x + dx, spawn.y + dy, z + dz), Blocks.AIR, false)
 	for i in 30:
 		await process_frame
 

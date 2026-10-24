@@ -9,7 +9,7 @@ signal primary_action(screen_pos: Vector2)
 signal secondary_action(screen_pos: Vector2)
 
 @export var min_distance := 8.0
-@export var max_distance := 200.0
+@export var max_distance := 260.0
 @export var pan_speed := 1.1          ## world units per second per unit of distance
 @export var rotate_speed := 1.8       ## radians per second (keys)
 @export var edge_scroll := false
@@ -37,7 +37,7 @@ var _prev_pinch_mid := Vector2.ZERO
 
 func _ready() -> void:
 	camera = Camera3D.new()
-	camera.far = 900.0
+	camera.far = 1400.0
 	camera.fov = 60.0
 	add_child(camera)
 	_apply()

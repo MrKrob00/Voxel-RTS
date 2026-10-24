@@ -39,6 +39,8 @@ var _coal: FastNoiseLite
 var _iron: FastNoiseLite
 var _orange: FastNoiseLite
 var _max_y: int
+var _region_cache := {}
+var _region_mutex := Mutex.new()
 
 
 func _init(world_seed: int, size: Vector3i, map_preset: MapPreset) -> void:
@@ -81,12 +83,12 @@ func _layout_islands(world_seed: int, size: Vector3i) -> void:
 	var mid_top := int(size.y * 0.42)
 	# Start island: big, flat enough to build a first base.
 	islands.append(Island.new(mid, 42.0 * scale, mid_top, 30))
-	# Outer islands on the diagonals (gaps of ~14 blocks to the start island, needs bridges).
-	var outer := 4
+	# Outer islands in a ring, each separated from the start island by a gap of 14-22 blocks (needs bridges).
+	var outer := 4 if scale < 1.3 else 6
 	for i in outer:
-		var angle := TAU * (float(i) + 0.5) / outer + rng.randf_range(-0.2, 0.2)
-		var dist := rng.randf_range(96.0, 104.0) * scale
+		var angle := TAU * (float(i) + 0.5) / outer + rng.randf_range(-0.15, 0.15)
 		var r := rng.randf_range(23.0, 29.0) * scale
+		var dist := (islands[0].radius + r) * 1.2 + rng.randf_range(14.0, 22.0)
 		var top := mid_top + rng.randi_range(-8, 8)
 		islands.append(Island.new(mid + Vector2.from_angle(angle) * dist, r, top, rng.randi_range(18, 24)))
 
@@ -160,42 +162,37 @@ func block_at(wx: int, wy: int, wz: int, top: int, bottom: int) -> int:
 	return Blocks.STONE
 
 
-## Shape of the cell right above a column's top. Neighbouring columns exactly one block higher raise the matching
-## corners of that cell, which gives wedges (one side higher), inner corners (two adjacent sides higher), outer corners
-## (only a diagonal neighbour higher) and, for a 1-wide dip or trench, a half-height slab. Any neighbour 2+ higher is a
-## cliff: no ramp there.
+## Shape of the cell right above a column's top (see Ramps for the rules).
 func ramp_shape(wx: int, wz: int, top: int) -> int:
-	var hi := {}
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
-			if dx == 0 and dz == 0:
-				continue
-			var n := column(wx + dx, wz + dz)
-			if n.x < 0:
-				continue
-			if n.x >= top + 2:
-				return Blocks.SHAPE_CUBE
-			if n.x == top + 1:
-				hi[Vector2i(dx, dz)] = true
-	if hi.is_empty():
-		return Blocks.SHAPE_CUBE
-	var px: bool = hi.has(Vector2i(1, 0))
-	var nx: bool = hi.has(Vector2i(-1, 0))
-	var pz: bool = hi.has(Vector2i(0, 1))
-	var nz: bool = hi.has(Vector2i(0, -1))
-	var sides := int(px) + int(nx) + int(pz) + int(nz)
-	if sides >= 3 or (px and nx) or (pz and nz):
-		return Blocks.SHAPE_SLAB   # a 1-wide dip or trench: only half-filled
-	# Corner raised if one of the two sides touching it, or the diagonal, is higher.
-	var c0: bool = nx or nz or hi.has(Vector2i(-1, -1))    # (0,0)
-	var c1: bool = px or nz or hi.has(Vector2i(1, -1))     # (1,0)
-	var c2: bool = px or pz or hi.has(Vector2i(1, 1))      # (1,1)
-	var c3: bool = nx or pz or hi.has(Vector2i(-1, 1))     # (0,1)
-	var key := [int(c0), int(c1), int(c2), int(c3)]
-	for shape in Blocks.SHAPE_CORNERS:
-		if Blocks.SHAPE_CORNERS[shape] == key:
-			return shape
-	return Blocks.SHAPE_CUBE   # saddle or fully raised: leave it
+	var tops := {}
+	for off in Ramps.NEIGHBOURS:
+		tops[off] = column(wx + off.x, wz + off.y).x
+	return Ramps.shape_from(top, tops)
+
+
+## Heights of the 18 x 18 columns around chunk column (cx, cz): 16 inside plus a 1-column border for ramp neighbours.
+## Index (x + 1) + (z + 1) * 18. Cached, because every vertical chunk of the column needs the same numbers.
+func region(cx: int, cz: int) -> Array:
+	var key := Vector2i(cx, cz)
+	_region_mutex.lock()
+	var cached: Variant = _region_cache.get(key)
+	_region_mutex.unlock()
+	if cached != null:
+		return cached
+	var tops := PackedInt32Array()
+	var bottoms := PackedInt32Array()
+	tops.resize(18 * 18)
+	bottoms.resize(18 * 18)
+	for z in range(-1, 17):
+		for x in range(-1, 17):
+			var col := column(cx * 16 + x, cz * 16 + z)
+			tops[(x + 1) + (z + 1) * 18] = col.x
+			bottoms[(x + 1) + (z + 1) * 18] = col.y
+	var res := [tops, bottoms]
+	_region_mutex.lock()
+	_region_cache[key] = res
+	_region_mutex.unlock()
+	return res
 
 
 ## Returns an empty array when the chunk is entirely open sky (nothing stored, nothing meshed).
@@ -204,26 +201,25 @@ func generate_chunk(cpos: Vector3i) -> PackedByteArray:
 	var ox := cpos.x * cs
 	var oy := cpos.y * cs
 	var oz := cpos.z * cs
-	var tops := PackedInt32Array()
-	var bottoms := PackedInt32Array()
-	tops.resize(cs * cs)
-	bottoms.resize(cs * cs)
+	var reg := region(cpos.x, cpos.z)
+	var tops: PackedInt32Array = reg[0]
+	var bottoms: PackedInt32Array = reg[1]
 	var any := false
 	for z in cs:
 		for x in cs:
-			var col := column(ox + x, oz + z)
-			var i := x + (z << 4)
-			tops[i] = col.x
-			bottoms[i] = col.y
-			if col.x >= 0 and col.x + 1 >= oy and col.y <= oy + cs - 1:
+			var i := (x + 1) + (z + 1) * 18
+			if tops[i] >= 0 and tops[i] + 1 >= oy and bottoms[i] <= oy + cs - 1:
 				any = true
+				break
+		if any:
+			break
 	if not any:
 		return PackedByteArray()
 	var data := PackedByteArray()
 	data.resize(Blocks.CHUNK_VOLUME)
 	for z in cs:
 		for x in cs:
-			var i := x + (z << 4)
+			var i := (x + 1) + (z + 1) * 18
 			var top := tops[i]
 			if top < 0:
 				continue
@@ -232,7 +228,10 @@ func generate_chunk(cpos: Vector3i) -> PackedByteArray:
 				data[x + (z << 4) + (y << 8)] = block_at(ox + x, oy + y, oz + z, top, bottom)
 			var ramp_y := top + 1 - oy
 			if ramp_y >= 0 and ramp_y < cs and top + 1 <= _max_y:
-				var shape := ramp_shape(ox + x, oz + z, top)
+				var nt := {}
+				for off in Ramps.NEIGHBOURS:
+					nt[off] = tops[(x + 1 + off.x) + (z + 1 + off.y) * 18]
+				var shape := Ramps.shape_from(top, nt)
 				if shape != Blocks.SHAPE_CUBE:
 					data[x + (z << 4) + (ramp_y << 8)] = Blocks.make(block_at(ox + x, top, oz + z, top, bottom), shape)
 	return data

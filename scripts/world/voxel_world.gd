@@ -8,11 +8,11 @@ signal generation_finished
 signal chunk_meshed(cpos: Vector3i)
 signal block_changed(pos: Vector3i)
 
-@export var size_chunks := Vector3i(16, 7, 16)
+@export var size_chunks := Vector3i(28, 7, 28)   ## 448 x 112 x 448 blocks, about 3x the area of the first 256 x 256 map
 @export var world_seed := 1337
 ## Meshes committed to the scene per frame. Lower is smoother on tablets.
 @export var meshes_per_frame := 6
-@export var max_tasks_in_flight := 4
+@export var max_tasks_in_flight := 48
 
 var generator: WorldGen
 ## Set before the node enters the tree to pick another map type.
@@ -100,7 +100,8 @@ func get_block(p: Vector3i) -> int:
 	return c.data[(p.x & 15) + ((p.z & 15) << 4) + ((p.y & 15) << 8)]
 
 
-func set_block(p: Vector3i, id: int) -> bool:
+## `smooth` re-evaluates the ramp pieces around the edit (turn it off for the smoothing pass itself).
+func set_block(p: Vector3i, id: int, smooth := true) -> bool:
 	if not in_bounds(p):
 		return false
 	var cpos := Vector3i(p.x >> 4, p.y >> 4, p.z >> 4)
@@ -128,7 +129,53 @@ func set_block(p: Vector3i, id: int) -> bool:
 				if n != null:
 					n.dirty = true
 					_try_mesh(n)
+	if smooth:
+		_resmooth_around(p)
 	return true
+
+
+## Highest full cube of a column (ramps and slabs sit on top of it), or -1.
+func cube_top(x: int, z: int) -> int:
+	for y in range(size_blocks().y - 1, -1, -1):
+		var raw := get_block(Vector3i(x, y, z))
+		if Blocks.is_solid(raw) and Blocks.shape(raw) == Blocks.SHAPE_CUBE:
+			return y
+	return -1
+
+
+func _top_cached(cache: Dictionary, x: int, z: int) -> int:
+	var key := Vector2i(x, z)
+	if not cache.has(key):
+		cache[key] = cube_top(x, z) if in_bounds(Vector3i(x, 0, z)) else -1
+	return cache[key]
+
+
+## After an edit: the ramp wedges and corners of the 3x3 columns around it are recomputed from the actual heights,
+## the same rules the generator uses. The edited cell itself is left alone, so a ramp that was just dug stays dug.
+func _resmooth_around(p: Vector3i) -> void:
+	var cache := {}
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			var x := p.x + dx
+			var z := p.z + dz
+			var top := _top_cached(cache, x, z)
+			if top < 0:
+				continue
+			var cell := Vector3i(x, top + 1, z)
+			if cell == p or not in_bounds(cell):
+				continue
+			var raw := get_block(cell)
+			if raw != Blocks.AIR and not Ramps.is_managed(raw):
+				continue
+			var tops := {}
+			for off in Ramps.NEIGHBOURS:
+				tops[off] = _top_cached(cache, x + off.x, z + off.y)
+			var shape := Ramps.shape_from(top, tops)
+			var want := Blocks.AIR
+			if shape != Blocks.SHAPE_CUBE:
+				want = Blocks.make(Blocks.mat(get_block(Vector3i(x, top, z))), shape)
+			if want != raw:
+				set_block(cell, want, false)
 
 
 ## One stage of digging: a full cube is cut down to a half-height slab, anything else is removed.
@@ -144,7 +191,9 @@ func dig_step(p: Vector3i) -> bool:
 
 ## A block may only be placed into free space that touches an existing solid block (no building in mid-air).
 func can_place(p: Vector3i) -> bool:
-	if not in_bounds(p) or Blocks.is_solid(get_block(p)):
+	var existing := get_block(p) if in_bounds(p) else Blocks.STONE
+	# Ramp pieces and slabs are only a thin skin of ground: building replaces them.
+	if not in_bounds(p) or (Blocks.is_solid(existing) and Blocks.shape(existing) == Blocks.SHAPE_CUBE):
 		return false
 	for n in ChunkMesher.FACE_NORMALS:
 		if Blocks.is_solid(get_block(p + n)):

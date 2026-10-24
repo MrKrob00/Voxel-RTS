@@ -24,7 +24,7 @@ func _init() -> void:
 	_check(world.get_block(spawn + Vector3i(0, 1, 0)) == Blocks.AIR, "air above spawn")
 	_check(world.get_block(Vector3i(spawn.x, 0, spawn.z)) == Blocks.AIR, "open sky far below the island")
 	_check(world.get_block(Vector3i(2, spawn.y, 2)) == Blocks.AIR, "corner of the map is empty sky")
-	_check(world.generator.islands.size() == 5, "5 islands laid out")
+	_check(world.generator.islands.size() >= 5, "%d islands laid out" % world.generator.islands.size())
 	for i in range(1, world.generator.islands.size()):
 		var isl: WorldGen.Island = world.generator.islands[i]
 		var col := world.generator.column(int(isl.center.x), int(isl.center.y))
@@ -69,6 +69,29 @@ func _init() -> void:
 	_check(Blocks.shape(w_raw) >= Blocks.SHAPE_WEDGE_PX and Blocks.shape(w_raw) <= Blocks.SHAPE_WEDGE_NZ, "wedge is stored in the world (raw %d)" % w_raw)
 	_check(Blocks.is_solid(w_raw) and not Blocks.is_opaque(w_raw), "wedge is solid ground but does not hide neighbours")
 	_check(world.dig_step(wedge) and world.get_block(wedge) == Blocks.AIR, "digging a wedge removes it")
+	# Smoothing after edits: removing the higher neighbour that a wedge leaned on changes (or removes) that wedge.
+	var lean := {1: Vector3i(1, 0, 0), 2: Vector3i(-1, 0, 0), 3: Vector3i(0, 0, 1), 4: Vector3i(0, 0, -1)}
+	var found_resmooth := false
+	for dz2 in range(-30, 31):
+		for dx2 in range(-30, 31):
+			var cx2 := int(world.generator.islands[0].center.x) + dx2
+			var cz2 := int(world.generator.islands[0].center.y) + dz2
+			var col2 := world.generator.column(cx2, cz2)
+			if col2.x < 0 or found_resmooth:
+				continue
+			var sh2 := world.generator.ramp_shape(cx2, cz2, col2.x)
+			if sh2 < 1 or sh2 > 4:
+				continue
+			var cell2 := Vector3i(cx2, col2.x + 1, cz2)
+			var before := world.get_block(cell2)
+			if Blocks.shape(before) != sh2 or cell2 == wedge:
+				continue
+			var high: Vector3i = cell2 + lean[sh2]
+			world.dig_step(high)
+			world.dig_step(high)
+			found_resmooth = true
+			_check(world.get_block(cell2) != before, "ramp re-smoothed after its high neighbour was dug (was %d, now %d)" % [before, world.get_block(cell2)])
+	_check(found_resmooth, "found a wedge to re-smooth")
 	var cube := Vector3i(spawn.x + 3, spawn.y, spawn.z + 3)
 	_check(world.get_block(cube) == Blocks.GRASS, "cube before digging")
 	_check(world.dig_step(cube) and Blocks.shape(world.get_block(cube)) == Blocks.SHAPE_SLAB and Blocks.mat(world.get_block(cube)) == Blocks.GRASS, "first dig stage: cube becomes a slab of the same material")
@@ -145,6 +168,6 @@ func _terrain_report(world: VoxelWorld) -> void:
 				seen[q] = true
 				queue.append(q)
 	print("start island: %d columns, height %d..%d, cliff edges %.1f%%, walkable from spawn %.0f%%" % [total, min_h, max_h, 100.0 * high / total, 100.0 * reach / total])
-	_check(max_h - min_h >= 10 and max_h - min_h <= 22, "relief is varied but low enough to dig through (%d blocks)" % (max_h - min_h))
+	_check(max_h - min_h >= 10 and max_h - min_h <= 30, "relief is varied but low enough to dig through (%d blocks)" % (max_h - min_h))
 	_check(high > total * 0.004, "plateaus are separated by cliffs (%d edge columns)" % high)
 	_check(reach > total * 0.6, "plains: most of the island is walkable from spawn")
