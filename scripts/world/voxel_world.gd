@@ -6,6 +6,7 @@ extends Node3D
 
 signal generation_finished
 signal chunk_meshed(cpos: Vector3i)
+signal block_changed(pos: Vector3i)
 
 @export var size_chunks := Vector3i(16, 7, 16)
 @export var world_seed := 1337
@@ -111,6 +112,7 @@ func set_block(p: Vector3i, id: int) -> bool:
 	if c.data[idx] == id:
 		return false
 	c.data[idx] = id
+	block_changed.emit(p)
 	# The chunk and any neighbour whose faces or ambient occlusion can see this voxel need a remesh.
 	var lx := p.x & 15
 	var ly := p.y & 15
@@ -164,7 +166,8 @@ func surface_y(x: int, z: int) -> int:
 
 
 ## Voxel DDA ray. Returns {} on a miss, else {cell, normal, id, distance}.
-func raycast(origin: Vector3, dir: Vector3, max_dist := 200.0) -> Dictionary:
+## `extra_solid(cell) -> bool` lets other systems (bricks) take part in the same ray; such a hit has "brick": true.
+func raycast(origin: Vector3, dir: Vector3, max_dist := 200.0, extra_solid := Callable()) -> Dictionary:
 	dir = dir.normalized()
 	var cell := Vector3i(floori(origin.x), floori(origin.y), floori(origin.z))
 	var step := Vector3i(int(signf(dir.x)), int(signf(dir.y)), int(signf(dir.z)))
@@ -179,8 +182,9 @@ func raycast(origin: Vector3, dir: Vector3, max_dist := 200.0) -> Dictionary:
 	var dist := 0.0
 	while dist <= max_dist:
 		var id := get_block(cell)
-		if Blocks.is_solid(id):
-			return {"cell": cell, "normal": normal, "id": id, "distance": dist}
+		var is_brick: bool = extra_solid.is_valid() and extra_solid.call(cell)
+		if is_brick or Blocks.is_solid(id):
+			return {"cell": cell, "normal": normal, "id": Blocks.AIR if is_brick else id, "brick": is_brick, "distance": dist}
 		var axis := 0
 		if t_max.y < t_max.x:
 			axis = 1
