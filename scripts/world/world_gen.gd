@@ -47,7 +47,7 @@ func _init(world_seed: int, size: Vector3i, map_preset: MapPreset) -> void:
 	rock_y = int(size.y * 0.62)
 	snow_y = int(size.y * 0.78)
 	_shape = _make_noise(world_seed, 0.018, 3)
-	_hills = _make_noise(world_seed + 1, 0.035, 3)
+	_hills = _make_noise(world_seed + 1, 0.021, 2)
 	_ridge = _make_noise(world_seed + 7, 0.024, 3)
 	_pass = _make_noise(world_seed + 8, 0.016, 2)
 	_region = _make_noise(world_seed + 9, 0.013, 2)
@@ -116,7 +116,7 @@ func column(wx: int, wz: int) -> Vector2i:
 	# Flat build area in the middle of each island, fading into the wild terrain.
 	var flat := 1.0 - smoothstep(preset.flat_share, preset.flat_share + 0.25, 1.0 - best_m)
 	flat *= 0.92 if best == islands[0] else 0.4
-	var hills := _hills.get_noise_2d(wx, wz) * preset.hills_amp + _detail.get_noise_2d(wx, wz) * 1.5
+	var hills := _hills.get_noise_2d(wx, wz) * preset.hills_amp
 	# Mountains: ridged noise, only inside "mountain regions", cut by winding passes (valleys) where the pass noise crosses 0.
 	var ridge_line := pow(1.0 - absf(_ridge.get_noise_2d(wx, wz)), 1.4)
 	var bulk := _ridge.get_noise_2d(wx * 0.45 + 500.0, wz * 0.45) * 0.5 + 0.5
@@ -125,7 +125,12 @@ func column(wx: int, wz: int) -> Vector2i:
 	var corridor := smoothstep(preset.pass_width.x, preset.pass_width.y, absf(_pass.get_noise_2d(wx, wz)))
 	var amp := clampf(float(_max_y - best.base_top) - 14.0, 10.0, preset.mountain_amp)
 	var mountains := ridge * amp * mountain_mask * corridor
-	var top := best.base_top + (hills * (1.0 - flat * 0.8) + mountains * (1.0 - flat)) * rim + best_m * 5.0
+	var rel := (hills + mountains) * (1.0 - flat) * rim
+	# Plateaus: snap to the nearest level, but let the ground slope inside passes so levels connect.
+	var step := preset.terrace_step
+	var level := floorf(rel / step + 0.5) * step
+	var slope := 1.0 - smoothstep(preset.pass_ramp.x, preset.pass_ramp.y, absf(_pass.get_noise_2d(wx, wz)))
+	var top := best.base_top + lerpf(level, rel, slope)
 	var depth := 3.0 + best.thickness * pow(best_m, 0.75) + _under.get_noise_2d(wx, wz) * 4.0 * best_m
 	var top_i := clampi(int(top), 4, _max_y)
 	var bottom_i := clampi(top_i - int(depth), 1, top_i)
@@ -140,11 +145,11 @@ func block_at(wx: int, wy: int, wz: int, top: int, bottom: int) -> int:
 		if wy >= snow_y:
 			return Blocks.SNOW
 		return Blocks.STONE if wy >= rock_y else preset.top_block
-	if depth <= 3:
+	if depth <= preset.dirt_depth:
 		return Blocks.STONE if wy >= rock_y else preset.sub_block
 	if wy > bottom + 3 and depth > cave_depth and _cave.get_noise_3d(wx, wy * 1.6, wz) > 0.55:
 		return Blocks.AIR
-	if depth > 3 and _orange.get_noise_3d(wx, wy, wz) > 0.74:
+	if depth > 2 and _orange.get_noise_3d(wx, wy, wz) > 0.70:
 		return Blocks.ORANGE_ORE
 	if _coal.get_noise_3d(wx, wy, wz) > 0.62:
 		return Blocks.COAL

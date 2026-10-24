@@ -82,8 +82,10 @@ func _terrain_report(world: VoxelWorld) -> void:
 			total += 1
 			min_h = mini(min_h, col.x)
 			max_h = maxi(max_h, col.x)
-			if col.x > isl.base_top + 12:
-				high += 1
+			var east := gen.column(cx + dx + 1, cz + dz)
+			var south := gen.column(cx + dx, cz + dz + 1)
+			if (east.x >= 0 and absi(east.x - col.x) >= 3) or (south.x >= 0 and absi(south.x - col.x) >= 3):
+				high += 1   # a cliff edge: neighbouring columns differ by 3+ blocks
 	var seen := {}
 	var queue: Array[Vector2i] = [Vector2i(cx, cz)]
 	seen[queue[0]] = true
@@ -103,7 +105,7 @@ func _terrain_report(world: VoxelWorld) -> void:
 			if dh <= 1 and dh >= -2:
 				seen[q] = true
 				queue.append(q)
-	print("start island: %d columns, height %d..%d, mountains %.0f%%, walkable from spawn %.0f%%" % [total, min_h, max_h, 100.0 * high / total, 100.0 * reach / total])
+	print("start island: %d columns, height %d..%d, cliff edges %.1f%%, walkable from spawn %.0f%%" % [total, min_h, max_h, 100.0 * high / total, 100.0 * reach / total])
 	_check(max_h - min_h >= 15, "relief is not flat (%d blocks)" % (max_h - min_h))
-	_check(high > total * 0.003, "there are some hills / ridges")
+	_check(high > total * 0.004, "plateaus are separated by cliffs (%d edge columns)" % high)
 	_check(reach > total * 0.85, "plains: most of the island is walkable from spawn")

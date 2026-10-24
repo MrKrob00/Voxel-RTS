@@ -65,6 +65,8 @@ func size_blocks() -> Vector3i:
 
 func start() -> void:
 	generator = WorldGen.new(world_seed, size_blocks(), preset)
+	var sc := generator.spawn_column()
+	preset.clear_center = Vector2(sc.x + 0.5, sc.y + 0.5)
 	_gen_total = size_chunks.x * size_chunks.y * size_chunks.z
 	# Generate from the middle of the map outwards so the visible area appears first.
 	var centre := Vector3(size_chunks) * 0.5

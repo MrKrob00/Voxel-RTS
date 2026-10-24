@@ -88,7 +88,7 @@ static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int
 		face_kind = Blocks.FACE_BOTTOM
 	# Cheap per-voxel variation so flat areas do not look like one slab; surface colour itself is per vertex.
 	var hash := ((origin.x + x) * 73856093) ^ ((origin.y + y) * 19349663) ^ ((origin.z + z) * 83492791)
-	var jitter := 0.97 + float(hash & 255) / 255.0 * 0.06
+	var jitter := 0.99 + float(hash & 255) / 255.0 * 0.02
 	if face_kind == Blocks.FACE_SIDE and id != Blocks.GRASS and id != Blocks.DIRT:
 		jitter = 0.88 + float(hash & 255) / 255.0 * 0.24   # rough cobble look on cliff walls
 	var shade_f: float = FACE_SHADE[f] * jitter
