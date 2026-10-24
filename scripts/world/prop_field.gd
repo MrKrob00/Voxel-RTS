@@ -106,6 +106,8 @@ func _scatter() -> void:
 
 
 func _surface(x: float, z: float) -> int:
+	if _gen.near_bridge(Vector2(x, z), 2.0):
+		return -1   # keep bridges clear
 	var ix := int(x)
 	var iz := int(z)
 	var c := _gen.column(ix, iz)

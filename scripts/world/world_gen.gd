@@ -24,7 +24,7 @@ class Bridge extends RefCounted:
 	var b: Vector2          ## last deck point, at the rim of the other island
 	var ha: int             ## deck height at a
 	var hb: int
-	var half_width := 1.6   ## deck is ~3-4 blocks wide
+	var half_width := 2.4   ## the land bridge is ~4-5 blocks wide, with ragged edges
 
 	func _init(pa: Vector2, pb: Vector2, ya: int, yb: int) -> void:
 		a = pa
@@ -182,7 +182,7 @@ func spawn_column() -> Vector2i:
 
 
 ## Top and bottom (inclusive) of solid ground in a column, or EMPTY for open sky.
-## Bridge decks are one block thick (top == bottom), islands are always thicker: block_at relies on that.
+## Bridges are strips of the same terrain as the islands (grass, dirt, stone), a few blocks thick.
 func column(wx: int, wz: int) -> Vector2i:
 	var c := _island_column(wx, wz)
 	if bridges.is_empty():
@@ -199,10 +199,24 @@ func column(wx: int, wz: int) -> Vector2i:
 		if t < -0.1 or t > 1.1:
 			continue
 		t = clampf(t, 0.0, 1.0)
-		if p.distance_to(br.a + ab * t) <= br.half_width:
+		var ragged := br.half_width + _shape.get_noise_2d(wx * 2.3, wz * 2.3) * 1.0
+		if p.distance_to(br.a + ab * t) <= ragged:
 			var y := clampi(roundi(lerpf(br.ha, br.hb, t)), 4, _max_y)
-			return Vector2i(y, y)
+			var thick := 4 + int(_under.get_noise_2d(wx, wz) * 1.6)
+			return Vector2i(y, maxi(y - thick, 1))
 	return EMPTY
+
+## True when a point is on or within `margin` blocks of a bridge strip (props keep off them).
+func near_bridge(p: Vector2, margin: float) -> bool:
+	for br in bridges:
+		var ab := br.b - br.a
+		var len2 := ab.length_squared()
+		if len2 < 1.0:
+			continue
+		var t := clampf((p - br.a).dot(ab) / len2, 0.0, 1.0)
+		if p.distance_to(br.a + ab * t) <= br.half_width + 1.0 + margin:
+			return true
+	return false
 
 
 ## Near a bridge end the island ground is levelled to the deck height, so the bridge never ends against a ledge.
@@ -268,8 +282,6 @@ func _island_column(wx: int, wz: int) -> Vector2i:
 func block_at(wx: int, wy: int, wz: int, top: int, bottom: int) -> int:
 	if wy > top or wy < bottom:
 		return Blocks.AIR
-	if top - bottom <= 1:
-		return Blocks.PLANK   # a bridge deck
 	var depth := top - wy
 	if depth == 0:
 		if wy >= snow_y:
