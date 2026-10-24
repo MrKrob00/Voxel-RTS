@@ -20,17 +20,35 @@ class Island extends RefCounted:
 
 
 class Bridge extends RefCounted:
-	var a: Vector2          ## first deck point, at the rim of one island
-	var b: Vector2          ## last deck point, at the rim of the other island
-	var ha: int             ## deck height at a
+	var a: Vector2          ## first end, at the rim of one island
+	var b: Vector2          ## last end, at the rim of the other island
+	var ha: int             ## ground height at a
 	var hb: int
-	var half_width := 2.4   ## the land bridge is ~4-5 blocks wide, with ragged edges
+	var style := 0          ## 0: grassy neck, 1: bare stone arch
+	var sway := 0.0         ## sideways S-curve amplitude, blocks
+	var waves := 1          ## half-waves of the curve (1 or 2)
+	var hump := 0.0         ## how much the middle rises above the straight ramp, blocks
+	var width_phase := 0.0
+	var base_width := 2.2   ## half-width of the strip before the pinches, blocks
 
 	func _init(pa: Vector2, pb: Vector2, ya: int, yb: int) -> void:
 		a = pa
 		b = pb
 		ha = ya
 		hb = yb
+
+	func length() -> float:
+		return a.distance_to(b)
+
+	## Where the centre line of the bridge is at parameter t (0..1): a chord that swings sideways in an S-curve.
+	func centre(t: float) -> Vector2:
+		var ab := b - a
+		var perp := Vector2(-ab.y, ab.x).normalized()
+		return a + ab * t + perp * lateral_offset(t)
+
+	## The curve is straight near both islands (so the landings are clean) and swings out in the middle.
+	func lateral_offset(t: float) -> float:
+		return sway * sin(PI * t * waves) * smoothstep(0.0, 0.3, minf(t, 1.0 - t))
 
 
 const EMPTY := Vector2i(-1, -1)
@@ -141,8 +159,11 @@ func _layout_islands(world_seed: int, size: Vector3i, forced_extra: int) -> void
 
 
 ## One bridge from every extra island to the island it was placed next to, so the whole map is connected on foot.
-## Islands that already touch need none.
+## Islands that already touch need none. Each bridge gets its own look: grassy neck or bare stone arch, a sideways
+## S-curve, pinches in its width and a raised back.
 func _build_bridges() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(str(islands.size(), islands[0].center)) + 17
 	for i in range(1, islands.size()):
 		var isl := islands[i]
 		var other := islands[isl.anchor]
@@ -151,7 +172,17 @@ func _build_bridges() -> void:
 		var dir := (isl.center - other.center).normalized()
 		if (edge_b[0] - edge_a[0]).dot(dir) < 3.0:
 			continue   # rims meet or overlap
-		bridges.append(Bridge.new(edge_a[0], edge_b[0], edge_a[1], edge_b[1]))
+		var br := Bridge.new(edge_a[0], edge_b[0], edge_a[1], edge_b[1])
+		var len := br.length()
+		br.style = rng.randi() % 2
+		br.waves = 1 + rng.randi() % 2
+		br.sway = rng.randf_range(0.0, 1.0) * minf(7.0, len * 0.28) * (1.0 if rng.randf() < 0.5 else -1.0)
+		var wanted_hump := 3.0 if br.style == 1 else float(rng.randi_range(0, 2))
+		# Keep the climb under one block per step: the hump may only use what the length leaves after the height difference.
+		br.hump = clampf((0.85 * len - absf(br.ha - br.hb)) / PI, 0.0, wanted_hump)
+		br.width_phase = rng.randf() * TAU
+		br.base_width = rng.randf_range(1.9, 2.5)
+		bridges.append(br)
 
 
 ## How far inside an island's own outline a point is (above 0 means ground belongs to this island).
@@ -182,14 +213,31 @@ func spawn_column() -> Vector2i:
 
 
 ## Top and bottom (inclusive) of solid ground in a column, or EMPTY for open sky.
-## Bridges are strips of the same terrain as the islands (grass, dirt, stone), a few blocks thick.
 func column(wx: int, wz: int) -> Vector2i:
+	var v := column_full(wx, wz)
+	return EMPTY if v.x < 0 else Vector2i(v.x, v.y)
+
+
+## Like column(), plus the bridge style in z (-1 for island ground, 0 / 1 for a bridge); x < 0 means open sky.
+func column_full(wx: int, wz: int) -> Vector3i:
 	var c := _island_column(wx, wz)
 	if bridges.is_empty():
-		return c
+		return Vector3i(c.x, c.y, -1)
 	var p := Vector2(wx + 0.5, wz + 0.5)   # centre of the cell
 	if c != EMPTY:
-		return _landing_pad(p, c)
+		# In the middle of a bridge the deck wins over a ragged island peninsula it crosses, so it stays continuous.
+		var over := _bridge_at(wx, wz, p, true)
+		if over.x >= 0:
+			return Vector3i(over.x, mini(over.y, c.y), over.z)
+		c = _landing_pad(p, c)
+		return Vector3i(c.x, c.y, -1)
+	return _bridge_at(wx, wz, p)
+
+
+## A bridge strip is the set of points close to its curved centre line. Width pinches and swells along it, the deck
+## rises into a hump, and the underside is thick near the islands and thin in the middle (an arch), with a few
+## stalactites hanging from the thin part.
+func _bridge_at(wx: int, wz: int, p: Vector2, only_middle := false) -> Vector3i:
 	for br in bridges:
 		var ab := br.b - br.a
 		var len2 := ab.length_squared()
@@ -199,23 +247,43 @@ func column(wx: int, wz: int) -> Vector2i:
 		if t < -0.1 or t > 1.1:
 			continue
 		t = clampf(t, 0.0, 1.0)
-		var ragged := br.half_width + _shape.get_noise_2d(wx * 2.3, wz * 2.3) * 1.0
-		if p.distance_to(br.a + ab * t) <= ragged:
-			var y := clampi(roundi(lerpf(br.ha, br.hb, t)), 4, _max_y)
-			var thick := 4 + int(_under.get_noise_2d(wx, wz) * 1.6)
-			return Vector2i(y, maxi(y - thick, 1))
-	return EMPTY
-
-## True when a point is on or within `margin` blocks of a bridge strip (props keep off them).
-func near_bridge(p: Vector2, margin: float) -> bool:
-	for br in bridges:
-		var ab := br.b - br.a
-		var len2 := ab.length_squared()
-		if len2 < 1.0:
+		if only_middle and (t < 0.14 or t > 0.86):
 			continue
-		var t := clampf((p - br.a).dot(ab) / len2, 0.0, 1.0)
-		if p.distance_to(br.a + ab * t) <= br.half_width + 1.0 + margin:
-			return true
+		var perp := Vector2(-ab.y, ab.x).normalized()
+		var lateral := (p - br.a).dot(perp) - br.lateral_offset(t)
+		# Width: wide landings at both ends, pinches in between, a bulge (rest platform) in the middle of long bridges.
+		var edge := smoothstep(0.0, 0.22, minf(t, 1.0 - t))
+		var pinch := br.base_width + 0.8 * sin(t * TAU * 1.5 + br.width_phase)
+		var w := lerpf(3.4, maxf(pinch, 1.3), edge)
+		if br.length() > 26.0:
+			w += 2.2 * (1.0 - smoothstep(0.0, 0.1, absf(t - 0.5)))
+		w += _shape.get_noise_2d(wx * 2.3, wz * 2.3) * 0.8
+		if absf(lateral) > w:
+			continue
+		var y := clampi(roundi(lerpf(br.ha, br.hb, t) + br.hump * sin(PI * t)), 4, _max_y)
+		var thick: int
+		if br.style == 1:
+			thick = 2 + int(round(4.0 * pow(1.0 - sin(PI * t), 1.2)))
+			if _under.get_noise_2d(wx * 1.7, wz * 1.7) > 0.45 and absf(lateral) < w * 0.6:
+				thick += 3   # stalactite
+		else:
+			thick = 4 + int(_under.get_noise_2d(wx, wz) * 1.6)
+		return Vector3i(y, maxi(y - thick, 1), br.style)
+	return Vector3i(-1, -1, -1)
+
+
+## True when a point is on or within `margin` blocks of a bridge (props keep off them).
+func near_bridge(p: Vector2, margin: float) -> bool:
+	if bridges.is_empty():
+		return false
+	var m := int(ceil(margin)) + 1
+	for dz in range(-m, m + 1, 2):
+		for dx in range(-m, m + 1, 2):
+			var q := Vector2(p.x + dx, p.y + dz)
+			if _island_column(int(q.x), int(q.y)) != EMPTY:
+				continue
+			if _bridge_at(int(q.x), int(q.y), Vector2(int(q.x) + 0.5, int(q.y) + 0.5)).x >= 0:
+				return true
 	return false
 
 
@@ -279,9 +347,11 @@ func _island_column(wx: int, wz: int) -> Vector2i:
 	return Vector2i(top_i, bottom_i)
 
 
-func block_at(wx: int, wy: int, wz: int, top: int, bottom: int) -> int:
+func block_at(wx: int, wy: int, wz: int, top: int, bottom: int, style := -1) -> int:
 	if wy > top or wy < bottom:
 		return Blocks.AIR
+	if style == 1 and wy > bottom:
+		return Blocks.STONE   # bare stone arch bridge
 	var depth := top - wy
 	if depth == 0:
 		if wy >= snow_y:
@@ -319,14 +389,17 @@ func region(cx: int, cz: int) -> Array:
 		return cached
 	var tops := PackedInt32Array()
 	var bottoms := PackedInt32Array()
+	var styles := PackedInt32Array()
 	tops.resize(18 * 18)
 	bottoms.resize(18 * 18)
+	styles.resize(18 * 18)
 	for z in range(-1, 17):
 		for x in range(-1, 17):
-			var col := column(cx * 16 + x, cz * 16 + z)
+			var col := column_full(cx * 16 + x, cz * 16 + z)
 			tops[(x + 1) + (z + 1) * 18] = col.x
 			bottoms[(x + 1) + (z + 1) * 18] = col.y
-	var res := [tops, bottoms]
+			styles[(x + 1) + (z + 1) * 18] = col.z
+	var res := [tops, bottoms, styles]
 	_region_mutex.lock()
 	_region_cache[key] = res
 	_region_mutex.unlock()
@@ -342,6 +415,7 @@ func generate_chunk(cpos: Vector3i) -> PackedByteArray:
 	var reg := region(cpos.x, cpos.z)
 	var tops: PackedInt32Array = reg[0]
 	var bottoms: PackedInt32Array = reg[1]
+	var styles: PackedInt32Array = reg[2]
 	var any := false
 	for z in cs:
 		for x in cs:
@@ -363,7 +437,7 @@ func generate_chunk(cpos: Vector3i) -> PackedByteArray:
 				continue
 			var bottom := bottoms[i]
 			for y in cs:
-				data[x + (z << 4) + (y << 8)] = block_at(ox + x, oy + y, oz + z, top, bottom)
+				data[x + (z << 4) + (y << 8)] = block_at(ox + x, oy + y, oz + z, top, bottom, styles[i])
 			var ramp_y := top + 1 - oy
 			if ramp_y >= 0 and ramp_y < cs and top + 1 <= _max_y:
 				var nt := {}
@@ -371,5 +445,5 @@ func generate_chunk(cpos: Vector3i) -> PackedByteArray:
 					nt[off] = tops[(x + 1 + off.x) + (z + 1 + off.y) * 18]
 				var shape := Ramps.shape_from(top, nt)
 				if shape != Blocks.SHAPE_CUBE:
-					data[x + (z << 4) + (ramp_y << 8)] = Blocks.make(block_at(ox + x, top, oz + z, top, bottom), shape)
+					data[x + (z << 4) + (ramp_y << 8)] = Blocks.make(block_at(ox + x, top, oz + z, top, bottom, styles[i]), shape)
 	return data

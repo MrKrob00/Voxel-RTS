@@ -29,11 +29,11 @@ func _init() -> void:
 			for isl in gen.islands:
 				_check(isl.center.x - isl.radius > 0 and isl.center.y - isl.radius > 0 and isl.center.x + isl.radius < size.x and isl.center.y + isl.radius < size.z, "seed %d: island inside the map" % seed_value)
 			for br in gen.bridges:
-				var steps := int(br.a.distance_to(br.b))
-				lengths.append(steps)
+				var steps := int(br.length() * 1.25) + 1
+				lengths.append(int(br.length()))
 				var prev := -1
 				for i in steps + 1:
-					var p: Vector2 = br.a.lerp(br.b, float(i) / maxf(steps, 1))
+					var p: Vector2 = br.centre(float(i) / steps)
 					var col := gen.column(int(p.x), int(p.y))
 					if col == WorldGen.EMPTY:
 						_check(false, "seed %d: hole in a bridge deck at step %d/%d" % [seed_value, i, steps])

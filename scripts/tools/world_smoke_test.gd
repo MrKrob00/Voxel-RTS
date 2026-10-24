@@ -180,11 +180,11 @@ func _terrain_report(world: VoxelWorld) -> void:
 func _bridge_report(world: VoxelWorld) -> void:
 	var gen := world.generator
 	for br in gen.bridges:
-		var steps := int(br.a.distance_to(br.b))
+		var steps := int(br.length() * 1.25) + 1
 		var prev := -1
 		var ok := true
 		for i in steps + 1:
-			var p: Vector2 = br.a.lerp(br.b, float(i) / maxf(steps, 1))
+			var p: Vector2 = br.centre(float(i) / steps)
 			var col := gen.column(int(p.x), int(p.y))
 			if col == WorldGen.EMPTY:
 				ok = false
