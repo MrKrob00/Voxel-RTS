@@ -30,6 +30,8 @@ func _init() -> void:
 		var col := world.generator.column(int(isl.center.x), int(isl.center.y))
 		_check(col.x > 0, "island %d has ground at its centre (top y=%d)" % [i, col.x])
 
+	_terrain_report(world)
+
 	for i in 600:
 		await process_frame
 	var meshes := 0
@@ -58,3 +60,51 @@ func _init() -> void:
 		await process_frame
 
 	quit(1 if _failed else 0)
+
+
+## Walks the start island by column heights (up 1 / down 2 per step) and reports how much of it is reachable,
+## and how much of it is mountain, to prove that passes exist and the map is not flat.
+func _terrain_report(world: VoxelWorld) -> void:
+	var gen := world.generator
+	var isl: WorldGen.Island = gen.islands[0]
+	var r := int(isl.radius * 1.3)
+	var cx := int(isl.center.x)
+	var cz := int(isl.center.y)
+	var total := 0
+	var high := 0
+	var min_h := 999
+	var max_h := 0
+	for dz in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			var col := gen.column(cx + dx, cz + dz)
+			if col.x < 0:
+				continue
+			total += 1
+			min_h = mini(min_h, col.x)
+			max_h = maxi(max_h, col.x)
+			if col.x > isl.base_top + 12:
+				high += 1
+	var seen := {}
+	var queue: Array[Vector2i] = [Vector2i(cx, cz)]
+	seen[queue[0]] = true
+	var reach := 0
+	while not queue.is_empty():
+		var p: Vector2i = queue.pop_back()
+		reach += 1
+		var h := gen.column(p.x, p.y).x
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var q: Vector2i = p + d
+			if seen.has(q):
+				continue
+			var qc := gen.column(q.x, q.y)
+			if qc.x < 0:
+				continue
+			var dh := qc.x - h
+			if dh <= 1 and dh >= -2:
+				seen[q] = true
+				queue.append(q)
+	print("start island: %d columns, height %d..%d, mountains %.0f%%, walkable from spawn %.0f%%" % [total, min_h, max_h, 100.0 * high / total, 100.0 * reach / total])
+	_check(max_h - min_h >= 25, "relief is not flat (%d blocks)" % (max_h - min_h))
+	_check(high > total * 0.08, "there are mountains")
+	_check(reach > total * 0.45, "walkable ground is connected from spawn")
+	_check(reach < total * 0.97, "mountains block part of the island (passes, not a plain)")

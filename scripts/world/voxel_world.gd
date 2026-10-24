@@ -7,7 +7,7 @@ extends Node3D
 signal generation_finished
 signal chunk_meshed(cpos: Vector3i)
 
-@export var size_chunks := Vector3i(16, 6, 16)
+@export var size_chunks := Vector3i(16, 7, 16)
 @export var world_seed := 1337
 ## Meshes committed to the scene per frame. Lower is smoother on tablets.
 @export var meshes_per_frame := 6
