@@ -15,6 +15,7 @@ func _init() -> void:
 	_brushes()
 	_cliffs()
 	_slices()
+	print("TEST DONE: ", "FAILED" if _failed else "passed")
 	quit(1 if _failed else 0)
 
 

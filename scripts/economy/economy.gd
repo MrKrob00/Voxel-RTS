@@ -71,8 +71,9 @@ func remove_stockpile(s: Stockpile) -> void:
 	changed.emit()
 
 
-## A stockpile that would take one more bag of `kind`, nearest to `from` (by straight line); null when there is none.
-## Bags already on their way count: two workers do not both get the last place.
+## A stockpile that would take `n` more of `kind`: first one that already holds that kind (like with like), else an empty one; the
+## nearest to `from` (by straight line) of those. Null when there is none. Goods already on their way count: two workers do not
+## both get the last place.
 func find_space(from: Vector3i, kind: int, n := 1) -> Stockpile:
 	var best: Stockpile = null
 	var best_d := INF
@@ -84,7 +85,7 @@ func find_space(from: Vector3i, kind: int, n := 1) -> Stockpile:
 			continue   # someone is bringing another kind to this empty one
 		if s.room_for(kind) - (r.get("count", 0) if (r.is_empty() or r.kind == kind) else 0) < n:
 			continue
-		var d := Vector2(s.origin.x - from.x, s.origin.z - from.z).length()
+		var d := Vector2(s.origin.x - from.x, s.origin.z - from.z).length() + (0.0 if s.holding == kind else 10000.0)
 		if d < best_d:
 			best_d = d
 			best = s

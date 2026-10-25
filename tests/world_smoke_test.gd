@@ -56,6 +56,7 @@ func _init() -> void:
 	await _test_random_edits(world)
 	await _test_basic_editing(world, spawn)
 
+	print("TEST DONE: ", "FAILED" if _failed else "passed")
 	quit(1 if _failed else 0)
 
 

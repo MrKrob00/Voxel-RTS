@@ -9,6 +9,7 @@ const CHOP_TIME := 4.0
 const CUT_TIME := 1.4
 const PICK_TIME := 0.6
 const LOGS_PER_TREE := 3
+const MAX_FAILURES := 3
 const MARK_COLOR := Color(0.35, 0.9, 0.3, 0.6)
 const CLAIMED_COLOR := Color(1.0, 0.55, 0.1, 0.7)
 
@@ -20,6 +21,7 @@ class Target extends RefCounted:
 	var pos := Vector3.ZERO
 	var claimed: Unit
 	var blocked_until := 0.0
+	var failures := 0         ## times nobody could reach it; after MAX_FAILURES it is given up
 
 var harvest_kind := Kind.TREES
 var targets: Array[Target] = []
@@ -54,8 +56,12 @@ func add_log(l: LooseLog) -> void:
 	targets.append(t)
 
 
+## Done when nothing is left that anybody can still get to (a log that rolled off a ledge is given up after a few tries).
 func is_finished() -> bool:
-	return targets.is_empty()
+	for t in targets:
+		if t.failures < MAX_FAILURES or t.claimed != null:
+			return false
+	return true
 
 
 func summary() -> String:
@@ -75,7 +81,7 @@ func claim(unit: Unit, from: Vector3i, now: float) -> Variant:
 	var best: Target = null
 	var best_score := INF
 	for t in targets:
-		if t.claimed != null or t.blocked_until > now:
+		if t.claimed != null or t.blocked_until > now or t.failures >= MAX_FAILURES:
 			continue
 		var pos := t.log.global_position if (t.type == "log" and is_instance_valid(t.log)) else t.pos
 		var d := Vector2(pos.x - from.x, pos.z - from.z).length() + (0.0 if t.type == "log" else 12.0)
@@ -97,6 +103,8 @@ func release(target: Variant, retry_after := 0.0) -> void:
 	if t.log != null and is_instance_valid(t.log):
 		t.log.claimed_by = null
 	t.blocked_until = retry_after
+	if retry_after > 0.0:
+		t.failures += 1
 
 
 func complete(target: Variant) -> void:

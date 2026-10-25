@@ -1,9 +1,8 @@
-extends SceneTree
-## Headless: godot --headless --path . -s res://tests/quarry_test.gd
+extends TestSuite
+## Suite of tests/run_suites.gd (godot --headless --path . -s res://tests/run_suites.gd -- quarry).
 ## A quarry digs layer by layer and leaves a staircase that units can walk down into the pit and climb back out of: a step (with a stair
 ## piece) in every column, one block lower each, no flat stretches except a landing where the stairs turn a corner.
 
-var _failed := false
 var _world: VoxelWorld
 var _units: UnitManager
 var _board: TaskBoard
@@ -11,29 +10,19 @@ var _top_y := 0
 var _corner := Vector3i.ZERO
 
 
-func _check(cond: bool, what: String) -> void:
-	print(("ok   " if cond else "FAIL ") + what)
-	if not cond:
-		_failed = true
-
-
-func _init() -> void:
-	_world = VoxelWorld.new()
-	_world.extra_islands = 0
-	root.add_child(_world)
-	while not _world.is_ready():
-		await process_frame
+func run() -> void:
+	_world = ctx.world
 	var bricks := BrickWorld.new()
-	root.add_child(bricks)
+	add(bricks)
 	bricks.setup(_world)
 	_units = UnitManager.new()
-	root.add_child(_units)
+	add(_units)
 	_units.setup(_world, bricks)
 	var economy := Economy.new()
-	root.add_child(economy)
+	add(economy)
 	economy.setup(_world, bricks)
 	_board = TaskBoard.new()
-	root.add_child(_board)
+	add(_board)
 	_board.setup(_world, _units.nav, economy, null, null, _units)
 	for n in [_units, _board]:
 		n.process_mode = Node.PROCESS_MODE_DISABLED
@@ -51,9 +40,8 @@ func _init() -> void:
 	_corner_case()
 	var waited := 0
 	while not _world.is_settled() and waited < 3000:
-		await process_frame
+		await tree.process_frame
 		waited += 1
-	quit(1 if _failed else 0)
 
 
 func _run(task: DigTask, crew_size: int, at: Vector3i) -> int:
@@ -68,7 +56,7 @@ func _run(task: DigTask, crew_size: int, at: Vector3i) -> int:
 			u._process(0.05)
 		frames += 1
 	for u in crew:
-		_check(u.is_idle() and u.carried_amount() == 0, "a worker is idle again")
+		check(u.is_idle() and u.carried_amount() == 0, "a worker is idle again")
 		_units.units.erase(u)
 		u.queue_free()
 	return frames
@@ -87,20 +75,20 @@ func _straight() -> void:
 	var x0 := _corner.x + 4
 	var z0 := _corner.z + 4
 	var task := _board.create_dig(x0, z0, x0 + 7, z0 + 5, 3)
-	_check(task != null and task.depth == 3, "a quarry 8 x 6 columns, 3 layers deep (depth %d)" % task.depth)
-	_check(task.stair_columns.size() == 4, "its staircase is four columns long: the start and one step per layer, no flat stretches (%d)" % task.stair_columns.size())
+	check(task != null and task.depth == 3, "a quarry 8 x 6 columns, 3 layers deep (depth %d)" % task.depth)
+	check(task.stair_columns.size() == 4, "its staircase is four columns long: the start and one step per layer, no flat stretches (%d)" % task.stair_columns.size())
 	var want := [0, 1, 2, 3]
 	var ok := true
 	for j in 4:
 		ok = ok and task.limits[Vector2i(x0 + j, z0)] == want[j]
-	_check(ok, "the stair columns are dug 0, 1, 2, 3 layers")
+	check(ok, "the stair columns are dug 0, 1, 2, 3 layers")
 	var rises := true
 	for j in [1, 2, 3]:
 		rises = rises and task.stair_rise[Vector2i(x0 + j, z0)] == Vector2i(-1, 0)
-	_check(rises, "columns 1 to 3 are stair pieces rising towards the column before")
-	_check(task.cells.size() == 47, "layer 1 marks every column but the first of the staircase (%d)" % task.cells.size())
+	check(rises, "columns 1 to 3 are stair pieces rising towards the column before")
+	check(task.cells.size() == 47, "layer 1 marks every column but the first of the staircase (%d)" % task.cells.size())
 	var frames := _run(task, 4, Vector3i(x0 - 2, _top_y + 1, z0 - 2))
-	_check(not _board.tasks.has(task), "the quarry is finished (%.0f s of work by 4 units)" % (frames * 0.05))
+	check(not _board.tasks.has(task), "the quarry is finished (%.0f s of work by 4 units)" % (frames * 0.05))
 	var depth_ok := true
 	var msg := ""
 	for col in task.columns:
@@ -108,40 +96,40 @@ func _straight() -> void:
 			depth_ok = false
 			msg = "column %s dug %d, wanted %d" % [str(col), _dug(col), task.limits.get(col, task.depth)]
 			break
-	_check(depth_ok, "every column is dug exactly as deep as planned %s" % msg)
+	check(depth_ok, "every column is dug exactly as deep as planned %s" % msg)
 	var pieces_ok := true
 	for j in [1, 2, 3]:
 		var cell := Vector3i(x0 + j, _top_y - j + 1, z0)
 		var raw := _world.get_block(cell)
 		if not (Blocks.is_stairs(raw) and Blocks.wedge_direction(Blocks.shape(raw)) == Vector2i(-1, 0)):
 			pieces_ok = false
-	_check(pieces_ok, "each of them holds a stair piece")
+	check(pieces_ok, "each of them holds a stair piece")
 	var stairs_cell := Vector3i(x0 + 2, _top_y - 1, z0)
 	var nav := _units.nav
-	_check(nav.standable(stairs_cell), "a stair piece is a place to stand")
+	check(nav.standable(stairs_cell), "a stair piece is a place to stand")
 	var low := nav.feet_height(stairs_cell, stairs_cell.x + 0.9, stairs_cell.z + 0.5)
 	var high := nav.feet_height(stairs_cell, stairs_cell.x + 0.1, stairs_cell.z + 0.5)
-	_check(is_equal_approx(high, stairs_cell.y + 1.0) and is_equal_approx(low, stairs_cell.y + 0.25), "feet climb four steps from a quarter to a whole block (%.2f to %.2f)" % [low - stairs_cell.y, high - stairs_cell.y])
+	check(is_equal_approx(high, stairs_cell.y + 1.0) and is_equal_approx(low, stairs_cell.y + 0.25), "feet climb four steps from a quarter to a whole block (%.2f to %.2f)" % [low - stairs_cell.y, high - stairs_cell.y])
 	var levels := {}
 	for i in 20:
 		levels[snappedf(nav.feet_height(stairs_cell, stairs_cell.x + 1.0 - (i + 0.5) / 20.0, stairs_cell.z + 0.5), 0.001)] = true
-	_check(levels.size() == 4, "the height is stepped: exactly four levels (%d)" % levels.size())
+	check(levels.size() == 4, "the height is stepped: exactly four levels (%d)" % levels.size())
 	var entry := nav.nearest_standable(Vector3i(x0 - 1, _top_y + 1, z0), 2)
 	var bottom := nav.nearest_standable(Vector3i(x0 + 5, _top_y + 1 - 3, z0 + 3), 2)
-	_check(entry.x >= 0 and bottom.x >= 0 and bottom.y == _top_y + 1 - 3, "there is a floor at the bottom of the pit (y %d)" % bottom.y)
+	check(entry.x >= 0 and bottom.x >= 0 and bottom.y == _top_y + 1 - 3, "there is a floor at the bottom of the pit (y %d)" % bottom.y)
 	_walks(entry, bottom)
-	_check(nav.last_reached, "units can walk from the edge down to the bottom")
+	check(nav.last_reached, "units can walk from the edge down to the bottom")
 	var back := _walks(bottom, entry)
-	_check(nav.last_reached, "...and climb back out")
+	check(nav.last_reached, "...and climb back out")
 	var max_up := 0
 	for i in range(1, back.size()):
 		max_up = maxi(max_up, back[i].y - back[i - 1].y)
-	_check(max_up <= Navigation.MAX_STEP_UP, "the climb never needs more than one block at a step (%d)" % max_up)
+	check(max_up <= Navigation.MAX_STEP_UP, "the climb never needs more than one block at a step (%d)" % max_up)
 	var via_stairs := false
 	for c in back:
 		if c.z == z0 and c.x > x0 and c.x <= x0 + 3:
 			via_stairs = true
-	_check(via_stairs, "the way out goes up the staircase")
+	check(via_stairs, "the way out goes up the staircase")
 
 
 func _corner_case() -> void:
@@ -149,33 +137,33 @@ func _corner_case() -> void:
 	var x0 := _corner.x + 14
 	var z0 := _corner.z + 4
 	var task := _board.create_dig(x0, z0, x0 + 3, z0 + 3, 5)
-	_check(task != null and task.depth == 5, "a quarry 4 x 4 columns, 5 layers deep (depth %d)" % task.depth)
+	check(task != null and task.depth == 5, "a quarry 4 x 4 columns, 5 layers deep (depth %d)" % task.depth)
 	# The way round the edge: along x to the corner (a landing), along z, ... one column per layer, plus the landings.
 	var landings := 0
 	for col in task.stair_columns:
 		if col != Vector2i(x0, z0) and not task.stair_rise.has(col):
 			landings += 1
-	_check(task.stair_rise.size() == 5 and landings == 1, "five steps and one landing, at the corner (%d steps, %d landings)" % [task.stair_rise.size(), landings])
-	_check(task.limits[Vector2i(x0 + 3, z0)] == task.limits[Vector2i(x0 + 2, z0)], "the landing is as deep as the step before it")
+	check(task.stair_rise.size() == 5 and landings == 1, "five steps and one landing, at the corner (%d steps, %d landings)" % [task.stair_rise.size(), landings])
+	check(task.limits[Vector2i(x0 + 3, z0)] == task.limits[Vector2i(x0 + 2, z0)], "the landing is as deep as the step before it")
 	var after := Vector2i(x0 + 3, z0 + 1)
-	_check(task.stair_rise.get(after, Vector2i.ZERO) == Vector2i(0, -1), "after the corner the steps rise towards -z")
+	check(task.stair_rise.get(after, Vector2i.ZERO) == Vector2i(0, -1), "after the corner the steps rise towards -z")
 	_run(task, 4, Vector3i(x0 - 2, _top_y + 1, z0 - 2))
-	_check(not _board.tasks.has(task), "the quarry is finished")
+	check(not _board.tasks.has(task), "the quarry is finished")
 	var depth_ok := true
 	for col in task.columns:
 		depth_ok = depth_ok and _dug(col) == task.limits.get(col, task.depth)
-	_check(depth_ok, "every column is dug exactly as deep as planned")
+	check(depth_ok, "every column is dug exactly as deep as planned")
 	var landing_cell := Vector3i(x0 + 3, _top_y - task.limits[Vector2i(x0 + 3, z0)] + 1, z0)
-	_check(_world.get_block(landing_cell) == Blocks.AIR and _units.nav.standable(landing_cell), "the landing is plain floor")
+	check(_world.get_block(landing_cell) == Blocks.AIR and _units.nav.standable(landing_cell), "the landing is plain floor")
 	var nav := _units.nav
 	var entry := nav.nearest_standable(Vector3i(x0 - 1, _top_y + 1, z0), 2)
 	var bottom := nav.nearest_standable(Vector3i(x0 + 1, _top_y + 1 - 5, z0 + 1), 2)
-	_check(bottom.x >= 0 and bottom.y == _top_y + 1 - 5, "there is a floor five blocks down (y %d)" % bottom.y)
+	check(bottom.x >= 0 and bottom.y == _top_y + 1 - 5, "there is a floor five blocks down (y %d)" % bottom.y)
 	_walks(entry, bottom)
-	_check(nav.last_reached, "units can walk down the turning stairs to the bottom")
+	check(nav.last_reached, "units can walk down the turning stairs to the bottom")
 	var back := _walks(bottom, entry)
-	_check(nav.last_reached, "...and climb back out")
+	check(nav.last_reached, "...and climb back out")
 	var max_up := 0
 	for i in range(1, back.size()):
 		max_up = maxi(max_up, back[i].y - back[i - 1].y)
-	_check(max_up <= Navigation.MAX_STEP_UP, "the climb never needs more than one block at a step (%d)" % max_up)
+	check(max_up <= Navigation.MAX_STEP_UP, "the climb never needs more than one block at a step (%d)" % max_up)

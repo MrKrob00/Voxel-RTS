@@ -16,6 +16,7 @@ func _init() -> void:
 	for base in [0, Blocks.DUG_HEIGHT]:
 		_exhaustive(base)
 	_random_fields()
+	print("TEST DONE: ", "FAILED" if _failed else "passed")
 	quit(1 if _failed else 0)
 
 

@@ -150,19 +150,25 @@ it. Plains is the first one; winter and desert are new static constructors, not 
 
 ## Tests
 
-Run from the project folder (Godot 4.7.2 headless):
+Run from the project folder (Godot 4.7.2 headless). One command runs everything, several groups at once:
 
 ```
-godot --headless --path . --import                              # once, builds the class cache
-godot --headless --path . -s res://tests/world_smoke_test.gd    # generation, islands, bridges, stages, slopes, atomic frames
-godot --headless --path . -s res://tests/ramps_rule_test.gd     # the slope rule on all 6561 neighbourhoods + random height fields
-godot --headless --path . -s res://tests/brick_test.gd          # support rules, collapse, flat-ground-only building
-godot --headless --path . -s res://tests/island_seeds_test.gd   # 40 seeds x 3 island counts: layout and bridges
-godot --headless --path . -s res://tests/ground_cover_test.gd   # bare-earth brushes, cliff pass, mesher slices
-godot --headless --path . -s res://tests/navigation_test.gd     # standing rules, A*, bridges, bricks, a unit walking and falling
-godot --headless --path . -s res://tests/work_test.gd           # stockpile rules, the dig / carry / put-down loop
-godot --headless --path . -s res://tests/quarry_test.gd         # layer-by-layer quarry, the staircase and stair pieces, the way down and out
+tests/run_all.sh              # smoke, shared, islands, cover, ramps
+tests/run_all.sh shared       # only the groups whose name contains the word
 ```
+
+The pass/fail verdict comes from the output (a "TEST DONE" / "SUITES DONE" line and no FAIL or SCRIPT ERROR line), not from the
+exit code: Godot headless can abort while shutting down after a world was generated, even with every check passed.
+
+- **shared** (`tests/run_suites.gd`, suites in `tests/suites/`): navigation, work (stockpiles, dig/haul loop), quarry (layers,
+  staircase, stair pieces), craft (felling, logs as rigid bodies, stump, grass, rope machine) and bricks. They share **one world**, generated
+  once (256 x 256, one extra island, trees and grass, no meshes) in about 2 s. Each suite gets it back in its original state
+  (`VoxelWorld.snapshot()` / `restore()`, `PropField.reset()`) and its own scene container (`TestSuite`, `TestContext`). Run a few with
+  `-s res://tests/run_suites.gd -- quarry work`. Suites step the units and the task board by hand with a fixed time step, so they are fast.
+- `tests/world_smoke_test.gd`: generation on the full map, islands, bridges, ground stages and slopes, atomic frames, 569 random edits.
+  It needs real meshes and the full-size world, so it has its own.
+- `tests/island_seeds_test.gd`: 40 seeds x 3 island counts: layout and bridges. `tests/ground_cover_test.gd`, `tests/ramps_rule_test.gd`:
+  no world at all (bare earth brushes; the slope rule on all 6561 neighbourhoods).
 
 Screenshots (virtual display): `xvfb-run -a godot --path . --rendering-driver opengl3 -- --shot=out.png [--zoom=D --focus=X,Z
 --pitch=DEG --yaw=DEG --extras=N --seed=S --dig=X,Z,STAGES --noprops]`.

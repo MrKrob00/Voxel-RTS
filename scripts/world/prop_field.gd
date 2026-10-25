@@ -136,6 +136,18 @@ func _scatter() -> void:
 	_done = true
 
 
+## Puts every felled tree and cut tuft back (tests share one world and give each suite a fresh one).
+func reset() -> void:
+	for i in trees.size():
+		if tree_alive[i] == 0:
+			tree_alive[i] = 1
+			_multimeshes["pine"].set_instance_transform(i, trees[i])
+	for i in tufts.size():
+		if tuft_alive[i] == 0:
+			tuft_alive[i] = 1
+			_multimeshes["tuft"].set_instance_transform(i, tufts[i])
+
+
 func is_built() -> bool:
 	return _built
 

@@ -1,33 +1,22 @@
-extends SceneTree
-## Headless: godot --headless --path . -s res://tests/navigation_test.gd
+extends TestSuite
+## Suite of tests/run_suites.gd (godot --headless --path . -s res://tests/run_suites.gd -- navigation).
 ## Where units may stand and walk: the surface under their feet, pathfinding over ground, slopes, pits, bridges and bricks,
 ## and a unit actually walking a path.
 
-var _failed := false
 
 
-func _check(cond: bool, what: String) -> void:
-	print(("ok   " if cond else "FAIL ") + what)
-	if not cond:
-		_failed = true
-
-
-func _init() -> void:
+func run() -> void:
 	_surface_heights()
-	var world := VoxelWorld.new()
-	world.extra_islands = 1
-	root.add_child(world)
-	while not world.is_ready():
-		await process_frame
+	var world := ctx.world
 	var bricks := BrickWorld.new()
-	root.add_child(bricks)
+	add(bricks)
 	bricks.setup(world)
 	var nav := Navigation.new(world, bricks)
 	var spawn := world.spawn_point()
 	var start := Vector3i(spawn.x, spawn.y + 1, spawn.z)
-	_check(nav.standable(start), "the spawn is a place to stand")
-	_check(not nav.standable(start + Vector3i(0, 1, 0)), "the air one block above it is not (nothing under the feet)")
-	_check(not nav.standable(Vector3i(spawn.x, spawn.y, spawn.z)), "the ground block itself is not")
+	check(nav.standable(start), "the spawn is a place to stand")
+	check(not nav.standable(start + Vector3i(0, 1, 0)), "the air one block above it is not (nothing under the feet)")
+	check(not nav.standable(Vector3i(spawn.x, spawn.y, spawn.z)), "the ground block itself is not")
 
 	_walk_on_island(world, nav, start)
 	_bridges(world, nav, start)
@@ -38,20 +27,19 @@ func _init() -> void:
 	# Let the mesh workers finish before the world is torn down.
 	var waited := 0
 	while not world.is_settled() and waited < 3000:
-		await process_frame
+		await tree.process_frame
 		waited += 1
-	quit(1 if _failed else 0)
 
 
 func _surface_heights() -> void:
-	_check(Blocks.surface_height(Blocks.SHAPE_CUBE, 0.5, 0.5) == 1.0, "surface: a cube is one block high")
+	check(Blocks.surface_height(Blocks.SHAPE_CUBE, 0.5, 0.5) == 1.0, "surface: a cube is one block high")
 	var wedge := Blocks.shape_from_corners(0, 0, 4, 4)   # rises towards +z
-	_check(is_equal_approx(Blocks.surface_height(wedge, 0.5, 0.0), 0.0) and is_equal_approx(Blocks.surface_height(wedge, 0.5, 1.0), 1.0), "surface: a wedge rises from 0 to 1")
-	_check(is_equal_approx(Blocks.surface_height(wedge, 0.3, 0.5), 0.5), "surface: halfway up the wedge is half a block")
+	check(is_equal_approx(Blocks.surface_height(wedge, 0.5, 0.0), 0.0) and is_equal_approx(Blocks.surface_height(wedge, 0.5, 1.0), 1.0), "surface: a wedge rises from 0 to 1")
+	check(is_equal_approx(Blocks.surface_height(wedge, 0.3, 0.5), 0.5), "surface: halfway up the wedge is half a block")
 	var corner := Blocks.shape_from_corners(4, 0, 0, 0)
-	_check(is_equal_approx(Blocks.surface_height(corner, 0.0, 0.0), 1.0) and is_equal_approx(Blocks.surface_height(corner, 1.0, 1.0), 0.0), "surface: a corner piece is high at its raised corner only")
-	_check(is_equal_approx(Blocks.surface_height(Blocks.SHAPE_DUG, 0.5, 0.5), 0.75), "surface: the floor of a half-dug block is 3/4 high")
-	_check(is_equal_approx(Blocks.surface_height(Blocks.SHAPE_BOWL, 0.0, 0.0), 1.0), "surface: the rim of a bowl is a full block")
+	check(is_equal_approx(Blocks.surface_height(corner, 0.0, 0.0), 1.0) and is_equal_approx(Blocks.surface_height(corner, 1.0, 1.0), 0.0), "surface: a corner piece is high at its raised corner only")
+	check(is_equal_approx(Blocks.surface_height(Blocks.SHAPE_DUG, 0.5, 0.5), 0.75), "surface: the floor of a half-dug block is 3/4 high")
+	check(is_equal_approx(Blocks.surface_height(Blocks.SHAPE_BOWL, 0.0, 0.0), 1.0), "surface: the rim of a bowl is a full block")
 	# The surface is continuous across the whole cell: no jumps between neighbouring sample points.
 	var smooth := true
 	for shape in [wedge, corner, Blocks.SHAPE_BOWL, Blocks.dug_shape(5, 3)]:
@@ -60,7 +48,7 @@ func _surface_heights() -> void:
 			var v := Blocks.surface_height(shape, i / 40.0, i / 40.0)
 			smooth = smooth and absf(v - prev) < 0.06
 			prev = v
-	_check(smooth, "surface: no jumps along the diagonal of any piece")
+	check(smooth, "surface: no jumps along the diagonal of any piece")
 
 
 func _valid_path(nav: Navigation, path: Array[Vector3i]) -> String:
@@ -96,8 +84,8 @@ func _walk_on_island(world: VoxelWorld, nav: Navigation, start: Vector3i) -> voi
 			var why := _valid_path(nav, path)
 			if why != "":
 				bad = why
-	_check(tried >= 4 and found == tried, "paths over the start island: %d of %d found (worst search expanded %d cells, %d ms for all)" % [found, tried, worst, (Time.get_ticks_usec() - t0) / 1000])
-	_check(bad == "", "every cell of those paths is standable and every step is a legal move %s" % bad)
+	check(tried >= 4 and found == tried, "paths over the start island: %d of %d found (worst search expanded %d cells, %d ms for all)" % [found, tried, worst, (Time.get_ticks_usec() - t0) / 1000])
+	check(bad == "", "every cell of those paths is standable and every step is a legal move %s" % bad)
 
 
 func _bridges(world: VoxelWorld, nav: Navigation, start: Vector3i) -> void:
@@ -123,8 +111,8 @@ func _bridges(world: VoxelWorld, nav: Navigation, start: Vector3i) -> void:
 				bad = why
 		else:
 			print("   island %d: not reached, expanded %d" % [i, nav.last_expanded])
-	_check(total > 0 and reached == total, "paths over the bridges to every extra island: %d of %d (%d ms)" % [reached, total, ms])
-	_check(bad == "", "bridge paths are legal %s" % bad)
+	check(total > 0 and reached == total, "paths over the bridges to every extra island: %d of %d (%d ms)" % [reached, total, ms])
+	check(bad == "", "bridge paths are legal %s" % bad)
 
 
 func _blocked_goal(world: VoxelWorld, nav: Navigation, start: Vector3i) -> void:
@@ -137,13 +125,13 @@ func _blocked_goal(world: VoxelWorld, nav: Navigation, start: Vector3i) -> void:
 			for dy in range(0, 3):
 				world.set_block(goal + Vector3i(dx, dy, dz), Blocks.make(Blocks.STONE))
 	var path := nav.find_path(start, goal)
-	_check(not nav.last_reached, "a goal walled in on all sides is not reached")
-	_check(path.size() >= 2 and Vector2(path[-1].x - goal.x, path[-1].z - goal.z).length() <= 4.5, "...but the path gets within a few blocks of it (ends %s, goal %s)" % [str(path[-1]) if not path.is_empty() else "-", str(goal)])
+	check(not nav.last_reached, "a goal walled in on all sides is not reached")
+	check(path.size() >= 2 and Vector2(path[-1].x - goal.x, path[-1].z - goal.z).length() <= 4.5, "...but the path gets within a few blocks of it (ends %s, goal %s)" % [str(path[-1]) if not path.is_empty() else "-", str(goal)])
 	# Open one side and it can be reached again.
 	for dy in range(0, 3):
 		world.set_block(goal + Vector3i(1, dy, 0), Blocks.AIR)
 	var again := nav.find_path(start, goal)
-	_check(nav.last_reached and again[-1] == goal, "after opening a gap the goal is reached")
+	check(nav.last_reached and again[-1] == goal, "after opening a gap the goal is reached")
 
 
 func _drops_and_pits(world: VoxelWorld, nav: Navigation, start: Vector3i) -> void:
@@ -154,12 +142,12 @@ func _drops_and_pits(world: VoxelWorld, nav: Navigation, start: Vector3i) -> voi
 		world.set_block(pit + Vector3i(0, dy, 0), Blocks.AIR)
 	var floor_cell := pit + Vector3i(0, -5, 0)
 	world.set_block(floor_cell + Vector3i(0, -1, 0), Blocks.make(Blocks.STONE))
-	_check(nav.standable(floor_cell), "the bottom of a deep shaft is standable")
+	check(nav.standable(floor_cell), "the bottom of a deep shaft is standable")
 	var linked := false
 	for r in nav.neighbours(rim):
 		if r[0] == floor_cell:
 			linked = true
-	_check(not linked, "...but you cannot step down five blocks into it")
+	check(not linked, "...but you cannot step down five blocks into it")
 	# A half-dug block is a floor too, one step down from its neighbours.
 	var flat := nav.nearest_standable(Vector3i(start.x + 6, start.y, start.z - 10), 3)
 	var next := flat + Vector3i(1, 0, 0)
@@ -167,14 +155,14 @@ func _drops_and_pits(world: VoxelWorld, nav: Navigation, start: Vector3i) -> voi
 		var top := next + Vector3i(0, -1, 0)
 		world.terrain.dig_step(top)
 		var dug := Blocks.is_dug(world.get_block(top))
-		_check(dug and nav.standable(top), "a half-dug block is a floor to stand in")
+		check(dug and nav.standable(top), "a half-dug block is a floor to stand in")
 		var down_ok := false
 		for r in nav.neighbours(flat):
 			if r[0] == top:
 				down_ok = true
-		_check(down_ok, "...one step down from its neighbour")
+		check(down_ok, "...one step down from its neighbour")
 		var h := nav.feet_height(top, top.x + 0.5, top.z + 0.5)
-		_check(is_equal_approx(h, top.y + 0.75), "...and the feet stand on its floor, 3/4 of the way up (%.2f)" % h)
+		check(is_equal_approx(h, top.y + 0.75), "...and the feet stand on its floor, 3/4 of the way up (%.2f)" % h)
 
 
 func _bricks(world: VoxelWorld, bricks: BrickWorld, nav: Navigation, start: Vector3i) -> void:
@@ -189,54 +177,54 @@ func _bricks(world: VoxelWorld, bricks: BrickWorld, nav: Navigation, start: Vect
 	var a := base + Vector3i(-3, 0, 0)
 	var b := base + Vector3i(3, 0, 0)
 	var direct := nav.find_path(a, b)
-	_check(nav.last_reached and direct.size() <= 8, "on a flat pad the way is straight (%d cells)" % direct.size())
+	check(nav.last_reached and direct.size() <= 8, "on a flat pad the way is straight (%d cells)" % direct.size())
 	for dz in range(-3, 3):
 		for dy in range(0, 2):
 			bricks.place(base + Vector3i(0, dy, dz), 0, BrickWorld.Kind.STONE, 1)
-	_check(not nav.standable(base + Vector3i(0, 0, 0)), "a brick is not a place to stand in")
-	_check(nav.standable(base + Vector3i(0, 2, 0)), "the top of a brick wall is a place to stand")
+	check(not nav.standable(base + Vector3i(0, 0, 0)), "a brick is not a place to stand in")
+	check(nav.standable(base + Vector3i(0, 2, 0)), "the top of a brick wall is a place to stand")
 	var around := nav.find_path(a, b)
-	_check(nav.last_reached and around.size() > direct.size(), "a wall of bricks makes the way longer (%d cells instead of %d)" % [around.size(), direct.size()])
+	check(nav.last_reached and around.size() > direct.size(), "a wall of bricks makes the way longer (%d cells instead of %d)" % [around.size(), direct.size()])
 	var through := false
 	for c in around:
 		if bricks.occupied(c):
 			through = true
-	_check(not through, "...and the path does not go through a brick")
+	check(not through, "...and the path does not go through a brick")
 
 
 func _unit_walks(world: VoxelWorld, nav: Navigation, start: Vector3i) -> void:
 	var manager := UnitManager.new()
-	root.add_child(manager)
+	add(manager)
 	manager.setup(world, null)
 	var u := manager.spawn(start)
 	var goal := nav.nearest_standable(Vector3i(start.x + 15, start.y, start.z - 6), 4)
 	var done := [false]
 	u.arrived.connect(func() -> void: done[0] = true)
-	_check(u.walk_to(goal), "a unit takes a walk order")
+	check(u.walk_to(goal), "a unit takes a walk order")
 	var frames := 0
 	while not done[0] and frames < 4000:
 		u._process(0.05)
 		frames += 1
-	_check(done[0] and u.cell == goal, "the unit arrives at its goal in %.1f s" % (frames * 0.05))
-	_check(u.position.distance_to(nav.feet_position(goal)) < 0.05, "...and stands on the ground there")
+	check(done[0] and u.cell == goal, "the unit arrives at its goal in %.1f s" % (frames * 0.05))
+	check(u.position.distance_to(nav.feet_position(goal)) < 0.05, "...and stands on the ground there")
 	# A squad sent to one spot spreads out to different cells.
 	var squad := manager.spawn_squad(start, 5, 1)
-	_check(squad.size() == 5, "a squad of five finds room")
+	check(squad.size() == 5, "a squad of five finds room")
 	manager.select_all()
 	var target := nav.nearest_standable(Vector3i(start.x - 12, start.y, start.z + 14), 4)
 	var moved := manager.command_move(target)
-	_check(moved >= 5, "a move order for the whole selection gives every unit a way (%d)" % moved)
+	check(moved >= 5, "a move order for the whole selection gives every unit a way (%d)" % moved)
 	var goals := {}
 	for s in manager.selection:
 		goals[s.goal] = true
-	_check(goals.size() == manager.selection.size(), "...each to its own cell")
+	check(goals.size() == manager.selection.size(), "...each to its own cell")
 	for step_i in 6000:
 		for s in manager.selection:
 			s._process(0.05)
 	var all_there := true
 	for s in manager.selection:
 		all_there = all_there and s.is_idle() and Vector2(s.cell.x - target.x, s.cell.z - target.z).length() < 4.0
-	_check(all_there, "the squad has arrived around the target")
+	check(all_there, "the squad has arrived around the target")
 	# Digging the floor out from under a unit makes it fall to the next floor instead of floating.
 	var victim := manager.spawn(nav.nearest_standable(Vector3i(start.x + 2, start.y, start.z + 2), 3))
 	var under := victim.cell + Vector3i(0, -1, 0)
@@ -244,4 +232,4 @@ func _unit_walks(world: VoxelWorld, nav: Navigation, start: Vector3i) -> void:
 	world.set_block(under + Vector3i(0, -1, 0), Blocks.make(Blocks.STONE))
 	for i in 60:
 		victim._process(0.05)
-	_check(victim.cell.y == under.y and absf(victim.position.y - float(under.y)) < 0.05, "a unit whose floor was dug out falls one block (now at y %.2f)" % victim.position.y)
+	check(victim.cell.y == under.y and absf(victim.position.y - float(under.y)) < 0.05, "a unit whose floor was dug out falls one block (now at y %.2f)" % victim.position.y)

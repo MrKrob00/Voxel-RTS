@@ -8,7 +8,7 @@ tasks, enemies and multiplayer are next.
 
 - `docs/architecture.md`: modules, the voxel format, the rules of digging and building, tests.
 - `docs/castle-story-reference.md`, `docs/reference-images.md`: notes on the game that inspired this one.
-- `tests/`: headless checks. `scenes/main.tscn` is the sandbox.
+- `tests/`: headless checks, `tests/run_all.sh` runs them all (a few minutes). `scenes/main.tscn` is the sandbox.
 
 Controls (sandbox): WASD pan, Q/E rotate, R/F tilt, wheel zoom, middle-drag rotate; on touch one finger drags, two pinch and
 twist. Tap / left click selects a unit or uses the current mode (select and move, mark dig area, place stockpile, dig, build

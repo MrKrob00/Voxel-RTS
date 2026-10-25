@@ -46,4 +46,5 @@ func _init() -> void:
 	print("extra-island counts over all runs: %s" % str(counts))
 	print("bridge lengths: min %d, median %d, max %d" % [lengths[0], lengths[lengths.size() / 2], lengths[-1]])
 	print("FAILED" if _failed else "all good")
+	print("TEST DONE: ", "FAILED" if _failed else "passed")
 	quit(1 if _failed else 0)

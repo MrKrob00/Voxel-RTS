@@ -21,6 +21,8 @@ signal block_changed(pos: Vector3i)
 ## Initial meshes committed to the scene per frame. Lower is smoother on tablets.
 @export var meshes_per_frame := 6
 @export var max_tasks_in_flight := 48
+## Off for headless tests that only need the voxel data: no meshes are built, which saves most of the work.
+@export var meshing_enabled := true
 
 var generator: WorldGen
 ## Set before the node enters the tree to pick another map type.
@@ -60,6 +62,7 @@ var _mesh_results: Array = []
 var _touched := {}                  ## chunks changed since the last frame: cpos -> Chunk
 var _group := {}                    ## the open edit group: Chunk -> true
 var _commit_queue: Array = []       ## chunks whose initial mesh waits for the per-frame budget (mesh in Chunk.pending)
+var _modified := {}                 ## cpos -> true: chunks written to since the world was generated or last restored
 var _mesh_holds := 0                ## meshing waits while anything (the cliff pass, the prop scatter) is still painting the ground cover
 
 var _solid_material: StandardMaterial3D
@@ -191,6 +194,7 @@ func set_block(p: Vector3i, raw: int) -> bool:
 	if c.data[idx] == raw:
 		return false
 	c.data[idx] = raw
+	_modified[cpos] = true
 	block_changed.emit(p)
 	# The chunk and any neighbour whose faces or ambient occlusion can see this voxel need a new mesh.
 	var lx := p.x & 15
@@ -268,9 +272,41 @@ func stats() -> String:
 	return "chunks %d/%d gen, tasks %d" % [_gen_done_count, _gen_total, _gen_in_flight + _mesh_in_flight]
 
 
-## True when no chunk is waiting for, or building, a newer mesh (edits have fully shown up).
+## True when the world is generated and no chunk is waiting for, or building, a newer mesh (edits have fully shown up), and
+## nothing is holding meshing back. Safe to tear the world down then: no worker task is still running.
 func is_settled() -> bool:
-	return _touched.is_empty() and _group.is_empty() and _mesh_in_flight == 0 and _commit_queue.is_empty()
+	if _mesh_holds > 0 or not _finished_signalled or _gen_in_flight > 0 or not _gen_queue.is_empty():
+		return false
+	if not _touched.is_empty() or not _group.is_empty() or _mesh_in_flight > 0 or not _commit_queue.is_empty():
+		return false
+	if meshing_enabled:
+		for c in _chunks.values():
+			if c.generated and c.built != c.version:
+				return false
+	return true
+
+
+## A copy of everything that edits can change (voxels and the grass cover), to go back to with restore(). For tests, which
+## generate one world and give every suite a fresh copy of it.
+func snapshot() -> Dictionary:
+	var chunks := {}
+	for key in _chunks:
+		var c: Chunk = _chunks[key]
+		chunks[key] = c.data.duplicate()
+	_modified = {}
+	return {"chunks": chunks, "cover": cover.bare.duplicate()}
+
+
+## Puts the world back as it was at snapshot() time. Only the chunks that were written to are touched.
+func restore(snap: Dictionary) -> void:
+	for key in _modified:
+		var c: Chunk = _chunks[key]
+		c.data = snap.chunks[key].duplicate()
+		c.version += 1
+		c.pending = null
+		_touched[key] = c
+	_modified = {}
+	cover.bare = snap.cover.duplicate()
 
 
 # --- pipeline -----------------------------------------------------------------------------------
@@ -322,6 +358,9 @@ func _drain_generated() -> void:
 func _open_edit_group() -> void:
 	if _touched.is_empty():
 		return
+	if not meshing_enabled:
+		_touched = {}
+		return
 	for key in _touched:
 		var c: Chunk = _touched[key]
 		c.in_group = true
@@ -333,7 +372,7 @@ func _open_edit_group() -> void:
 
 
 func _try_mesh(c: Chunk) -> void:
-	if _mesh_holds > 0 or c.meshing or not c.generated or c.built == c.version:
+	if not meshing_enabled or _mesh_holds > 0 or c.meshing or not c.generated or c.built == c.version:
 		return
 	if c.pending != null:
 		return   # already built for this version, waiting for the rest of its group
