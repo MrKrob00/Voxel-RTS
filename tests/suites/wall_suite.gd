@@ -99,6 +99,7 @@ func run() -> void:
 	for u in crew:
 		check(u.carried_amount() == 0 and u.is_idle() and _board.task_of(u) == null, "a unit is free and empty-handed again")
 	check(not _board.tasks.any(func(t: WorkTask) -> bool: return t is WallTask), "the wall's job is over")
+	check(_economy.place_wall(base + Vector3i(2, 0, 13), base + Vector3i(13, 0, 13), 5) != null and _economy.walls[-1].courses == WallPlan.MAX_COURSES, "a taller wall is cut back to %d courses for now" % WallPlan.MAX_COURSES)
 
 
 ## The layout alone: bricks and cubes in a running bond.

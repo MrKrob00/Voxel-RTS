@@ -127,6 +127,9 @@ func place_wall(from: Vector3i, to: Vector3i, height: int) -> WallPlan:
 	else:
 		lo.z = from.z
 	height = clampi(height, 1, WallPlan.MAX_COURSES)
+	if length < WallPlan.STAIR_RUN * (height - 1) + 1:
+		last_error = "a wall %d courses high must be at least %d cells long (it is climbed by its own staircase)" % [height, WallPlan.STAIR_RUN * (height - 1) + 1]
+		return null
 	var slots := WallPlan.layout(lo, axis, length, height)
 	last_error = ""
 	for s in slots:

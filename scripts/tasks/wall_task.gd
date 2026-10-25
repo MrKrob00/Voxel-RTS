@@ -27,12 +27,38 @@ func summary() -> String:
 
 ## A brick (two halves) is fetched; one half is enough to start (a cube).
 func input_needed() -> Dictionary:
+	if is_finished():
+		return {}
 	return {"kind": Resources.Kind.BRICK, "amount": 2, "min": 1}
 
 
 ## Can this slot be laid right now: free of other claims, and something to rest on.
 func _open(s: WallPlan.Slot, now := 0.0) -> bool:
-	return not s.done and s.claimed == null and s.blocked_until <= now and board.economy.bricks.can_place(s.origin, s.axis, s.length)
+	if s.done or s.claimed != null or s.blocked_until > now:
+		return false
+	# The body of the wall first: course k starts RUN cells further on than the course below, which leaves the start as a staircase to
+	# climb. The staircase is then closed in passes with a narrower and narrower step (2 cells, 1 cell, none), so there is a way up to
+	# the places that are left until the very last.
+	if s.col < s.course * _run():
+		return false
+	return board.economy.bricks.can_place(s.origin, s.axis, s.length)
+
+
+## The width of a step of the staircase in the current pass: 2, then 1, then 0 (the wall is closed).
+func _run() -> int:
+	if plan.courses <= WallPlan.REACH_COURSES:
+		return 0   # laid from the ground: no staircase is needed
+	var run := WallPlan.STAIR_RUN
+	while run > 0:
+		for s in plan.slots:
+			if not s.done and s.col >= s.course * run:
+				return run   # something of this pass is still to lay
+		run -= 1
+	return 0
+
+
+func _body_done() -> bool:
+	return _run() < WallPlan.STAIR_RUN
 
 
 func wants_workers(brd: TaskBoard) -> bool:
@@ -54,7 +80,8 @@ func claim(unit: Unit, from: Vector3i, _now: float) -> Variant:
 	for s in plan.slots:
 		if not _open(s, board.now) or s.halves() > have:
 			continue
-		var d := Vector2(s.origin.x - from.x, s.origin.z - from.z).length() + s.course * 0.4   # low courses first
+		# Low courses first; in the closing phase from the far end of the wall back to the start.
+		var d := Vector2(s.origin.x - from.x, s.origin.z - from.z).length() + s.course * 0.4 - (s.col * 0.05 if _body_done() else 0.0)
 		if d < best_d:
 			best_d = d
 			best = s

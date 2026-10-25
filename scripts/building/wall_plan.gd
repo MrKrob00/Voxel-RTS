@@ -10,6 +10,7 @@ class Slot extends RefCounted:
 	var axis: int          # 0: the brick spans origin and origin + X, 1: origin and origin + Z
 	var length: int        # 2 (a brick) or 1 (a cube)
 	var course: int
+	var col := 0           # how many cells from the start of the wall (the entry end) its first cell is
 	var done := false
 	var claimed: Unit
 	var blocked_until := 0.0   ## nobody could get to it: not tried again before this time
@@ -22,9 +23,15 @@ class Slot extends RefCounted:
 		return BrickWorld.cells_for(origin, axis, length)
 
 
-## A unit reaches this far above its feet to lay a brick (2 blocks up from the cell it stands in), so a wall can be built from the ground
-## to 3 courses; higher needs scaffolding, which does not exist yet.
+## A unit reaches 2 blocks above its feet to lay a brick, which is enough for 3 courses from the ground. Higher, it climbs the wall's own
+## bricks: the course k is started STAIR_RUN cells further along than the course k - 1, so the start of the wall is a staircase one block
+## up every STAIR_RUN cells; the units walk up it and lay the courses from the top of the wall. When the body is done the staircase is
+## closed in passes with a narrower step (2 cells, then 1 cell, then none), so there is a way up to what is left until the end.
+## Such a wall must be long enough: STAIR_RUN * (courses - 1) + 1 cells.
+## A taller wall (laid by climbing its own staircase) is NOT reliable yet: see WallTask._run. Until it is, walls are at most REACH_COURSES high.
+const REACH_COURSES := 3
 const MAX_COURSES := 3
+const STAIR_RUN := 2
 
 var slots: Array[Slot] = []
 var run_axis := 0           ## 0 along x, 1 along z
@@ -41,17 +48,18 @@ static func layout(first_cell: Vector3i, axis: int, length: int, height: int) ->
 	for course in height:
 		var pos := 0
 		if course % 2 == 1 and length > 1:
-			out.append(_slot(first_cell + step * pos + Vector3i(0, course, 0), axis, 1, course))   # the offset course starts with a cube
+			out.append(_slot(first_cell + step * pos + Vector3i(0, course, 0), axis, 1, course, pos))   # the offset course starts with a cube
 			pos = 1
 		while pos < length:
 			var len := 2 if pos + 1 < length else 1
-			out.append(_slot(first_cell + step * pos + Vector3i(0, course, 0), axis, len, course))
+			out.append(_slot(first_cell + step * pos + Vector3i(0, course, 0), axis, len, course, pos))
 			pos += len
 	return out
 
 
-static func _slot(origin_cell: Vector3i, axis: int, len: int, course: int) -> Slot:
+static func _slot(origin_cell: Vector3i, axis: int, len: int, course: int, column := 0) -> Slot:
 	var s := Slot.new()
+	s.col = column
 	s.origin = origin_cell
 	s.axis = axis
 	s.length = len
