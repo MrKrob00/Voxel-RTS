@@ -571,7 +571,7 @@ BLOCKS = {
     "cren_slope_corner": cren_roof_corner,
     "cren_slope_long": lambda: cren_roof(2.0),
     "cren_hip":     cren_roof_inner,
-    "cren_corbel_long": lambda: corbel_slab(1, 2),
+    "cren_corbel_long": lambda: corbel_slab(1.1),
     "cren_corbel":  lambda: corbel_slab(1),
     "cren_corbel_small": lambda: cren_corbel(1.0, 0.0),
     # --- Wood Blocks
