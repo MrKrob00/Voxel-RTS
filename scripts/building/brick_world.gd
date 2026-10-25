@@ -15,8 +15,6 @@ signal collapsed(count: int)
 enum Kind { STONE, WOOD }
 
 const SIZE := Vector3(2, 1, 1)
-const PATCH := 8
-const PATCH_KEEP_SECONDS := 3.0
 
 class Brick extends RefCounted:
 	var id: int
@@ -44,8 +42,7 @@ var _meshes := {}       # length -> BoxMesh
 var _materials := {}
 var _shapes := {}       # length -> BoxShape3D
 var _debris: Array = [] # [RigidBody3D, spawn_time_msec]
-var _patches := {}      # Vector3i -> [StaticBody3D, last_touched_msec]
-var _patch_shapes := {}   # height in quarter-blocks -> BoxShape3D
+var colliders: GroundColliders   ## shared with whatever else needs to land on the ground (felled logs)
 
 
 func _ready() -> void:
@@ -56,10 +53,6 @@ func _ready() -> void:
 		var shape := BoxShape3D.new()
 		shape.size = Vector3(length, 1, 1)
 		_shapes[length] = shape
-	for quarters in range(1, Blocks.UNIT + 1):
-		var box := BoxShape3D.new()
-		box.size = Vector3(1, float(quarters) / Blocks.UNIT, 1)
-		_patch_shapes[quarters] = box
 	for k in [Kind.STONE, Kind.WOOD]:
 		var m := StandardMaterial3D.new()
 		m.albedo_color = Color("9a9da2") if k == Kind.STONE else Color("a8763f")
@@ -67,8 +60,14 @@ func _ready() -> void:
 		_materials[k] = m
 
 
-func setup(w: VoxelWorld) -> void:
+func setup(w: VoxelWorld, shared_colliders: GroundColliders = null) -> void:
 	world = w
+	colliders = shared_colliders
+	if colliders == null:
+		colliders = GroundColliders.new()
+		colliders.name = "GroundColliders"
+		add_child(colliders)
+		colliders.setup(w)
 	world.block_changed.connect(_on_block_changed)
 
 
@@ -261,7 +260,7 @@ func _spawn_debris(b: Brick) -> void:
 	body.add_child(b.node)
 	body.transform = _transform_for(b)
 	add_child(body)
-	_touch_patches(body.global_position)
+	colliders.touch(body.global_position)
 	body.angular_velocity = Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 0.6
 	body.linear_velocity = Vector3(randf_range(-0.5, 0.5), 0.0, randf_range(-0.5, 0.5))
 	_debris.append([body, Time.get_ticks_msec()])
@@ -279,62 +278,12 @@ func _physics_process(_delta: float) -> void:
 		if age > debris_seconds or body.global_position.y < -20.0:
 			body.queue_free()
 			continue
-		_touch_patches(body.global_position)
+		colliders.touch(body.global_position)
 		keep.append(entry)
 	while keep.size() > max_debris:
 		var old: Array = keep.pop_front()
 		(old[0] as RigidBody3D).queue_free()
 	_debris = keep
-	for key in _patches.keys():
-		if now - int(_patches[key][1]) > PATCH_KEEP_SECONDS * 1000.0:
-			(_patches[key][0] as StaticBody3D).queue_free()
-			_patches.erase(key)
-
-
-func _touch_patches(pos: Vector3) -> void:
-	var pc := Vector3i(floori(pos.x / PATCH), floori(pos.y / PATCH), floori(pos.z / PATCH))
-	var now := Time.get_ticks_msec()
-	for dy in range(-1, 2):
-		for dz in range(-1, 2):
-			for dx in range(-1, 2):
-				var key := pc + Vector3i(dx, dy, dz)
-				if _patches.has(key):
-					_patches[key][1] = now
-				else:
-					_build_patch(key, now)
-
-
-func _build_patch(key: Vector3i, now: int) -> void:
-	var origin := key * PATCH
-	var body := StaticBody3D.new()
-	body.collision_layer = 1
-	body.collision_mask = 0
-	var count := 0
-	for y in PATCH:
-		for z in PATCH:
-			for x in PATCH:
-				var p := origin + Vector3i(x, y, z)
-				var raw := world.get_block(p)
-				if not Blocks.is_solid(raw):
-					continue
-				var quarters := Blocks.max_height(Blocks.shape(raw)) if Blocks.is_partial(raw) else Blocks.UNIT
-				# Only voxels that touch open space can be hit (a slope piece always does).
-				var exposed := Blocks.is_partial(raw)
-				if not exposed:
-					for n in ChunkMesher.FACE_NORMALS:
-						if not Blocks.is_opaque(world.get_block(p + n)):
-							exposed = true
-							break
-				if not exposed:
-					continue
-				var cs := CollisionShape3D.new()
-				cs.shape = _patch_shapes[maxi(quarters, 1)]
-				cs.position = Vector3(x + 0.5, y + float(maxi(quarters, 1)) / Blocks.UNIT * 0.5, z + 0.5)
-				body.add_child(cs)
-				count += 1
-	body.position = Vector3(origin)
-	add_child(body)
-	_patches[key] = [body, now]
 
 
 func _on_block_changed(p: Vector3i) -> void:
@@ -342,9 +291,3 @@ func _on_block_changed(p: Vector3i) -> void:
 	if _cells.has(p + Vector3i(0, 1, 0)):
 		var freed: Array[Vector3i] = [p]
 		_settle(freed)
-	var key := Vector3i(floori(float(p.x) / PATCH), floori(float(p.y) / PATCH), floori(float(p.z) / PATCH))
-	if _patches.has(key):
-		(_patches[key][0] as StaticBody3D).queue_free()
-		_patches.erase(key)
-		if not _debris.is_empty():
-			_build_patch(key, Time.get_ticks_msec())

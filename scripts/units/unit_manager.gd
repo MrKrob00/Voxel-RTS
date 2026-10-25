@@ -4,6 +4,7 @@ extends Node3D
 ## also gives units orders through `command_move`/`Unit.walk_to`; this class only knows how to select and send people somewhere.
 
 signal selection_changed(selected: Array)
+signal ordered(unit: Unit)   ## the player told this unit to go somewhere: any job it had is over
 
 var world: VoxelWorld
 var nav: Navigation
@@ -173,6 +174,7 @@ func command_move(goal: Vector3i) -> int:
 			if Vector2(u.cell.x - c.x, u.cell.z - c.z).length() < Vector2(best.cell.x - c.x, best.cell.z - c.z).length():
 				best = u
 		free.erase(best)
+		ordered.emit(best)
 		if best.walk_to(c):
 			moved += 1
 	show_marker(nav.feet_position(goal))

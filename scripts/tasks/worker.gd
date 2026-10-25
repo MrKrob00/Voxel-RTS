@@ -1,34 +1,34 @@
 class_name Worker
 extends RefCounted
-## The little brain of a unit that works on a dig task: find a block, walk next to it, dig it stage by stage, carry the bag
-## to a stockpile, put it down, repeat. One state at a time (a plain state machine); the task board ticks it every frame.
+## The little brain of a unit on a job: fetch what the job needs from a stockpile (crafting), find a target, walk next to it, work
+## on it, carry the result to a stockpile, put it down, repeat. One state at a time (a plain state machine); the task board ticks it
+## every frame. What the work IS comes from the WorkTask; this class only moves and waits.
 ##
-##   SEEK     look for a free block of the task
-##   GO_DIG   walk to a cell next to the block
-##   DIG      work on the block (one stage takes DIG_TIME seconds); a stage gives one bag of what the block is made of
-##   GO_STOCK walk to the stockpile with the bag
-##   PUT      put the bag down
-##   WAIT     the bag cannot be put anywhere (no stockpile, or all full): wait and watch
-##   WAIT_BLOCK nothing left to claim right now
+##   SEEK         decide what to do next
+##   GO_FETCH     walk to a stockpile that has what the job needs      TAKE   pick it up
+##   GO_WORK      walk to a cell next to the target                    WORK   work on it (the task says how long)
+##   GO_STOCK     walk to a stockpile that takes the result            PUT    put it down
+##   WAIT_STOCK   the result cannot be put anywhere: wait and look again
+##   WAIT_TARGET  nothing to claim right now
 
-enum State { SEEK, GO_DIG, DIG, GO_STOCK, PUT, WAIT, WAIT_BLOCK }
+enum State { SEEK, GO_FETCH, TAKE, GO_WORK, WORK, GO_STOCK, PUT, WAIT_STOCK, WAIT_TARGET }
 
-const DIG_TIME := 1.3
+const TAKE_TIME := 0.4
 const PUT_TIME := 0.45
-const RETRY := 4.0       ## seconds before a block that could not be reached is tried again
+const RETRY := 4.0       ## seconds before a target that could not be reached is tried again
 
 var unit: Unit
-var task: DigTask
+var task: WorkTask
 var board: TaskBoard
 var state := State.SEEK
-var target := Vector3i(-1, -1, -1)      ## the block being dug
-var stand := Vector3i(-1, -1, -1)       ## where the unit stands to do it
+var target: Variant = null
 var stockpile: Stockpile
+var _fetch := {}
 var _timer := 0.0
 var _moving := false
 
 
-func _init(u: Unit, t: DigTask, b: TaskBoard) -> void:
+func _init(u: Unit, t: WorkTask, b: TaskBoard) -> void:
 	unit = u
 	task = t
 	board = b
@@ -41,32 +41,44 @@ func detach() -> void:
 		unit.arrived.disconnect(_on_arrived)
 	if unit.path_failed.is_connected(_on_failed):
 		unit.path_failed.disconnect(_on_failed)
-	if target.x >= 0 and task != null:
+	if target != null and task != null:
 		task.release(target)
-	if stockpile != null:
-		board.economy.unreserve(stockpile)
-		stockpile = null
+	_drop_stockpile_claims()
 	unit.status = ""
 	unit.progress = -1.0
 	unit.stop()
 	_moving = false
 
 
+func _drop_stockpile_claims() -> void:
+	if stockpile != null:
+		if not _fetch.is_empty():
+			board.economy.cancel_take(stockpile, _fetch.amount)
+		else:
+			board.economy.unreserve(stockpile, unit.carried_amount())
+		stockpile = null
+	_fetch = {}
+
+
 func update(delta: float) -> void:
 	match state:
 		State.SEEK:
 			_seek()
-		State.WAIT_BLOCK:
+		State.WAIT_TARGET:
 			_timer -= delta
 			if _timer <= 0.0:
 				state = State.SEEK
-		State.DIG:
-			_dig(delta)
+		State.TAKE:
+			_timer -= delta
+			if _timer <= 0.0:
+				_take()
+		State.WORK:
+			_work(delta)
 		State.PUT:
 			_timer -= delta
 			if _timer <= 0.0:
 				_put()
-		State.WAIT:
+		State.WAIT_STOCK:
 			_timer -= delta
 			if _timer <= 0.0:
 				_find_stockpile()
@@ -74,41 +86,50 @@ func update(delta: float) -> void:
 			pass   # walking: _on_arrived / _on_failed move it on
 
 
+func _leave_or_wait() -> void:
+	if task.persistent and unit.carried_amount() == 0:
+		board.unassign(unit)   # a station with nothing to do: back to being a free unit
+	else:
+		state = State.WAIT_TARGET
+		_timer = 1.0
+
+
+# --- seeking ----------------------------------------------------------------------------------------
+
 func _seek() -> void:
 	unit.status = ""
-	target = task.claim(unit, unit.cell, board.now)
-	if target.x < 0:
-		state = State.WAIT_BLOCK
-		_timer = 1.0
+	if unit.carried_amount() > 0 and task.input_needed().is_empty():
+		_find_stockpile()   # still has something from before: that first
 		return
-	if not _valid_target(target):
-		task.complete(target)   # the block is gone (or cannot be dug): not our business any more
-		target = Vector3i(-1, -1, -1)
+	var need := task.input_needed()
+	if not need.is_empty() and not (unit.carried_kind() == need.kind and unit.carried_amount() >= need.amount):
+		_start_fetch(need)
+		return
+	target = task.claim(unit, unit.cell, board.now)
+	if target == null:
+		_leave_or_wait()
+		return
+	if not task.valid(target, board):
+		task.complete(target)   # gone (or cannot be worked on): not our business any more
+		target = null
 		return
 	if not _walk_to_work():
 		task.release(target, board.now + RETRY)
-		target = Vector3i(-1, -1, -1)
-		state = State.WAIT_BLOCK
-		_timer = 1.0
+		target = null
+		_leave_or_wait()
 
 
-func _valid_target(c: Vector3i) -> bool:
-	return board.world.terrain.can_dig(c)
-
-
-## Picks the nearest cell next to the block from which it can be worked on and starts walking there.
+## Walks to the nearest cell next to the target from which it can be worked on.
 func _walk_to_work() -> bool:
-	var spots := board.nav.work_cells(target)
+	var spots := task.stand_cells(target, board)
 	spots.sort_custom(func(a: Vector3i, b: Vector3i) -> bool:
 		return Vector2(a.x - unit.cell.x, a.z - unit.cell.z).length() < Vector2(b.x - unit.cell.x, b.z - unit.cell.z).length())
 	for s in spots.slice(0, 4):
 		if s == unit.cell:
-			stand = s
-			_begin_dig()
+			_begin_work()
 			return true
 		if unit.walk_to(s):
-			stand = s
-			state = State.GO_DIG
+			state = State.GO_WORK
 			_moving = true
 			return true
 	return false
@@ -119,13 +140,16 @@ func _on_arrived() -> void:
 		return
 	_moving = false
 	match state:
-		State.GO_DIG:
-			_begin_dig()
+		State.GO_WORK:
+			_begin_work()
+		State.GO_FETCH:
+			state = State.TAKE
+			_timer = TAKE_TIME
 		State.GO_STOCK:
 			state = State.PUT
 			_timer = PUT_TIME
 			if _stock_ok():
-				unit.face(Vector3(stockpile.origin.x + 1.0, 0.0, stockpile.origin.z + 1.0))
+				unit.face(Vector3(stockpile.origin.x + 1.0, unit.position.y, stockpile.origin.z + 1.0))
 
 
 func _on_failed() -> void:
@@ -133,67 +157,120 @@ func _on_failed() -> void:
 		return
 	_moving = false
 	match state:
-		State.GO_DIG:
+		State.GO_WORK:
 			task.release(target, board.now + RETRY)
-			target = Vector3i(-1, -1, -1)
-			state = State.WAIT_BLOCK
-			_timer = 1.0
+			target = null
+			_leave_or_wait()
+		State.GO_FETCH:
+			_drop_stockpile_claims()
+			_leave_or_wait()
 		State.GO_STOCK:
-			if stockpile != null:
-				board.economy.unreserve(stockpile)
-				stockpile = null
-			state = State.WAIT
+			_drop_stockpile_claims()
+			state = State.WAIT_STOCK
 			_timer = 1.0
 
 
-func _begin_dig() -> void:
-	state = State.DIG
+# --- fetching -----------------------------------------------------------------------------------------
+
+func _start_fetch(need: Dictionary) -> void:
+	var s := board.economy.find_stock(unit.cell, need.kind, need.amount)
+	if s == null:
+		_leave_or_wait()
+		return
+	var spots := s.access_cells(board.nav)
+	spots.sort_custom(func(a: Vector3i, b: Vector3i) -> bool:
+		return Vector2(a.x - unit.cell.x, a.z - unit.cell.z).length() < Vector2(b.x - unit.cell.x, b.z - unit.cell.z).length())
+	board.economy.reserve_take(s, need.amount)
+	stockpile = s
+	_fetch = need
+	for spot in spots.slice(0, 3):
+		if spot == unit.cell:
+			state = State.TAKE
+			_timer = TAKE_TIME
+			return
+		if unit.walk_to(spot):
+			state = State.GO_FETCH
+			_moving = true
+			return
+	_drop_stockpile_claims()
+	_leave_or_wait()
+
+
+func _take() -> void:
+	if _stock_ok() and not _fetch.is_empty():
+		var got := board.economy.withdraw(stockpile, _fetch.kind, _fetch.amount)
+		stockpile = null
+		if got > 0:
+			unit.carry(_fetch.kind, got)
+		_fetch = {}
+	else:
+		_drop_stockpile_claims()
+	state = State.SEEK
+
+
+# --- working ------------------------------------------------------------------------------------------
+
+## A unit standing IN the block it is told to dig (a slope piece or a pit) has to step out first.
+func _standing_in_target() -> bool:
+	return target is Vector3i and unit.cell == target
+
+
+func _begin_work() -> void:
+	state = State.WORK
 	_timer = 0.0
-	unit.face(Vector3(target.x + 0.5, unit.position.y, target.z + 0.5))
+	unit.face(task.face_point(target))
 
 
-func _dig(delta: float) -> void:
-	if not _valid_target(target):
+func _work(delta: float) -> void:
+	if not task.valid(target, board):
 		task.complete(target)
-		target = Vector3i(-1, -1, -1)
+		target = null
 		unit.progress = -1.0
 		state = State.SEEK
 		return
-	if not board.nav.standable(unit.cell) or unit.cell == target:
+	if not board.nav.standable(unit.cell) or _standing_in_target():
 		unit.progress = -1.0
 		task.release(target)
-		target = Vector3i(-1, -1, -1)
+		target = null
 		state = State.SEEK
 		return
 	_timer += delta
-	unit.progress = _timer / DIG_TIME
-	# A little shake while working.
-	unit.position.y = board.nav.feet_position(unit.cell).y + absf(sin(_timer * 14.0)) * 0.05
-	if _timer < DIG_TIME:
+	var total := task.work_time(target)
+	unit.progress = _timer / total
+	unit.position.y = board.nav.feet_position(unit.cell).y + absf(sin(_timer * 14.0)) * 0.05   # a little shake while working
+	if _timer < total:
 		return
 	unit.progress = -1.0
-	var raw := board.world.get_block(target)
-	var kind := Resources.from_block(Blocks.mat(raw))
-	if kind != Resources.Kind.NONE and not task.collects(kind):
-		kind = Resources.Kind.NONE   # not wanted: broken and thrown away, like earth
-	board.world.terrain.dig_step(target)
-	var gone := not board.world.terrain.can_dig(target)
-	if gone:
-		task.complete(target)   # nothing left of it: the claim ends with the block
-		target = Vector3i(-1, -1, -1)
-	if kind != Resources.Kind.NONE:
-		unit.carry(kind, 1)   # every stage gives a bag, which has to be carried away before the next one
+	var res := task.perform(target, board)
+	if res.get("consumed", false):
+		unit.carry(Resources.Kind.NONE, 0)
+	if res.get("done", false):
+		task.complete(target)
+		target = null
+	var kind: int = res.get("kind", Resources.Kind.NONE)
+	if kind != Resources.Kind.NONE and res.get("amount", 0) > 0:
+		unit.carry(kind, res.amount)   # carried away before the next stage
 		_find_stockpile()
 	else:
-		state = State.SEEK if gone else State.DIG
+		state = State.SEEK if target == null else State.WORK
 		_timer = 0.0
+
+
+# --- carrying -----------------------------------------------------------------------------------------
+
+func _stock_ok() -> bool:
+	return stockpile != null and board.economy.stockpiles.has(stockpile)
 
 
 func _find_stockpile() -> void:
 	var kind := unit.carried_kind()
-	stockpile = board.economy.find_space(unit.cell, kind)
+	var n := unit.carried_amount()
+	if n == 0:
+		state = State.SEEK
+		return
+	stockpile = board.economy.find_space(unit.cell, kind, n)
 	if stockpile == null:
-		state = State.WAIT
+		state = State.WAIT_STOCK
 		_timer = 1.0
 		unit.status = "No free stockpile for %s" % Resources.label(kind).to_lower()
 		return
@@ -201,7 +278,7 @@ func _find_stockpile() -> void:
 	var spots := stockpile.access_cells(board.nav)
 	spots.sort_custom(func(a: Vector3i, b: Vector3i) -> bool:
 		return Vector2(a.x - unit.cell.x, a.z - unit.cell.z).length() < Vector2(b.x - unit.cell.x, b.z - unit.cell.z).length())
-	board.economy.reserve(stockpile, kind)
+	board.economy.reserve(stockpile, kind, n)
 	for s in spots.slice(0, 3):
 		if s == unit.cell:
 			state = State.PUT
@@ -211,33 +288,32 @@ func _find_stockpile() -> void:
 			state = State.GO_STOCK
 			_moving = true
 			return
-	board.economy.unreserve(stockpile)
+	board.economy.unreserve(stockpile, n)
 	stockpile = null
-	state = State.WAIT
+	state = State.WAIT_STOCK
 	_timer = 1.0
 	unit.status = "Can't reach a stockpile"
 
 
-func _stock_ok() -> bool:
-	return stockpile != null and board.economy.stockpiles.has(stockpile)
-
-
 func _put() -> void:
 	var kind := unit.carried_kind()
+	var n := unit.carried_amount()
 	if not _stock_ok():
 		stockpile = null
 		_find_stockpile()   # it was taken away (a full frame turned into bricks) while we walked
 		return
-	var put := board.economy.deposit(stockpile, kind, unit.carried_amount())
+	var put := board.economy.deposit(stockpile, kind, n)
 	stockpile = null
-	if put == 0:
-		_find_stockpile()   # no room after all: keep the bag, look for another place
+	if put < n:
+		unit.carry(kind, n - put)   # no room after all: keep what is left, look for another place
+		_find_stockpile()
 		return
 	unit.carry(Resources.Kind.NONE, 0)
-	# Back to the same block if there is still something of it left, else to the next one.
-	if target.x >= 0 and task.cells.has(target):
-		if _valid_target(target) and _walk_to_work():
+	# Back to the same target if there is still something of it left and nothing has to be fetched, else to the next one.
+	if target != null and task.holds(target) and task.input_needed().is_empty():
+		if task.valid(target, board) and _walk_to_work():
 			return
+	if target != null:
 		task.release(target)
-	target = Vector3i(-1, -1, -1)
+	target = null
 	state = State.SEEK

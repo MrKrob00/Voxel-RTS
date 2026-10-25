@@ -33,7 +33,7 @@ var _to := Vector3.ZERO
 var _walk_phase := 0.0
 var _body: Node3D
 var _ring: MeshInstance3D
-var _pack: MeshInstance3D
+var _pack: Node3D
 var _label: Label3D
 var _idle_time := 0.0
 var _falling := false
@@ -70,10 +70,58 @@ func is_idle() -> bool:
 	return path.is_empty() and not _falling
 
 
-func carry(kind: int, bags: int) -> void:
-	carrying = {kind: bags} if bags > 0 else {}
-	if _pack != null and bags > 0:
-		(_pack.material_override as StandardMaterial3D).albedo_color = Resources.COLORS.get(kind, Color("8a5a2b"))
+func carry(kind: int, n: int) -> void:
+	carrying = {kind: n} if n > 0 and kind != Resources.Kind.NONE else {}
+	_rebuild_carry()
+
+
+## What is on the unit's back: a sack for stone, ore and grass, a log across the shoulders, three planks lying flat, a coil of rope.
+func _rebuild_carry() -> void:
+	if _pack == null:
+		return
+	for c in _pack.get_children():
+		c.queue_free()
+	var kind := carried_kind()
+	var n := carried_amount()
+	if n == 0:
+		return
+	var col: Color = Resources.COLORS.get(kind, Color("8a5a2b"))
+	match kind:
+		Resources.Kind.LOG:
+			_carry_part(_cylinder(0.14, 1.1), Vector3(0.0, 0.1, 0.0), Vector3(0.0, 0.0, deg_to_rad(90.0)), col)
+		Resources.Kind.PLANK:
+			for i in n:
+				_carry_part(_box(Vector3(0.9, 0.06, 0.28)), Vector3(0.0, 0.0 + i * 0.075, 0.0), Vector3(0.0, (i - 1) * 0.05, 0.0), col)
+		Resources.Kind.ROPE:
+			var ring := TorusMesh.new()
+			ring.inner_radius = 0.1
+			ring.outer_radius = 0.26
+			_carry_part(ring, Vector3(0.0, 0.0, 0.0), Vector3(deg_to_rad(90.0), 0.0, 0.0), col)
+		_:
+			_carry_part(_box(Vector3(0.5, 0.5, 0.28)), Vector3.ZERO, Vector3.ZERO, col)   # a sack
+
+
+func _carry_part(mesh: Mesh, pos: Vector3, rot: Vector3, col: Color) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = _flat_material(col)
+	mi.position = pos
+	mi.rotation = rot
+	_pack.add_child(mi)
+
+
+static func _box(size: Vector3) -> BoxMesh:
+	var b := BoxMesh.new()
+	b.size = size
+	return b
+
+
+static func _cylinder(radius: float, height: float) -> CylinderMesh:
+	var c := CylinderMesh.new()
+	c.top_radius = radius
+	c.bottom_radius = radius
+	c.height = height
+	return c
 
 
 func carried_kind() -> int:
@@ -211,7 +259,6 @@ func _animate(delta: float) -> void:
 	else:
 		_body.position.y = lerpf(_body.position.y, 0.0, minf(1.0, delta * 10.0))
 		_body.rotation.z = lerpf(_body.rotation.z, 0.0, minf(1.0, delta * 10.0))
-	_pack.visible = carried_amount() > 0
 	if status != "":
 		_label.text = status
 		_label.visible = true
@@ -258,13 +305,8 @@ func _build_model() -> void:
 		eye.material_override = _flat_material(Color("2a2420"))
 		eye.position = Vector3(sx * 0.16, HEIGHT - r + 0.06, r * 0.9)
 		_body.add_child(eye)
-	_pack = MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(0.5, 0.5, 0.28)
-	_pack.mesh = box
-	_pack.material_override = _flat_material(Color("8a5a2b"))
-	_pack.position = Vector3(0, 0.75, -r - 0.1)
-	_pack.visible = false
+	_pack = Node3D.new()
+	_pack.position = Vector3(0, 0.75, -r - 0.14)
 	_body.add_child(_pack)
 	_bar = MeshInstance3D.new()
 	var bar_mesh := BoxMesh.new()

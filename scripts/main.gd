@@ -370,18 +370,20 @@ func _refresh_tasks_panel() -> void:
 		c.queue_free()
 	for t in board.tasks:
 		var row := HBoxContainer.new()
-		for kind in Resources.DIGGABLE:
-			var f := Button.new()
-			f.toggle_mode = true
-			f.button_pressed = t.collects(kind)
-			f.text = Resources.label(kind)
-			f.tooltip_text = "Bring %s home (off: break it and throw it away)" % Resources.label(kind).to_lower()
-			f.custom_minimum_size = Vector2(0, 48)
-			f.toggled.connect(func(on: bool) -> void: t.collect[kind] = on)
-			row.add_child(f)
+		if t is DigTask:
+			for kind in Resources.DIGGABLE:
+				var f := Button.new()
+				f.toggle_mode = true
+				f.button_pressed = t.collects(kind)
+				f.text = Resources.label(kind)
+				f.tooltip_text = "Bring %s home (off: break it and throw it away)" % Resources.label(kind).to_lower()
+				f.custom_minimum_size = Vector2(0, 48)
+				f.toggled.connect(func(on: bool) -> void: t.collect[kind] = on)
+				row.add_child(f)
 		var b := Button.new()
-		b.text = "Dig #%d: %d blocks, %d/%d workers  (assign selected)" % [t.id, t.cell_count(), t.workers.size(), t.max_workers]
+		b.text = t.summary() + ("" if t.persistent else "  (assign selected)")
 		b.custom_minimum_size = Vector2(0, 48)
+		b.disabled = t.persistent
 		b.pressed.connect(func() -> void:
 			var crew: Array = units.selection if not units.selection.is_empty() else units.units.filter(func(u: Unit) -> bool: return u.is_idle())
 			for u in crew:

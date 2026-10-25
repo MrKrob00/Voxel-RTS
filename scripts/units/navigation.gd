@@ -22,6 +22,7 @@ const DIRS: Array[Vector2i] = [
 
 var world: VoxelWorld
 var bricks: BrickWorld   ## optional: bricks are obstacles and floors
+var obstacle := Callable()   ## optional (cell) -> bool: other things that fill a cell (a stockpile frame, a station)
 var _size: Vector3i
 
 ## Result of the last find_path: false when the goal could not be reached and the path only gets as near as it could.
@@ -38,7 +39,7 @@ func _init(w: VoxelWorld, b: BrickWorld = null) -> void:
 # --- cells ------------------------------------------------------------------------------------------
 
 func _brick(c: Vector3i) -> bool:
-	return bricks != null and bricks.occupied(c)
+	return (bricks != null and bricks.occupied(c)) or (obstacle.is_valid() and obstacle.call(c))
 
 
 ## Blocks a body: any solid ground, whole or partial, a brick, or water.

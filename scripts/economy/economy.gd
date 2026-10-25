@@ -7,7 +7,9 @@ signal changed
 var world: VoxelWorld
 var bricks: BrickWorld
 var stockpiles: Array[Stockpile] = []
-var _reserved := {}          ## Stockpile -> bags on their way there
+var stations: Array = []     ## Station nodes (stump, rope machine)
+var _reserved := {}          ## Stockpile -> {kind, count}: goods on their way there
+var _taking := {}            ## Stockpile -> how many of its goods someone is on the way to fetch
 
 
 func setup(w: VoxelWorld, b: BrickWorld) -> void:
@@ -43,19 +45,16 @@ func remove_stockpile(s: Stockpile) -> void:
 
 ## A stockpile that would take one more bag of `kind`, nearest to `from` (by straight line); null when there is none.
 ## Bags already on their way count: two workers do not both get the last place.
-func find_space(from: Vector3i, kind: int) -> Stockpile:
+func find_space(from: Vector3i, kind: int, n := 1) -> Stockpile:
 	var best: Stockpile = null
 	var best_d := INF
 	for s in stockpiles:
-		if not Stockpile.ACCEPTS[s.style].has(kind):
+		if s.capacity_for(kind) == 0:
 			continue
 		var r: Dictionary = _reserved.get(s, {})
-		var other_kind: bool = not r.is_empty() and r.kind != kind
-		if other_kind and s.holding == Resources.Kind.NONE:
+		if not r.is_empty() and r.kind != kind and s.holding == Resources.Kind.NONE:
 			continue   # someone is bringing another kind to this empty one
-		if not (s.holding == Resources.Kind.NONE or s.holding == kind):
-			continue
-		if s.free_space() - r.get("count", 0) <= 0:
+		if s.room_for(kind) - (r.get("count", 0) if (r.is_empty() or r.kind == kind) else 0) < n:
 			continue
 		var d := Vector2(s.origin.x - from.x, s.origin.z - from.z).length()
 		if d < best_d:
@@ -64,24 +63,38 @@ func find_space(from: Vector3i, kind: int) -> Stockpile:
 	return best
 
 
-func reserve(s: Stockpile, kind: int) -> void:
+## A stockpile that has at least `n` of `kind` to give, nearest to `from`; null when none does.
+func find_stock(from: Vector3i, kind: int, n := 1) -> Stockpile:
+	var best: Stockpile = null
+	var best_d := INF
+	for s in stockpiles:
+		if s.amount(kind) - _taking.get(s, 0) < n:
+			continue
+		var d := Vector2(s.origin.x - from.x, s.origin.z - from.z).length()
+		if d < best_d:
+			best_d = d
+			best = s
+	return best
+
+
+func reserve(s: Stockpile, kind: int, n := 1) -> void:
 	var r: Dictionary = _reserved.get(s, {"kind": kind, "count": 0})
-	r.count += 1
+	r.count += n
 	_reserved[s] = r
 
 
-func unreserve(s: Stockpile) -> void:
+func unreserve(s: Stockpile, n := 1) -> void:
 	var r: Dictionary = _reserved.get(s, {})
 	if r.is_empty():
 		return
-	r.count -= 1
+	r.count -= n
 	if r.count <= 0:
 		_reserved.erase(s)
 
 
 ## Puts a bag down. A frame filled with stone to the brim is replaced by a stack of stone bricks. Returns how many were taken.
 func deposit(s: Stockpile, kind: int, n: int) -> int:
-	unreserve(s)
+	unreserve(s, n)
 	var put := s.add(kind, n)
 	if s.packed_stone():
 		_pack_into_bricks(s)
@@ -97,6 +110,56 @@ func _pack_into_bricks(s: Stockpile) -> void:
 		for row in 2:
 			if bricks.place(Vector3i(at.x, at.y + layer, at.z + row), 0, BrickWorld.Kind.STONE, 2) != null:
 				packed_bricks += 1
+
+
+## Someone is on the way to fetch `n` of its goods: nobody else is promised them.
+func reserve_take(s: Stockpile, n: int) -> void:
+	_taking[s] = _taking.get(s, 0) + n
+
+
+func cancel_take(s: Stockpile, n: int) -> void:
+	_taking[s] = maxi(0, _taking.get(s, 0) - n)
+
+
+## Takes goods out of a stockpile that someone had reserved them in. Returns how many there were.
+func withdraw(s: Stockpile, kind: int, n: int) -> int:
+	cancel_take(s, n)
+	var got := s.take(kind, n)
+	changed.emit()
+	return got
+
+
+## How much of a kind there is in all stockpiles together.
+func stock_of(kind: int) -> int:
+	var n := 0
+	for s in stockpiles:
+		n += s.amount(kind)
+	return n
+
+
+## Pays for something from any stockpile (a stump costs a log). All or nothing; false if there is not enough.
+func spend(kind: int, n: int) -> bool:
+	if stock_of(kind) < n:
+		return false
+	var left := n
+	for s in stockpiles:
+		var got := s.take(kind, left)
+		left -= got
+		if left == 0:
+			break
+	changed.emit()
+	return true
+
+
+## Cells nobody can walk through: the solid crate of a frame and the stations.
+func blocks_cell(c: Vector3i) -> bool:
+	for s in stockpiles:
+		if s.blocks(c):
+			return true
+	for st in stations:
+		if st.blocks(c):
+			return true
+	return false
 
 
 func total(kind: int) -> int:

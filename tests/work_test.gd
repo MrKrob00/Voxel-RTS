@@ -32,7 +32,7 @@ func _init() -> void:
 	_economy.setup(_world, bricks)
 	_board = TaskBoard.new()
 	root.add_child(_board)
-	_board.setup(_world, _units.nav, _economy)
+	_board.setup(_world, _units.nav, _economy, null, null, _units)
 	for n in [_units, _board]:
 		n.process_mode = Node.PROCESS_MODE_DISABLED   # stepped by hand below
 
@@ -93,9 +93,9 @@ func _stockpile_rules(bricks: BrickWorld, base: Vector3i) -> void:
 	bricks.place(brick_at + Vector3i(1, 0, 1), 0, BrickWorld.Kind.STONE, 1)
 	_check(Stockpile.can_place(_world, bricks, brick_at) != "", "...not where a brick stands")
 	# What a style takes, one kind at a time.
-	_check(s.accepts(Resources.Kind.IRON) and s.accepts(Resources.Kind.WOOD) and not s.accepts(Resources.Kind.STONE), "a plank platform takes wood and ore, not stone")
+	_check(s.accepts(Resources.Kind.IRON) and s.accepts(Resources.Kind.LOG) and not s.accepts(Resources.Kind.STONE), "a plank platform takes logs, planks, rope and ore, not stone")
 	_check(s.add(Resources.Kind.IRON, 5) == 5 and not s.accepts(Resources.Kind.COAL) and s.add(Resources.Kind.COAL, 1) == 0, "it holds one kind at a time")
-	_check(s.add(Resources.Kind.IRON, 100) == s.capacity() - 5 and s.free_space() == 0, "it takes bags until it is full")
+	_check(s.add(Resources.Kind.IRON, 100) == s.capacity_for(Resources.Kind.IRON) - 5 and s.free_space() == 0, "it takes bags until it is full")
 	_check(s.take(Resources.Kind.IRON, 3) == 3 and s.free_space() == 3, "bags can be taken out again")
 	s.take(Resources.Kind.IRON, 100)
 	_check(s.holding == Resources.Kind.NONE and s.accepts(Resources.Kind.COAL), "once empty it takes another kind")
@@ -104,7 +104,16 @@ func _stockpile_rules(bricks: BrickWorld, base: Vector3i) -> void:
 	var frame := _economy.place_stockpile(at, Stockpile.Style.FRAME)
 	_check(frame.accepts(Resources.Kind.STONE) and frame.accepts(Resources.Kind.PLANT) and not frame.accepts(Resources.Kind.IRON), "a frame takes stone and plants")
 	_check(frame.capacity() == 16 and Stockpile.BAGS_PER_BRICK * 4 == frame.capacity(), "a frame is 2 x 2 x 2 blocks: 16 bags, 4 bricks of 4 bags")
+	_check(frame.blocks(at + Vector3i(1, 1, 1)) and not frame.blocks(at + Vector3i(0, 2, 0)) and not frame.blocks(at + Vector3i(2, 0, 0)), "a frame is a solid crate two blocks high")
 	_economy.remove_stockpile(frame)
+	var plat := _economy.place_stockpile(at, Stockpile.Style.PLATFORM)
+	_check(not plat.blocks(at), "a platform can be walked over")
+	_check(plat.capacity_for(Resources.Kind.LOG) == 4 and plat.capacity_for(Resources.Kind.ROPE) == 20 and plat.capacity_for(Resources.Kind.PLANK) == 24, "a platform holds 4 logs, 24 planks or 20 ropes")
+	_check(plat.add(Resources.Kind.LOG, 9) == 4 and not plat.accepts(Resources.Kind.LOG), "the fifth log does not fit")
+	plat.take(Resources.Kind.LOG, 4)
+	_check(plat.add(Resources.Kind.ROPE, 30) == 20, "twenty ropes fit: a quarter of the area and a fifth of the height each")
+	_economy.remove_stockpile(plat)
+	_check(Resources.carry_capacity(Resources.Kind.PLANK) == 3 and Resources.carry_capacity(Resources.Kind.LOG) == 1, "a unit carries three planks or one log at a time")
 	_check(Resources.from_block(Blocks.GRASS) == Resources.Kind.NONE and Resources.from_block(Blocks.DIRT) == Resources.Kind.NONE and Resources.from_block(Blocks.STONE) == Resources.Kind.STONE, "earth gives nothing, stone gives stone")
 
 

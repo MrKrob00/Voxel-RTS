@@ -1,11 +1,13 @@
 class_name Stockpile
 extends Node3D
 ## A 2x2 place where units put what they carry. Two styles, as in the original game:
-##   PLATFORM  a plank platform with open heaps on it: wood, ores
-##   FRAME     four low walls round the pile: stone and plants. When a frame is filled with stone completely, the frame goes and
-##             what is left is a stack of 2x1x1 stone bricks (BrickWorld), 4 of them: the 2x2x2 volume of the stockpile.
-## A stockpile holds one kind at a time (it takes a new kind once it is empty). Bags are half blocks: one block of stone is
-## two bags, a 2x1x1 brick is four.
+##   PLATFORM  a plank platform with the goods lying on it: logs, planks, rope, ores
+##   FRAME     the same platform with a copy of it standing up on each of the four sides: a solid crate of 2 x 2 x 2 blocks for
+##             loose stuff, stone and grass. When a frame is filled with stone to the brim the crate goes and what is left is a
+##             stack of 2x1x1 stone bricks (BrickWorld), 4 of them: the 2x2x2 volume of the stockpile.
+## A stockpile holds one kind at a time (it takes a new kind once it is empty). How much fits depends on the kind: bags are half
+## blocks (a frame holds 16 of stone, a brick is four), a platform holds 4 logs, 24 planks or 20 ropes (a rope takes a quarter
+## of the area and a fifth of the height).
 ##
 ## `origin` is the lowest-x/z cell of the platform at the height of the cell ABOVE the ground (where feet stand on it).
 
@@ -13,18 +15,22 @@ enum Style { PLATFORM, FRAME }
 
 const SIZE := 2
 const PLATFORM_HEIGHT := 0.18
+const WALL_HEIGHT := 2.0
 const BAGS_PER_BRICK := 4
-const CAPACITY := {Style.PLATFORM: 24, Style.FRAME: 16}   ## bags; a frame is 2 x 2 x 2 blocks = 4 bricks = 16 bags
 const ACCEPTS := {
-	Style.PLATFORM: [Resources.Kind.WOOD, Resources.Kind.IRON, Resources.Kind.COAL, Resources.Kind.AMBER],
+	Style.PLATFORM: [Resources.Kind.LOG, Resources.Kind.PLANK, Resources.Kind.ROPE, Resources.Kind.IRON, Resources.Kind.COAL, Resources.Kind.AMBER],
 	Style.FRAME: [Resources.Kind.STONE, Resources.Kind.PLANT],
+}
+const CAPACITY := {
+	Style.PLATFORM: {Resources.Kind.LOG: 4, Resources.Kind.PLANK: 24, Resources.Kind.ROPE: 20, Resources.Kind.IRON: 24, Resources.Kind.COAL: 24, Resources.Kind.AMBER: 24},
+	Style.FRAME: {Resources.Kind.STONE: 16, Resources.Kind.PLANT: 16},
 }
 const STYLE_NAMES := {Style.PLATFORM: "plank platform", Style.FRAME: "frame"}
 
 var style := Style.PLATFORM
 var origin := Vector3i.ZERO
 var holding := Resources.Kind.NONE       ## what it holds right now (NONE when empty)
-var count := 0                           ## bags
+var count := 0                           ## how many of them
 var _piles: Node3D
 var _label: Label3D
 
@@ -51,12 +57,28 @@ static func can_place(world: VoxelWorld, bricks: BrickWorld, origin_cell: Vector
 	return ""
 
 
+## How many of a kind it holds when full (0: this style does not take it).
+func capacity_for(kind: int) -> int:
+	return CAPACITY[style].get(kind, 0)
+
+
+## The capacity of what it holds now; when empty, the biggest it could take.
 func capacity() -> int:
-	return CAPACITY[style]
+	if holding != Resources.Kind.NONE:
+		return capacity_for(holding)
+	var best := 0
+	for k in CAPACITY[style]:
+		best = maxi(best, CAPACITY[style][k])
+	return best
 
 
 func covers(c: Vector3i) -> bool:
 	return c.y == origin.y and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
+
+
+## The frame is a solid crate two blocks high: nobody walks through its cells.
+func blocks(c: Vector3i) -> bool:
+	return style == Style.FRAME and (c.y == origin.y or c.y == origin.y + 1) and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
 
 
 func free_space() -> int:
@@ -67,16 +89,21 @@ func amount(kind: int) -> int:
 	return count if kind == holding else 0
 
 
-## Would it take a bag of this kind now (right style, nothing else inside, room left)?
+## Would it take one more of this kind now (right style, nothing else inside, room left)?
 func accepts(kind: int) -> bool:
-	return ACCEPTS[style].has(kind) and (holding == Resources.Kind.NONE or holding == kind) and free_space() > 0
+	return capacity_for(kind) > 0 and (holding == Resources.Kind.NONE or holding == kind) and count < capacity_for(kind)
 
 
-## Puts bags in; returns how many fit (0 if it holds something else).
-func add(kind: int, n: int) -> int:
-	if not ACCEPTS[style].has(kind) or (holding != Resources.Kind.NONE and holding != kind):
+## How many more of `kind` it could take now, 0 if it holds something else or does not take that.
+func room_for(kind: int) -> int:
+	if capacity_for(kind) == 0 or (holding != Resources.Kind.NONE and holding != kind):
 		return 0
-	var taken := mini(n, free_space())
+	return capacity_for(kind) - (count if holding == kind else 0)
+
+
+## Puts some in; returns how many fit.
+func add(kind: int, n: int) -> int:
+	var taken := mini(n, room_for(kind))
 	if taken > 0:
 		holding = kind
 		count += taken
@@ -84,7 +111,7 @@ func add(kind: int, n: int) -> int:
 	return taken
 
 
-## Takes bags out; returns how many there were.
+## Takes some out; returns how many there were.
 func take(kind: int, n: int) -> int:
 	var got := mini(n, amount(kind))
 	if got > 0:
@@ -97,7 +124,7 @@ func take(kind: int, n: int) -> int:
 
 ## True when a frame has been filled with stone to the brim: time to turn it into bricks.
 func packed_stone() -> bool:
-	return style == Style.FRAME and holding == Resources.Kind.STONE and count >= capacity()
+	return style == Style.FRAME and holding == Resources.Kind.STONE and count >= capacity_for(Resources.Kind.STONE)
 
 
 ## Where a unit may stand to use it: any standable cell touching the platform (from the 12 around it).
@@ -118,24 +145,13 @@ func build(cell: Vector3i, new_style: int) -> void:
 	origin = cell
 	name = "Stockpile_%d_%d" % [cell.x, cell.z]
 	position = Vector3(cell.x, cell.y, cell.z)
-	var wood := _mat(Color("b98a4e"))
-	var dark := _mat(Color("7b5630"))
-	# Planks: five boards across, with two cross beams underneath.
-	for i in 5:
-		_box(Vector3(SIZE - 0.08, PLATFORM_HEIGHT * 0.6, SIZE / 5.0 - 0.05), Vector3(SIZE * 0.5, PLATFORM_HEIGHT * 0.7, (i + 0.5) * SIZE / 5.0), wood if i % 2 == 0 else dark)
-	for bx in [0.3, SIZE - 0.3]:
-		_box(Vector3(0.18, PLATFORM_HEIGHT * 0.5, SIZE - 0.04), Vector3(bx, PLATFORM_HEIGHT * 0.25, SIZE * 0.5), dark)
+	_plank_panel(Transform3D.IDENTITY)   # the floor
 	if style == Style.FRAME:
-		# Four walls of two rails each and a post at every corner.
-		for rail in 2:
-			var y := PLATFORM_HEIGHT + 0.25 + rail * 0.38
-			_box(Vector3(SIZE, 0.16, 0.12), Vector3(SIZE * 0.5, y, 0.06), wood)
-			_box(Vector3(SIZE, 0.16, 0.12), Vector3(SIZE * 0.5, y, SIZE - 0.06), wood)
-			_box(Vector3(0.12, 0.16, SIZE - 0.24), Vector3(0.06, y, SIZE * 0.5), wood)
-			_box(Vector3(0.12, 0.16, SIZE - 0.24), Vector3(SIZE - 0.06, y, SIZE * 0.5), wood)
-		for cx in [0.07, SIZE - 0.07]:
-			for cz in [0.07, SIZE - 0.07]:
-				_box(Vector3(0.14, 0.95, 0.14), Vector3(cx, PLATFORM_HEIGHT + 0.45, cz), dark)
+		# The floor copied onto the four sides, standing up: x = 0 and 2, z = 0 and 2.
+		_plank_panel(Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
+		_plank_panel(Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(SIZE, 0.0, 0.0)))
+		_plank_panel(Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
+		_plank_panel(Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, SIZE)))
 	_piles = Node3D.new()
 	add_child(_piles)
 	_label = Label3D.new()
@@ -144,19 +160,33 @@ func build(cell: Vector3i, new_style: int) -> void:
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_label.no_depth_test = true
 	_label.outline_size = 8
-	_label.position = Vector3(SIZE * 0.5, 1.6, SIZE * 0.5)
+	_label.position = Vector3(SIZE * 0.5, (WALL_HEIGHT + 0.6) if style == Style.FRAME else 1.5, SIZE * 0.5)
 	add_child(_label)
 	_refresh()
 
 
-func _box(size: Vector3, pos: Vector3, m: StandardMaterial3D) -> void:
+## One 2 x 2 panel of planks: five boards side by side with two beams across, flat, lying with its middle at the cell corner
+## (0, 0) and spreading over +x and +z (the floor). Rotated by `t` about the origin for the walls, the beams being the outside.
+func _plank_panel(t: Transform3D) -> void:
+	var panel := Node3D.new()
+	panel.transform = t
+	add_child(panel)
+	var wood := _mat(Color("b98a4e"))
+	var dark := _mat(Color("7b5630"))
+	for i in 5:
+		_box(panel, Vector3(SIZE - 0.08, PLATFORM_HEIGHT * 0.6, SIZE / 5.0 - 0.05), Vector3(SIZE * 0.5, PLATFORM_HEIGHT * 0.7, (i + 0.5) * SIZE / 5.0), wood if i % 2 == 0 else dark)
+	for bx in [0.3, SIZE - 0.3]:
+		_box(panel, Vector3(0.18, PLATFORM_HEIGHT * 0.5, SIZE - 0.04), Vector3(bx, PLATFORM_HEIGHT * 0.25, SIZE * 0.5), dark)
+
+
+func _box(parent: Node3D, size: Vector3, pos: Vector3, m: StandardMaterial3D) -> void:
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = size
 	mi.mesh = bm
 	mi.material_override = m
 	mi.position = pos
-	add_child(mi)
+	parent.add_child(mi)
 
 
 static func _mat(c: Color) -> StandardMaterial3D:
@@ -166,7 +196,9 @@ static func _mat(c: Color) -> StandardMaterial3D:
 	return m
 
 
-const CHUNKS_PER_BAG := 8
+# --- what lies on it -----------------------------------------------------------------------------------
+
+const CHUNKS_PER_UNIT := 8
 const _GOLDEN_U := 0.6180339887
 const _GOLDEN_V := 0.7548776662
 
@@ -175,41 +207,95 @@ static func _fract(x: float) -> float:
 	return x - floorf(x)
 
 
-## Height of the heap at a point, `u` and `v` in -1..1 across the footprint, for a pile filled to `fill` (0..1): a mound that is
-## highest in the middle and reaches the rim of a frame (a bit below it at the edges) when the stockpile is full.
-func _heap_height(u: float, v: float, fill: float) -> float:
-	var top := 0.95 if style == Style.FRAME else 0.8
-	var shape := 1.0 - 0.42 * clampf((u * u + v * v) * 0.5, 0.0, 1.0)
-	return PLATFORM_HEIGHT + fill * top * shape
-
-
-## What is stored, as a heap of rubble that grows with every bag, like the gravel in the original game. Chunk k lies on the
-## surface of the heap as it was when k chunks were in it, so a bag adds to the top and does not make the heap jump about.
 func _refresh() -> void:
 	for c in _piles.get_children():
 		c.queue_free()
-	var shown := count * CHUNKS_PER_BAG
-	var total := capacity() * CHUNKS_PER_BAG
-	if shown > 0:
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = _chunk_mesh()
-		mm.instance_count = shown
-		var inner := 0.28 if style == Style.FRAME else 0.18
-		var half := SIZE * 0.5 - inner
-		for k in shown:
-			var u := _fract((k + 1) * _GOLDEN_U) * 2.0 - 1.0
-			var v := _fract((k + 1) * _GOLDEN_V) * 2.0 - 1.0
-			var fill := float(k + 1) / float(total)
-			var size := 0.2 + 0.16 * _fract(sin(k * 12.9898) * 43758.5453)
-			var pos := Vector3(SIZE * 0.5 + u * half, _heap_height(u, v, fill) - size * 0.35, SIZE * 0.5 + v * half)
-			var basis := Basis(Vector3.UP, _fract(sin(k * 78.233) * 43758.5453) * TAU).scaled(Vector3(size, size * 0.85, size))
-			mm.set_instance_transform(k, Transform3D(basis, pos))
-		var inst := MultiMeshInstance3D.new()
-		inst.multimesh = mm
-		inst.material_override = _chunk_material(holding)
-		_piles.add_child(inst)
-	_label.text = "%s %d/%d" % [Resources.label(holding), count, capacity()] if count > 0 else "empty (%s)" % STYLE_NAMES[style]
+	if count > 0:
+		match holding:
+			Resources.Kind.LOG:
+				_show_logs()
+			Resources.Kind.PLANK:
+				_show_planks()
+			Resources.Kind.ROPE:
+				_show_ropes()
+			_:
+				_show_heap()
+	_label.text = "%s %d/%d" % [Resources.label(holding), count, capacity_for(holding)] if count > 0 else "empty (%s)" % STYLE_NAMES[style]
+
+
+## Loose stuff (stone, ore, grass): a heap of rubble that grows with every bag, like the gravel in the original. Chunk k lies on
+## the surface of the heap as it was when k chunks were in it, so a bag adds to the top and the heap does not jump about.
+func _show_heap() -> void:
+	var full := capacity_for(holding)
+	var shown := count * CHUNKS_PER_UNIT
+	var total := full * CHUNKS_PER_UNIT
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = _chunk_mesh()
+	mm.instance_count = shown
+	var inner := 0.28 if style == Style.FRAME else 0.18
+	var half := SIZE * 0.5 - inner
+	var top := (WALL_HEIGHT - PLATFORM_HEIGHT - 0.15) if style == Style.FRAME else 0.8
+	for k in shown:
+		var u := _fract((k + 1) * _GOLDEN_U) * 2.0 - 1.0
+		var v := _fract((k + 1) * _GOLDEN_V) * 2.0 - 1.0
+		var fill := float(k + 1) / float(total)
+		var size := 0.2 + 0.16 * _fract(sin(k * 12.9898) * 43758.5453)
+		var shape := 1.0 - 0.3 * clampf((u * u + v * v) * 0.5, 0.0, 1.0)   # a mound: highest in the middle
+		var pos := Vector3(SIZE * 0.5 + u * half, PLATFORM_HEIGHT + fill * top * shape - size * 0.35, SIZE * 0.5 + v * half)
+		var basis := Basis(Vector3.UP, _fract(sin(k * 78.233) * 43758.5453) * TAU).scaled(Vector3(size, size * 0.85, size))
+		mm.set_instance_transform(k, Transform3D(basis, pos))
+	var inst := MultiMeshInstance3D.new()
+	inst.multimesh = mm
+	inst.material_override = _chunk_material(holding)
+	_piles.add_child(inst)
+
+
+## Up to four logs: two lying side by side, the next two on top of them.
+func _show_logs() -> void:
+	var m := _mat(Resources.COLORS[Resources.Kind.LOG])
+	for i in count:
+		var mi := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 0.17
+		cyl.bottom_radius = 0.17
+		cyl.height = SIZE - 0.25
+		mi.mesh = cyl
+		mi.material_override = m
+		mi.rotation = Vector3(0.0, 0.0, deg_to_rad(90.0))
+		mi.position = Vector3(SIZE * 0.5, PLATFORM_HEIGHT + 0.17 + (i / 2) * 0.33, 0.55 + (i % 2) * 0.9)
+		_piles.add_child(mi)
+
+
+## Planks lie in four stacks, one slab per plank.
+func _show_planks() -> void:
+	var m := _mat(Resources.COLORS[Resources.Kind.PLANK])
+	for i in count:
+		var stack := i % 4
+		var level := i / 4
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.82, 0.07, 0.82)
+		mi.mesh = bm
+		mi.material_override = m
+		mi.position = Vector3(0.5 + (stack % 2) * 1.0, PLATFORM_HEIGHT + 0.04 + level * 0.075, 0.5 + (stack / 2) * 1.0)
+		mi.rotation.y = (level % 3 - 1) * 0.06
+		_piles.add_child(mi)
+
+
+## Ropes are coils: a quarter of the area each and a fifth of the height, so 4 per layer and 5 layers make 20.
+func _show_ropes() -> void:
+	var m := _mat(Resources.COLORS[Resources.Kind.ROPE])
+	for i in count:
+		var mi := MeshInstance3D.new()
+		var ring := TorusMesh.new()
+		ring.inner_radius = 0.2
+		ring.outer_radius = 0.42
+		mi.mesh = ring
+		mi.material_override = m
+		mi.scale = Vector3(1.0, 0.55, 1.0)
+		mi.position = Vector3(0.5 + (i % 2) * 1.0, PLATFORM_HEIGHT + 0.1 + (i / 4) * 0.17, 0.5 + ((i / 2) % 2) * 1.0)
+		_piles.add_child(mi)
 
 
 static var _chunk: ArrayMesh
