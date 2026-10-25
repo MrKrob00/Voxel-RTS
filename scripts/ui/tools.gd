@@ -41,6 +41,16 @@ static func defs() -> Array[Dictionary]:
 	return out
 
 
+## The icon of a tool that has no model to photograph (felling, quarry...), from assets/icons (game-icons.net), or null.
+static func icon_texture(mode: int) -> Texture2D:
+	var name: String = {
+		Mode.MARK_TREES: "fell_trees", Mode.MARK_GRASS: "cut_grass", Mode.MARK_DIG: "quarry", OPEN_BLOCKS: "build", STOP: "stop",
+		Mode.DIG: "dig_now", Mode.VOXEL: "fill_ground", Mode.STONE_BRICK: "free_stone", Mode.STONE_CUBE: "free_stone",
+		Mode.WOOD_BRICK: "free_wood", Mode.WOOD_CUBE: "free_wood",
+	}.get(mode, "")
+	return load("res://assets/icons/%s.svg" % name) as Texture2D if name != "" else null
+
+
 ## The picture of a structure (stockpile, stump...) for the palette, or null.
 static func structure_picture(mode: int) -> Texture2D:
 	var id: String = {Mode.STOCKPILE: "platform", Mode.STUMP: "stump", Mode.ROPE_MACHINE: "rope_machine"}.get(mode, "")

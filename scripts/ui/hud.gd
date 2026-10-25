@@ -260,7 +260,8 @@ func _build_banner() -> void:
 	_title_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(_title_name)
 	var leave := Button.new()          # the cross: leave the tool (the way out of "+")
-	leave.text = "x"
+	leave.text = "×"
+	leave.add_theme_font_size_override("font_size", 28)
 	leave.flat = true
 	leave.focus_mode = Control.FOCUS_NONE
 	leave.custom_minimum_size = Vector2(MIN_TOUCH - 8, MIN_TOUCH - 8)
@@ -394,10 +395,14 @@ func _build_bottom() -> void:
 		if on != _palette_open:
 			_set_palette(on))
 	row.add_child(_plus)
-	var idle := _button("Idle", Vector2(80, 48))
+	var idle := _button("Idle", Vector2(96, 48))
+	idle.icon = load("res://assets/icons/idle.svg")
+	idle.expand_icon = true
 	idle.pressed.connect(func() -> void: select_idle_pressed.emit())
 	row.add_child(idle)
-	var all := _button("All", Vector2(80, 48))
+	var all := _button("All", Vector2(88, 48))
+	all.icon = load("res://assets/icons/all_units.svg")
+	all.expand_icon = true
 	all.pressed.connect(func() -> void: select_all_pressed.emit())
 	row.add_child(all)
 	_ribbon_scroll = ScrollContainer.new()
@@ -413,7 +418,10 @@ func _build_bottom() -> void:
 	_picker.visible = false
 	_picker.chosen.connect(func(l: int) -> void: level_changed.emit(l))
 	_root.add_child(_picker)
-	_home = _button("Home", Vector2(MIN_TOUCH + 8, MIN_TOUCH))
+	_home = _button("", Vector2(MIN_TOUCH + 8, MIN_TOUCH))
+	_home.icon = load("res://assets/icons/home.svg")
+	_home.expand_icon = true
+	_home.tooltip_text = "Home"
 	_home.pressed.connect(func() -> void: home_pressed.emit())
 	_root.add_child(_home)
 
@@ -452,7 +460,8 @@ func _task_card(t: WorkTask) -> Control:
 	detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(detail)
 	var close := Button.new()
-	close.text = "x"
+	close.text = "×"
+	close.add_theme_font_size_override("font_size", 24)
 	close.flat = true
 	close.focus_mode = Control.FOCUS_NONE
 	close.custom_minimum_size = Vector2(32, 32)
