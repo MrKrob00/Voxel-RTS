@@ -21,6 +21,8 @@ const FACE_V: Array[Vector3i] = [
 ]
 const FACE_SHADE: Array[float] = [0.82, 0.74, 1.0, 0.55, 0.9, 0.68]
 const AO_LEVELS: Array[float] = [0.5, 0.68, 0.84, 1.0]
+## Width of the flat floor in the middle of a half-dug block, as a share of the block.
+const DUG_PLATFORM := 0.5
 const CORNER_SIGNS: Array[Vector2i] = [Vector2i(-1, -1), Vector2i(1, -1), Vector2i(1, 1), Vector2i(-1, 1)]
 
 
@@ -29,6 +31,11 @@ class Buffers extends RefCounted:
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
+	var cover := PackedByteArray()   ## ground cover slice of this chunk (GroundCover.slice)
+
+	## How much of the grass is gone at a chunk-local position, 0..1.
+	func bare(x: float, z: float) -> float:
+		return GroundCover.sample_slice(cover, Blocks.CHUNK_SIZE, x, z)
 
 	func to_arrays() -> Array:
 		var arrays := []
@@ -48,9 +55,10 @@ static func _voxel(snap: Array, x: int, y: int, z: int) -> int:
 
 
 ## Returns [opaque_arrays, water_arrays]; an entry is null when that surface is empty.
-static func build(snap: Array, origin: Vector3i, preset: MapPreset) -> Array:
+static func build(snap: Array, origin: Vector3i, preset: MapPreset, cover := PackedByteArray()) -> Array:
 	var center: PackedInt32Array = snap[13]
 	var solid := Buffers.new()
+	solid.cover = cover
 	var water := Buffers.new()
 	for y in 16:
 		for z in 16:
@@ -147,10 +155,12 @@ static func _emit_shape(buf: Buffers, snap: Array, x: int, y: int, z: int, id: i
 			_shape_tri(buf, [floor_pts[a], floor_pts[b], top[b]], n, id, Blocks.FACE_SIDE, origin, preset)
 
 
-## A half-dug block. The top is a fan of eight triangles around a centre at DUG_HEIGHT: the ring has the four corners
-## (raised to a full block where a whole neighbour touches them, else DUG_HEIGHT) and the four side midpoints (on the
-## straight line between the corners, or sunk to DUG_HEIGHT where the side borders another dug block, so neighbouring pits
-## flow into one another). Turf stays only where the ground rises to a whole block; the rest shows the earth.
+## A half-dug block. The top is a small flat floor at DUG_HEIGHT in the middle (DUG_PLATFORM wide) with a ring of slopes from
+## it out to the edge of the block. The ring has the four corners (raised to a full block where a whole neighbour touches
+## them, else DUG_HEIGHT) and, per side, either one midpoint on the straight line between the corners, or, where the side
+## borders another half-dug block, two points at DUG_HEIGHT a quarter in from each corner: the edge dips in a flat-bottomed
+## groove, and two neighbouring pits become one trough with no fin or divider between their floors. Turf stays only where the
+## ground rises to a whole block; the rest shows the earth.
 static func _emit_dug(buf: Buffers, snap: Array, x: int, y: int, z: int, id: int, shape: int, origin: Vector3i, preset: MapPreset) -> void:
 	var h := Blocks.corner_heights(shape)
 	var dips := Blocks.dug_dip_mask(shape)
@@ -161,54 +171,64 @@ static func _emit_dug(buf: Buffers, snap: Array, x: int, y: int, z: int, id: int
 	var edge_bit := [3, 0, 2, 1]   # the dip bit (+x, -x, +z, -z) of the side between corner k and k + 1
 	var earth_id := Blocks.dug_bottom_material(id)
 	var floor_pts: Array[Vector3] = []
-	var top: Array[Vector3] = []     # corner k
-	var mid: Array[Vector3] = []     # midpoint of the side between corner k and k + 1
+	var top: Array[Vector3] = []
 	var turf_corner: Array[float] = []
-	var turf_mid: Array[float] = []
 	for k in 4:
 		floor_pts.append(base + Vector3(cx[k], 0.0, cz[k]))
 		top.append(base + Vector3(cx[k], h[k] * q, cz[k]))
 		turf_corner.append(1.0 if h[k] >= Blocks.UNIT else 0.0)
+	var floor_top := Blocks.DUG_HEIGHT * q
+	# The flat floor in the middle.
+	var inner: Array[Vector3] = []
+	var inner_col: Array[Color] = []
+	for k in 4:
+		var ip := base + Vector3(0.5 + (cx[k] - 0.5) * DUG_PLATFORM, floor_top, 0.5 + (cz[k] - 0.5) * DUG_PLATFORM)
+		inner.append(ip)
+		inner_col.append(preset.vertex_color(earth_id, Blocks.FACE_TOP, origin.x + ip.x, origin.z + ip.z))
+	_shape_tri(buf, [inner[0], inner[1], inner[2]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [inner_col[0], inner_col[1], inner_col[2]])
+	_shape_tri(buf, [inner[0], inner[2], inner[3]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [inner_col[0], inner_col[2], inner_col[3]])
+	var outs := [Vector3i(0, 0, -1), Vector3i(1, 0, 0), Vector3i(0, 0, 1), Vector3i(-1, 0, 0)]
 	for k in 4:
 		var n := (k + 1) % 4
 		var sunk: bool = ((dips >> int(edge_bit[k])) & 1) == 1
-		var mh: float = float(Blocks.DUG_HEIGHT) if sunk else (h[k] + h[n]) * 0.5
-		mid.append(base + Vector3((cx[k] + cx[n]) * 0.5, mh * q, (cz[k] + cz[n]) * 0.5))
-		turf_mid.append(0.0 if sunk else (turf_corner[k] + turf_corner[n]) * 0.5)
-	var centre := base + Vector3(0.5, Blocks.DUG_HEIGHT * q, 0.5)
-	var centre_col := preset.vertex_color(earth_id, Blocks.FACE_TOP, origin.x + centre.x, origin.z + centre.z)
-	for k in 4:
-		var n := (k + 1) % 4
-		var cols := [
-			centre_col,
-			_dug_top_color(preset, id, earth_id, turf_corner[k], origin, top[k]),
-			_dug_top_color(preset, id, earth_id, turf_mid[k], origin, mid[k]),
-			_dug_top_color(preset, id, earth_id, turf_corner[n], origin, top[n]),
-		]
-		_shape_tri(buf, [centre, top[k], mid[k]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [cols[0], cols[1], cols[2]])
-		_shape_tri(buf, [centre, mid[k], top[n]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [cols[0], cols[2], cols[3]])
+		var col_k := _dug_top_color(buf, preset, id, earth_id, turf_corner[k], origin, top[k])
+		var col_n := _dug_top_color(buf, preset, id, earth_id, turf_corner[n], origin, top[n])
+		if sunk:
+			# Groove along a shared edge: corner, a point a quarter in, a point three quarters in, corner.
+			var e1 := base + Vector3(lerpf(cx[k], cx[n], 0.25), floor_top, lerpf(cz[k], cz[n], 0.25))
+			var e2 := base + Vector3(lerpf(cx[k], cx[n], 0.75), floor_top, lerpf(cz[k], cz[n], 0.75))
+			var c1 := _dug_top_color(buf, preset, id, earth_id, 0.0, origin, e1)
+			var c2 := _dug_top_color(buf, preset, id, earth_id, 0.0, origin, e2)
+			_shape_tri(buf, [top[k], e1, inner[k]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [col_k, c1, inner_col[k]])
+			_shape_tri(buf, [e1, e2, inner[n]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [c1, c2, inner_col[n]])
+			_shape_tri(buf, [e1, inner[n], inner[k]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [c1, inner_col[n], inner_col[k]])
+			_shape_tri(buf, [e2, top[n], inner[n]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [c2, col_n, inner_col[n]])
+			continue   # no wall: the neighbouring pit is open here and its floor is at the same height
+		var mid := base + Vector3((cx[k] + cx[n]) * 0.5, (h[k] + h[n]) * 0.5 * q, (cz[k] + cz[n]) * 0.5)
+		var col_m := _dug_top_color(buf, preset, id, earth_id, (turf_corner[k] + turf_corner[n]) * 0.5, origin, mid)
+		# The band between this side of the block and the matching side of the floor (corner, midpoint, corner).
+		_shape_tri(buf, [top[k], mid, inner[k]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [col_k, col_m, inner_col[k]])
+		_shape_tri(buf, [mid, inner[n], inner[k]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [col_m, inner_col[n], inner_col[k]])
+		_shape_tri(buf, [mid, top[n], inner[n]], Vector3.UP, earth_id, Blocks.FACE_TOP, origin, preset, [col_m, col_n, inner_col[n]])
+		var out: Vector3i = outs[k]
+		if not Blocks.is_opaque(_voxel(snap, x + out.x, y, z + out.z)):
+			var mid_floor := (floor_pts[k] + floor_pts[n]) * 0.5
+			var nrm := Vector3(out)
+			_shape_tri(buf, [floor_pts[k], mid_floor, mid], nrm, earth_id, Blocks.FACE_SIDE, origin, preset)
+			_shape_tri(buf, [floor_pts[k], mid, top[k]], nrm, earth_id, Blocks.FACE_SIDE, origin, preset)
+			_shape_tri(buf, [mid_floor, floor_pts[n], top[n]], nrm, earth_id, Blocks.FACE_SIDE, origin, preset)
+			_shape_tri(buf, [mid_floor, top[n], mid], nrm, earth_id, Blocks.FACE_SIDE, origin, preset)
 	if not Blocks.is_opaque(_voxel(snap, x, y - 1, z)):
 		_shape_tri(buf, [floor_pts[0], floor_pts[1], floor_pts[2]], Vector3.DOWN, earth_id, Blocks.FACE_BOTTOM, origin, preset)
 		_shape_tri(buf, [floor_pts[0], floor_pts[2], floor_pts[3]], Vector3.DOWN, earth_id, Blocks.FACE_BOTTOM, origin, preset)
-	var outs := [Vector3i(0, 0, -1), Vector3i(1, 0, 0), Vector3i(0, 0, 1), Vector3i(-1, 0, 0)]
-	for k in 4:
-		var out: Vector3i = outs[k]
-		if Blocks.is_opaque(_voxel(snap, x + out.x, y, z + out.z)):
-			continue
-		var n := (k + 1) % 4
-		var mid_floor := (floor_pts[k] + floor_pts[n]) * 0.5
-		var nrm := Vector3(out)
-		_shape_tri(buf, [floor_pts[k], mid_floor, mid[k]], nrm, earth_id, Blocks.FACE_SIDE, origin, preset)
-		_shape_tri(buf, [floor_pts[k], mid[k], top[k]], nrm, earth_id, Blocks.FACE_SIDE, origin, preset)
-		_shape_tri(buf, [mid_floor, floor_pts[n], top[n]], nrm, earth_id, Blocks.FACE_SIDE, origin, preset)
-		_shape_tri(buf, [mid_floor, top[n], mid[k]], nrm, earth_id, Blocks.FACE_SIDE, origin, preset)
 
 
-static func _dug_top_color(preset: MapPreset, id: int, earth_id: int, turf: float, origin: Vector3i, p: Vector3) -> Color:
+
+static func _dug_top_color(buf: Buffers, preset: MapPreset, id: int, earth_id: int, turf: float, origin: Vector3i, p: Vector3) -> Color:
 	var earth := preset.vertex_color(earth_id, Blocks.FACE_TOP, origin.x + p.x, origin.z + p.z)
 	if turf <= 0.0:
 		return earth
-	return earth.lerp(preset.vertex_color(id, Blocks.FACE_TOP, origin.x + p.x, origin.z + p.z), turf)
+	return earth.lerp(preset.vertex_color(id, Blocks.FACE_TOP, origin.x + p.x, origin.z + p.z, buf.bare(p.x, p.z)), turf)
 
 
 ## One triangle of a ground piece, wound clockwise (Godot front face) as seen from the side `outward` points to.
@@ -236,7 +256,7 @@ static func _shape_tri(buf: Buffers, pts: Array, outward: Vector3, id: int, face
 		if face_kind == Blocks.FACE_TOP and not top_colors.is_empty():
 			col = top_colors[i]
 		elif face_kind == Blocks.FACE_TOP:
-			col = preset.vertex_color(id, Blocks.FACE_TOP, origin.x + p.x, origin.z + p.z)
+			col = preset.vertex_color(id, Blocks.FACE_TOP, origin.x + p.x, origin.z + p.z, buf.bare(p.x, p.z))
 		elif face_kind == Blocks.FACE_SIDE:
 			col = Blocks.color_of(id, Blocks.FACE_SIDE) * 0.78
 		else:
@@ -283,7 +303,7 @@ static func _emit_face(buf: Buffers, snap: Array, x: int, y: int, z: int, f: int
 		pos.y = y + (pos.y - y) * height
 		buf.verts.append(pos)
 		buf.normals.append(Vector3(n))
-		var vc := preset.vertex_color(id, face_kind, origin.x + corners[k].x, origin.z + corners[k].z)
+		var vc := preset.vertex_color(id, face_kind, origin.x + corners[k].x, origin.z + corners[k].z, buf.bare(corners[k].x, corners[k].z) if face_kind == Blocks.FACE_TOP else 0.0)
 		var mul := shade * shade_f
 		buf.colors.append(Color(vc.r * mul, vc.g * mul, vc.b * mul, vc.a))
 

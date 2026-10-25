@@ -11,6 +11,7 @@ main.gd (sandbox scene: wires everything, input -> actions)
  │    │    └─ world/ramps.gd       Ramps: slope-piece rules (shared with the generator) and pit filling
  │    ├─ world/world_gen.gd      WorldGen: islands, bridges, terrain heights, blocks (pure function of seed + position)
  │    │    └─ world/map_preset.gd  MapPreset: everything that differs between map types (plains, later winter, desert)
+ │    ├─ world/ground_cover.gd   GroundCover: how much grass is gone per column (props, buildings, cliff edges)
  │    ├─ world/chunk_mesher.gd   ChunkMesher: voxel snapshot -> mesh arrays (thread safe, no scene access)
  │    └─ world/blocks.gd         Blocks: the voxel format and the block palette
  ├─ world/prop_field.gd       PropField: trees, boulders, crystals, ferns (zones), MultiMesh
@@ -63,6 +64,16 @@ generator (from column levels) and by `TerrainEdit` (from the cells), so generat
   new slope pieces may appear next to the new wall, like at generation.
 - Building on a slope piece or a half-dug block fills that very cell up to a whole block of its own material.
 
+## Grass and bare earth (`GroundCover`)
+
+Grass is a surface cover, not a block material. `GroundCover` stores, per column, how much of it is gone (0 turf .. 255 earth).
+It is painted from three sources: a cliff pass at world start (the lip of a drop of 2+ blocks, the island edge, the foot of a
+wall), `PropField` (a soft disc of earth around every tree, boulder and ore vein) and `BrickWorld.place` (a footprint plus a
+margin around every building). Grass never grows back. The mesher gets a one-column-border slice of the cover with each chunk
+and blends it per vertex (bilinear), so the turf fades into the earth with no tile edges: the soft brush is the "tileset" of
+transitions. `VoxelWorld.hold_meshing()` keeps meshing back until the cliff pass and the prop scatter are done, so the first
+picture is final; later stamps rebuild only the chunks they touch (`stamp_cover_disc`, `stamp_cover_rect`).
+
 ## Pipeline and frames (`VoxelWorld`)
 
 - Generation and meshing run on `WorkerThreadPool`; the main thread commits results.
@@ -95,6 +106,7 @@ godot --headless --path . -s res://tests/world_smoke_test.gd    # generation, is
 godot --headless --path . -s res://tests/ramps_rule_test.gd     # the slope rule on all 6561 neighbourhoods + random height fields
 godot --headless --path . -s res://tests/brick_test.gd          # support rules, collapse, flat-ground-only building
 godot --headless --path . -s res://tests/island_seeds_test.gd   # 40 seeds x 3 island counts: layout and bridges
+godot --headless --path . -s res://tests/ground_cover_test.gd   # bare-earth brushes, cliff pass, mesher slices
 ```
 
 Screenshots (virtual display): `xvfb-run -a godot --path . --rendering-driver opengl3 -- --shot=out.png [--zoom=D --focus=X,Z

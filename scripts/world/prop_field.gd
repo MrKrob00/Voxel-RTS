@@ -12,12 +12,11 @@ var _mutex := Mutex.new()
 var _done := false
 
 
+## The scatter only needs the generator, so it starts at once and runs beside chunk generation. Meshing of the world waits
+## for it (hold_meshing): the bare earth under the props is part of the ground colour, so the first picture is the final one.
 func setup(w: VoxelWorld) -> void:
 	world = w
-	world.generation_finished.connect(_on_world_ready)
-
-
-func _on_world_ready() -> void:
+	world.hold_meshing()
 	_task_id = WorkerThreadPool.add_task(_scatter)
 
 
@@ -28,7 +27,10 @@ func _process(_delta: float) -> void:
 	var res := _result
 	_mutex.unlock()
 	_done = false
+	for s in _stamps:
+		world.stamp_cover_disc(s.pos, s.inner, s.outer, s.strength)
 	_build(res)
+	world.release_meshing()
 	set_process(false)
 
 
@@ -41,6 +43,9 @@ var _gen: WorldGen
 var _preset: MapPreset
 var _rng := RandomNumberGenerator.new()
 var _out := {"pine": [], "boulder": [], "crystal": [], "tuft": []}
+var _stamps: Array[Dictionary] = []   ## where the grass is gone: {pos, inner, outer, strength}, applied on the main thread
+## Bare earth around each kind of prop: [inner radius, outer radius, strength], scaled with the prop. Ferns grow in the grass.
+const BARE_AROUND := {"pine": [0.9, 2.3, 0.95], "boulder": [0.9, 2.1, 0.9], "crystal": [1.0, 2.2, 0.9]}
 var _spawn := Vector2.ZERO
 
 
@@ -95,7 +100,7 @@ func _scatter() -> void:
 			"stone": _fill_stone(z)
 			"plants": _fill_plants(z)
 			"crystal": _fill_vein(z)
-	# Ferns around the spawn clearing, outside the bare disc.
+	# Ferns around the spawn point.
 	_fern_ring(_spawn, 7.0, 11.0, 0.12)
 	# A thin scatter of single bushes so open ground is not bare.
 	for i in 900:
@@ -181,7 +186,12 @@ func _try_prop(kind: String, p: Vector2, max_slope: int, smin: float, smax: floa
 			var n := _gen.column(int(p.x + d.x), int(p.y + d.y))
 			if n.x < 0 or absi(n.x - top) > 2:
 				return false
-	_out[kind].append(_xform(Vector3(p.x, top + 1.0, p.y), _rng, smin, smax))
+	var xf := _xform(Vector3(p.x, top + 1.0, p.y), _rng, smin, smax)
+	_out[kind].append(xf)
+	if BARE_AROUND.has(kind):
+		var b: Array = BARE_AROUND[kind]
+		var s := xf.basis.get_scale().x
+		_stamps.append({"pos": p, "inner": b[0] * s, "outer": b[1] * s, "strength": b[2]})
 	return true
 
 

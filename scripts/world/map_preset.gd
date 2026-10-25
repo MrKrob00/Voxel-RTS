@@ -25,10 +25,7 @@ var sub_block := Blocks.DIRT
 var surface_light := Color("6aa83c")
 var surface_dark := Color("4f9a34")
 var surface_deep := Color("3d8434")   ## a third, darker green in broad blobs
-var patch_color := Color("8a6a43")   ## bare ground showing through the ground cover
-var patch_start := 0.84              ## 0..1 noise level where bare patches begin (higher = fewer)
-var clear_center := Vector2(-1000, -1000)   ## bare dirt circle around the spawn crystal (set by the world)
-var clear_radius := 5.0
+var bare_color := Color("8a6a43")    ## earth showing where the grass is gone (GroundCover: under props and buildings, along cliffs)
 
 # Props per 100 free surface cells.
 var tree_density := 5.0
@@ -49,14 +46,12 @@ static func blob(x: float, z: float, scale: float) -> float:
 	return clampf((a + b + c * 1.3) / 3.3 * 0.5 + 0.5, 0.0, 1.0)
 
 
-## Colour of a vertex on a face. Top faces of the surface block blend light/dark ground cover and bare patches.
-func vertex_color(block: int, face_kind: int, wx: float, wz: float) -> Color:
+## Colour of a vertex on a face. Top faces of the surface block blend light/dark ground cover and bare patches;
+## `bare` (0..1, see GroundCover) is how much of the grass is gone there: under props and buildings, along cliff edges.
+func vertex_color(block: int, face_kind: int, wx: float, wz: float, bare := 0.0) -> Color:
 	if block == top_block and face_kind == Blocks.FACE_TOP:
 		var t := blob(wx, wz, 1.0)
 		var base := surface_dark.lerp(surface_light, t)
 		base = base.lerp(surface_deep, smoothstep(0.58, 0.72, blob(wx - 90.0, wz + 55.0, 0.55)) * 0.75)
-		var p := smoothstep(patch_start, patch_start + 0.03, blob(wx + 31.0, wz - 17.0, 1.7))
-		var d := Vector2(wx, wz).distance_to(clear_center)
-		p = maxf(p, 1.0 - smoothstep(clear_radius, clear_radius + 2.0, d))
-		return base.lerp(patch_color, p)
+		return base.lerp(bare_color, bare)
 	return Blocks.color_of(block, face_kind)

@@ -159,8 +159,19 @@ func place(origin: Vector3i, axis: int, kind: int = Kind.STONE, length: int = 2)
 	b.node.material_override = _materials[kind]
 	b.node.transform = _transform_for(b)
 	add_child(b.node)
+	_trample(b)
 	brick_placed.emit(b)
 	return b
+
+
+## A building kills the grass under it and a little around it; the turf fades out softly and does not come back.
+func _trample(b: Brick) -> void:
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for c in b.cells():
+		lo = Vector2(minf(lo.x, c.x), minf(lo.y, c.z))
+		hi = Vector2(maxf(hi.x, c.x + 1.0), maxf(hi.y, c.z + 1.0))
+	world.stamp_cover_rect(Rect2(lo, hi - lo), 1.2, 1.0)
 
 
 func _transform_for(b: Brick) -> Transform3D:

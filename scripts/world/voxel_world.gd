@@ -27,6 +27,8 @@ var generator: WorldGen
 var preset: MapPreset = MapPreset.plains()
 ## What digging and building do to the ground (stages, slopes). Created in _ready.
 var terrain: TerrainEdit
+## How much of the grass is gone in each column (under props, buildings, along cliffs); the mesher blends it into the colours.
+var cover: GroundCover
 
 class Chunk extends RefCounted:
 	var cpos: Vector3i
@@ -58,6 +60,7 @@ var _mesh_results: Array = []
 var _touched := {}                  ## chunks changed since the last frame: cpos -> Chunk
 var _group := {}                    ## the open edit group: Chunk -> true
 var _commit_queue: Array = []       ## chunks whose initial mesh waits for the per-frame budget (mesh in Chunk.pending)
+var _mesh_holds := 0                ## meshing waits while anything (the cliff pass, the prop scatter) is still painting the ground cover
 
 var _solid_material: StandardMaterial3D
 var _water_material: StandardMaterial3D
@@ -73,6 +76,7 @@ func _ready() -> void:
 	_water_material.albedo_color = Color(1, 1, 1, 0.62)
 	_water_material.roughness = 0.3
 	terrain = TerrainEdit.new(self)
+	cover = GroundCover.new(size_blocks().x, size_blocks().z)
 	start()
 
 
@@ -83,9 +87,9 @@ func size_blocks() -> Vector3i:
 
 func start() -> void:
 	generator = WorldGen.new(world_seed, size_blocks(), preset, extra_islands)
-	var sc := generator.spawn_column()
-	preset.clear_center = Vector2(sc.x + 0.5, sc.y + 0.5)
 	_gen_total = size_chunks.x * size_chunks.y * size_chunks.z
+	hold_meshing()
+	WorkerThreadPool.add_task(_cliff_cover_task)
 	# Generate from the middle of the map outwards so the visible area appears first.
 	var centre := Vector3(size_chunks) * 0.5
 	var list: Array[Chunk] = []
@@ -102,6 +106,56 @@ func start() -> void:
 
 func is_ready() -> bool:
 	return _finished_signalled
+
+
+## Meshing waits while the ground cover is still being painted, so the first picture already has its bare ground and no
+## chunk is built twice. Every hold_meshing() needs a release_meshing().
+func hold_meshing() -> void:
+	_mesh_holds += 1
+
+
+func release_meshing() -> void:
+	_mesh_holds -= 1
+	if _mesh_holds == 0:
+		for c in _chunks.values():
+			_try_mesh(c)
+
+
+func _cliff_cover_task() -> void:
+	var size := size_blocks()
+	var tops := PackedInt32Array()
+	tops.resize(size.x * size.z)
+	for z in size.z:
+		for x in size.x:
+			tops[x + z * size.x] = generator.column(x, z).x
+	cover.paint_cliffs(tops)
+	release_meshing.call_deferred()
+
+
+## Clears grass around something that was just put on the ground and rebuilds the meshes that show it.
+func stamp_cover_disc(center: Vector2, inner: float, outer: float, strength := 1.0) -> void:
+	_cover_changed(cover.stamp_disc(center, inner, outer, strength))
+
+
+func stamp_cover_rect(rect: Rect2, margin: float, strength := 1.0) -> void:
+	_cover_changed(cover.stamp_rect(rect, margin, strength))
+
+
+func _cover_changed(area: Rect2i) -> void:
+	if _mesh_holds > 0:
+		return   # nothing is built yet
+	var x0 := (area.position.x - 1) >> 4
+	var x1 := (area.end.x) >> 4
+	var z0 := (area.position.y - 1) >> 4
+	var z1 := (area.end.y) >> 4
+	for cz in range(maxi(z0, 0), mini(z1, size_chunks.z - 1) + 1):
+		for cx in range(maxi(x0, 0), mini(x1, size_chunks.x - 1) + 1):
+			for cy in size_chunks.y:
+				var c: Chunk = _chunks.get(Vector3i(cx, cy, cz))
+				if c != null and c.generated and not c.data.is_empty():
+					c.version += 1
+					c.pending = null
+					_touched[c.cpos] = c
 
 
 func in_bounds(p: Vector3i) -> bool:
@@ -279,7 +333,7 @@ func _open_edit_group() -> void:
 
 
 func _try_mesh(c: Chunk) -> void:
-	if c.meshing or not c.generated or c.built == c.version:
+	if _mesh_holds > 0 or c.meshing or not c.generated or c.built == c.version:
 		return
 	if c.pending != null:
 		return   # already built for this version, waiting for the rest of its group
@@ -306,11 +360,12 @@ func _try_mesh(c: Chunk) -> void:
 					snap[slot] = n.data
 	c.meshing = true
 	_mesh_in_flight += 1
-	WorkerThreadPool.add_task(_mesh_task.bind(c, snap, c.version))
+	var grass := cover.slice(c.cpos.x * Blocks.CHUNK_SIZE, c.cpos.z * Blocks.CHUNK_SIZE, Blocks.CHUNK_SIZE)
+	WorkerThreadPool.add_task(_mesh_task.bind(c, snap, grass, c.version))
 
 
-func _mesh_task(c: Chunk, snap: Array, version: int) -> void:
-	var out := ChunkMesher.build(snap, c.cpos * Blocks.CHUNK_SIZE, preset)
+func _mesh_task(c: Chunk, snap: Array, grass: PackedByteArray, version: int) -> void:
+	var out := ChunkMesher.build(snap, c.cpos * Blocks.CHUNK_SIZE, preset, grass)
 	_mutex.lock()
 	_mesh_results.append([c, out, version])
 	_mutex.unlock()
