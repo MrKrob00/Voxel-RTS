@@ -56,6 +56,17 @@ func add_log(l: LooseLog) -> void:
 	targets.append(t)
 
 
+func detail() -> String:
+	var n := 0
+	var logs := 0
+	for t in targets:
+		if t.type == "log":
+			logs += 1
+		else:
+			n += 1
+	return "%d %s%s" % [n, "trees" if harvest_kind == Kind.TREES else "tufts", (", %d logs" % logs) if logs > 0 else ""]
+
+
 ## Done when nothing is left that anybody can still get to (a log that rolled off a ledge is given up after a few tries).
 func is_finished() -> bool:
 	for t in targets:

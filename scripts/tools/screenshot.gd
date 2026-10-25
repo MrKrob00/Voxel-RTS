@@ -12,6 +12,8 @@ func _ready() -> void:
 	var select_all := false
 	var stockpiles: Array[Vector3i] = []  # --stockpile=x,z[,bags]: put a stockpile there (--frame: a frame, filled with `bags` of stone)
 	var task_rect: Array[int] = []        # --task=x0,z0,x1,z1[,depth]: mark an area to dig and put every unit on it (--nocollect: bring nothing home)
+	var tool_mode := -1                   # --tool=N: choose that Tools.Mode, --palette: open the tool palette
+	var palette := false
 	var wait_frames := 400                # --wait=N: frames to wait before the shot (let units work)
 	var move_to := Vector2(-1, -1)   # --move=x,z: select every unit and send it there, then wait for it to walk a bit
 	for a in OS.get_cmdline_user_args():
@@ -33,6 +35,10 @@ func _ready() -> void:
 		elif a.begins_with("--task="):
 			for part in a.substr(7).split(","):
 				task_rect.append(int(part))
+		elif a.begins_with("--tool="):
+			tool_mode = int(a.substr(7))
+		elif a == "--palette":
+			palette = true
 		elif a.begins_with("--wait="):
 			wait_frames = int(a.substr(7))
 		elif a == "--select-all":
@@ -76,6 +82,11 @@ func _ready() -> void:
 		if t != null and units != null:
 			for u in units.units:
 				board.assign(u, t)
+	var hud_node = get_parent().get("hud")
+	if hud_node != null and tool_mode >= 0:
+		get_parent()._choose_tool(tool_mode)
+	if hud_node != null and palette:
+		hud_node._set_palette(true)
 	for d in digs:
 		var terrain: TerrainEdit = world.terrain
 		var lv0 := terrain.level(d.x, d.y)

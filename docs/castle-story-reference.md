@@ -87,3 +87,19 @@ Next work, in order:
 - The player assigns Bricktrons to tasks; a task with no free stockpile, no reachable target or no resource leaves them idle.
 - Mining tunnels have a special piece (`cs_mining_tunnel_or_01`): one 2x1x1 block, half a normal block and half steps. Only units
   make it (the ground generator never does): it is the digging state for walking into a hillside. TODO with sideways digging.
+
+## HUD notes from the reference screenshots (images/Screenshot_2026-10-24-23-4*, 2026-10-25-13-07-54, 13-08-46)
+
+Notes, so the screenshots need not be studied again; compare the game's HUD against these points.
+
+- **Top**: when a task tool is active, a thin dark banner across the full width with the tool name centred ("Harvest Task"). Nothing else at the top. "Game Paused / Press P to unpause" is a small centred box.
+- **Left edge**: a narrow dark strip (trophy/goals icon at its top), then a dark full-height side panel (~300 px of 1920).
+  - Normal state: minimap (top), "Player" block with unit counts as small icons, population bar, "survived N waves / kills", "next wave starts in" with a time.
+  - "+" pressed: the same panel becomes **"New Task"** with an X at the top right and sections with small underlined headers: Maintenance Tasks, Harvest Tasks (trees, grass, ..., 7 icons), Mining Tasks (3 icons), Construction Tasks (1 icon). Tools are icon buttons in a 4-wide grid, no text.
+- **Bottom left dock**: "+" (new task), a bell (alerts), a dot-cluster (units / idle), then the icons of the tasks that exist; the active one is highlighted. Below it, with a tool active, a dark bottom bar: green check (confirm), a chevron, a flag (priority, with a number).
+- **Bottom right** of that bar: icons of the task variants (selected one underlined) and a red trash can. A small pair of sword icons in the corner.
+- **Right edge**: three small icons stacked: home, settings, help.
+- **In the world**: task markers are round badges over the work ("axe x 0/8" = done/total), "Nothing to do" labels above idle units, resource badges ("x 5"), a yellow circle for the harvest area.
+- Style: dark translucent panels, thin yellow-orange text and accents, rounded icon buttons, no text on tool buttons.
+
+What this game does with it: the same layout (banner, side panel with "New Task", dock with "+", right-edge Home), text buttons instead of icons (no art yet), a ribbon of task cards for the workers' tasks, level/turn/done actions of the active tool. Not done: minimap, waves, goals, settings/help icons, priority flag.

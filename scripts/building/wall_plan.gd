@@ -9,6 +9,8 @@ class Slot extends RefCounted:
 	var origin: Vector3i
 	var axis: int          # 0: the brick spans origin and origin + X, 1: origin and origin + Z
 	var length: int        # 2 (a brick) or 1 (a cube)
+	var kind := "brick"    # "brick" (a brick or cube) or "stairs" (a stair piece in `origin` rising towards a cube next to it)
+	var rise := Vector2i.ZERO
 	var course: int
 	var col := 0           # how many cells from the start of the wall (the entry end) its first cell is
 	var done := false
@@ -17,9 +19,11 @@ class Slot extends RefCounted:
 	var ghost: MeshInstance3D
 
 	func halves() -> int:
-		return length
+		return 2 if kind == "stairs" else length
 
 	func cells() -> Array[Vector3i]:
+		if kind == "stairs":
+			return [origin, origin + Vector3i(rise.x, 0, rise.y)]
 		return BrickWorld.cells_for(origin, axis, length)
 
 
@@ -54,6 +58,15 @@ static func layout(first_cell: Vector3i, axis: int, length: int, height: int) ->
 			var len := 2 if pos + 1 < length else 1
 			out.append(_slot(first_cell + step * pos + Vector3i(0, course, 0), axis, len, course, pos))
 			pos += len
+	return out
+
+
+## A stair block of 2 x 1 x 1: a stair piece in `at`, rising towards a whole cube in the next cell `rise` away.
+static func stairs_layout(at: Vector3i, rise: Vector2i) -> Array[Slot]:
+	var s := _slot(at, 0 if rise.x != 0 else 1, 2, 0)
+	s.kind = "stairs"
+	s.rise = rise
+	var out: Array[Slot] = [s]
 	return out
 
 
@@ -96,12 +109,12 @@ func is_done() -> bool:
 	return true
 
 
-func build(first_cell: Vector3i, axis: int, length: int, height: int) -> void:
+func build(first_cell: Vector3i, axis: int, length: int, height: int, prepared: Array[Slot] = []) -> void:
 	first = first_cell
 	run_axis = axis
 	run_length = length
 	courses = height
-	slots = layout(first_cell, axis, length, height)
+	slots = prepared if not prepared.is_empty() else layout(first_cell, axis, length, height)
 	name = "Wall_%d_%d" % [first_cell.x, first_cell.z]
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -113,7 +126,8 @@ func build(first_cell: Vector3i, axis: int, length: int, height: int) -> void:
 		box.size = (Vector3(2, 1, 1) if s.axis == 0 else Vector3(1, 1, 2)) * 0.96 if s.length == 2 else Vector3.ONE * 0.96
 		g.mesh = box
 		g.material_override = m
-		g.position = BrickWorld.center_for(s.origin, s.axis, s.length) - position
+		var cs := s.cells()
+		g.position = (Vector3(cs[0]) + Vector3(cs[-1]) + Vector3(1, 1, 1)) * 0.5 - position
 		add_child(g)
 		s.ghost = g
 

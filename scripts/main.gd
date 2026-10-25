@@ -5,8 +5,6 @@ var preset := MapPreset.plains()
 var world: VoxelWorld
 var props: PropField
 var rig: RTSCamera
-enum Mode { SELECT, MARK_DIG, MARK_TREES, MARK_GRASS, STOCKPILE, FRAME, STUMP, ROPE_MACHINE, WALL, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
-const MODE_NAMES := ["select / move", "mark dig area (depth +/-)", "mark trees to fell", "mark grass to cut", "stockpile: plank platform (3 planks; logs, planks, rope, ore)", "stockpile: frame (3 planks; stone, grass)", "stump with an axe (1 log): logs -> planks", "rope machine (2 planks): grass -> rope", "plan a wall (drag a line; level = courses, up to 3; stone from brick stacks)", "dig (instant)", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
 const START_UNITS := 5
 
 var bricks: BrickWorld
@@ -15,22 +13,15 @@ var economy: Economy
 var colliders: GroundColliders
 var loose: LooseItems
 var board: TaskBoard
-var _tasks_panel: VBoxContainer
-var _stock_label: Label
 var _stock_ghost: MeshInstance3D
 var _dig_depth := 1
-var _depth_label: Label
-var mode := Mode.SELECT
+var hud: Hud
+var mode: int = Tools.Mode.SELECT
 var brick_axis := 0
 var _ghost: MeshInstance3D
 var _ghost_mat: StandardMaterial3D
-var _rotate_button: Button
 
 var _hover: MeshInstance3D
-var _info: Label
-var _cell_info: Label
-var _mode_button: Button
-var _selection_box: SelectionBox
 
 
 func _ready() -> void:
@@ -76,8 +67,8 @@ func _ready() -> void:
 	rig.primary_action.connect(_on_primary)
 	rig.secondary_action.connect(_on_secondary)
 	rig.double_action.connect(_on_double)
-	rig.box_changed.connect(func(r: Rect2) -> void: _selection_box.show_rect(r))
-	rig.box_cancelled.connect(func() -> void: _selection_box.hide_rect())
+	rig.box_changed.connect(func(r: Rect2) -> void: hud.selection_box.show_rect(r))
+	rig.box_cancelled.connect(func() -> void: hud.selection_box.hide_rect())
 	rig.box_finished.connect(_on_box)
 
 	units = UnitManager.new()
@@ -107,10 +98,11 @@ var _panel_timer := 0.0
 
 func _process(delta: float) -> void:
 	_panel_timer -= delta
-	if _panel_timer <= 0.0 and not board.tasks.is_empty():
+	if _panel_timer <= 0.0:
 		_panel_timer = 0.5
 		_refresh_tasks_panel()
-	_info.text = "%d fps | %s | %s | units %d (selected %d) | bricks %d" % [Engine.get_frames_per_second(), world.stats(), MODE_NAMES[mode], units.units.size(), units.selection.size(), bricks.brick_count()]
+		_refresh_units_label()
+	hud.set_status("%d fps | %s | bricks %d" % [Engine.get_frames_per_second(), world.stats(), bricks.brick_count()])
 	_update_hover()
 
 
@@ -169,15 +161,15 @@ func _rotate_brick() -> void:
 
 
 func _is_brick_mode() -> bool:
-	return mode >= Mode.STONE_BRICK
+	return mode >= Tools.Mode.STONE_BRICK
 
 
 func _brick_length() -> int:
-	return 1 if mode == Mode.STONE_CUBE or mode == Mode.WOOD_CUBE else 2
+	return 1 if mode == Tools.Mode.STONE_CUBE or mode == Tools.Mode.WOOD_CUBE else 2
 
 
 func _brick_kind() -> int:
-	return BrickWorld.Kind.STONE if mode == Mode.STONE_BRICK or mode == Mode.STONE_CUBE else BrickWorld.Kind.WOOD
+	return BrickWorld.Kind.STONE if mode == Tools.Mode.STONE_BRICK or mode == Tools.Mode.STONE_CUBE else BrickWorld.Kind.WOOD
 
 
 func _setup_hover() -> void:
@@ -213,70 +205,52 @@ func _setup_hover() -> void:
 
 
 func _setup_ui() -> void:
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	_info = Label.new()
-	_info.position = Vector2(12, 8)
-	layer.add_child(_info)
-	_cell_info = Label.new()
-	_cell_info.position = Vector2(12, 172)
-	_cell_info.add_theme_font_size_override("font_size", 14)
-	layer.add_child(_cell_info)
-	_selection_box = SelectionBox.new()
-	layer.add_child(_selection_box)
-	_stock_label = Label.new()
-	_stock_label.position = Vector2(12, 450)
-	_stock_label.add_theme_font_size_override("font_size", 15)
-	layer.add_child(_stock_label)
-	_tasks_panel = VBoxContainer.new()
-	_tasks_panel.position = Vector2(220, 40)
-	layer.add_child(_tasks_panel)
-	var all_button := Button.new()
-	all_button.text = "All units"
-	all_button.custom_minimum_size = Vector2(190, 56)
-	all_button.position = Vector2(12, 232)
-	all_button.pressed.connect(func() -> void: units.select_all())
-	layer.add_child(all_button)
-	# How deep "mark dig area" digs: 1 clears the surface, more is a quarry that digs layer by layer and leaves a staircase.
-	var depth_row := HBoxContainer.new()
-	depth_row.position = Vector2(12, 372)
-	layer.add_child(depth_row)
-	var minus := Button.new()
-	minus.text = "-"
-	minus.custom_minimum_size = Vector2(56, 56)
-	depth_row.add_child(minus)
-	_depth_label = Label.new()
-	_depth_label.custom_minimum_size = Vector2(78, 56)
-	_depth_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_depth_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	depth_row.add_child(_depth_label)
-	var plus := Button.new()
-	plus.text = "+"
-	plus.custom_minimum_size = Vector2(56, 56)
-	depth_row.add_child(plus)
-	minus.pressed.connect(func() -> void: _set_depth(_dig_depth - 1))
-	plus.pressed.connect(func() -> void: _set_depth(_dig_depth + 1))
+	hud = Hud.new()
+	hud.name = "Hud"
+	add_child(hud)
+	hud.tool_chosen.connect(_choose_tool)
+	hud.level_changed.connect(_set_depth)
+	hud.select_all_pressed.connect(func() -> void: units.select_all())
+	hud.select_idle_pressed.connect(func() -> void: units.select_idle())
+	hud.turn_pressed.connect(_rotate_brick)
+	hud.home_pressed.connect(func() -> void:
+		var sp := world.spawn_point()
+		rig.focus = Vector3(sp.x, sp.y, sp.z))
+	hud.task_assign.connect(func(t: WorkTask) -> void: _assign_crew(t))
+	hud.task_cancel.connect(_cancel_task)
+	hud.task_select.connect(func(t: WorkTask) -> void: units._set_selection(t.workers.duplicate()))
+	hud.collect_toggled.connect(func(t: DigTask, kind: int, on: bool) -> void: t.collect[kind] = on)
+	units.selection_changed.connect(func(_s: Array) -> void: _refresh_units_label())
 	_set_depth(1)
-	var idle_button := Button.new()
-	idle_button.text = "Idle units"
-	idle_button.custom_minimum_size = Vector2(190, 56)
-	idle_button.position = Vector2(12, 296)
-	idle_button.pressed.connect(func() -> void: units.select_idle())
-	layer.add_child(idle_button)
-	_mode_button = Button.new()
-	_mode_button.text = "Mode: select / move"
-	_mode_button.custom_minimum_size = Vector2(190, 56)
-	_mode_button.position = Vector2(12, 40)
-	_mode_button.pressed.connect(func() -> void:
-		mode = (mode + 1) % MODE_NAMES.size() as Mode
-		_mode_button.text = "Mode: " + MODE_NAMES[mode])
-	layer.add_child(_mode_button)
-	_rotate_button = Button.new()
-	_rotate_button.text = "Rotate (T)"
-	_rotate_button.custom_minimum_size = Vector2(190, 56)
-	_rotate_button.position = Vector2(12, 104)
-	_rotate_button.pressed.connect(_rotate_brick)
-	layer.add_child(_rotate_button)
+	_refresh_units_label()
+	_refresh_stock_label()
+
+
+func _choose_tool(m: int) -> void:
+	mode = m
+	hud.set_tool(m)
+	_set_depth(_dig_depth)   # the limit of the level depends on the tool
+
+
+func _assign_crew(t: WorkTask) -> void:
+	var crew: Array = units.selection if not units.selection.is_empty() else units.units.filter(func(u: Unit) -> bool: return u.is_idle())
+	for u in crew:
+		board.assign(u, t)
+
+
+func _cancel_task(t: WorkTask) -> void:
+	if t is BuildTask:
+		board.cancel_blueprint(t.blueprint)
+	else:
+		board.remove_task(t)   # a wall's plan goes with its job
+
+
+func _refresh_units_label() -> void:
+	var idle := 0
+	for u in units.units:
+		if u.is_idle() and board.task_of(u) == null:
+			idle += 1
+	hud.set_units(units.units.size(), idle, units.selection.size())
 
 
 func _pick(screen_pos: Vector2) -> Dictionary:
@@ -290,13 +264,13 @@ func _update_hover() -> void:
 	_hover.visible = not hit.is_empty() and not _is_brick_mode()
 	_ghost.visible = false
 	_stock_ghost.visible = false
-	_cell_info.text = "" if hit.is_empty() else _describe_cell(hit.cell, hit.brick)
-	if (mode == Mode.STOCKPILE or mode == Mode.FRAME or mode == Mode.STUMP or mode == Mode.ROPE_MACHINE) and not hit.is_empty() and not hit.brick:
+	var info := "" if hit.is_empty() else _describe_cell(hit.cell, hit.brick)
+	if (mode == Tools.Mode.STOCKPILE or mode == Tools.Mode.FRAME or mode == Tools.Mode.STUMP or mode == Tools.Mode.ROPE_MACHINE) and not hit.is_empty() and not hit.brick:
 		var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
 		var why := ""
 		var gsize := Vector2(Stockpile.SIZE, Stockpile.SIZE)
-		if mode == Mode.STUMP or mode == Mode.ROPE_MACHINE:
-			var sk := Station.Kind.STUMP if mode == Mode.STUMP else Station.Kind.ROPE_MACHINE
+		if mode == Tools.Mode.STUMP or mode == Tools.Mode.ROPE_MACHINE:
+			var sk := Station.Kind.STUMP if mode == Tools.Mode.STUMP else Station.Kind.ROPE_MACHINE
 			why = Station.can_place(world, bricks, sk, origin, economy.stockpiles + economy.blueprints, economy.stations)
 			gsize = Vector2(Station.DEFS[sk].size)
 		else:
@@ -306,7 +280,8 @@ func _update_hover() -> void:
 		_stock_ghost.position = Vector3(origin.x + gsize.x * 0.5, origin.y + 0.1, origin.z + gsize.y * 0.5)
 		(_stock_ghost.material_override as StandardMaterial3D).albedo_color = Color(0.2, 0.9, 0.3, 0.5) if why == "" else Color(0.95, 0.2, 0.2, 0.5)
 		if why != "":
-			_cell_info.text += "  |  stockpile: " + why
+			info += "  |  cannot stand here: " + why
+	hud.set_cell_info(info)
 	if hit.is_empty():
 		return
 	if _hover.visible:
@@ -336,7 +311,7 @@ func _describe_cell(cell: Vector3i, brick: bool) -> String:
 
 
 func _on_primary(pos: Vector2) -> void:
-	var u := units.unit_at(pos, rig.camera) if mode == Mode.SELECT else null
+	var u := units.unit_at(pos, rig.camera) if mode == Tools.Mode.SELECT else null
 	if u != null:
 		# Tapping the only selected unit again puts it away; any other tap picks that unit.
 		if units.selection.size() == 1 and units.selection[0] == u:
@@ -348,26 +323,32 @@ func _on_primary(pos: Vector2) -> void:
 	if hit.is_empty():
 		return
 	match mode:
-		Mode.SELECT:
+		Tools.Mode.SELECT:
 			_command_move(hit)
-		Mode.MARK_DIG:
+		Tools.Mode.MARK_DIG:
 			_mark_dig(hit.cell.x, hit.cell.z, hit.cell.x, hit.cell.z)
-		Mode.MARK_TREES:
+		Tools.Mode.MARK_TREES:
 			_mark_harvest(HarvestTask.Kind.TREES, Rect2(hit.cell.x - 1.0, hit.cell.z - 1.0, 3.0, 3.0))
-		Mode.MARK_GRASS:
+		Tools.Mode.MARK_GRASS:
 			_mark_harvest(HarvestTask.Kind.GRASS, Rect2(hit.cell.x - 1.0, hit.cell.z - 1.0, 3.0, 3.0))
-		Mode.STOCKPILE, Mode.FRAME:
+		Tools.Mode.STOCKPILE, Tools.Mode.FRAME:
 			_place_stockpile(hit)
-		Mode.STUMP, Mode.ROPE_MACHINE:
+		Tools.Mode.STUMP, Tools.Mode.ROPE_MACHINE:
 			_place_station(hit)
-		Mode.WALL:
+		Tools.Mode.WALL:
 			_plan_wall(hit, hit)
-		Mode.DIG:
+		Tools.Mode.CUBE:
+			_plan_wall(hit, hit, 1)
+		Tools.Mode.BRICK:
+			_plan_brick(hit, _axis_step())
+		Tools.Mode.STAIRS:
+			_plan_stairs(hit, _axis_step())
+		Tools.Mode.DIG:
 			if hit.brick:
 				bricks.remove(bricks.brick_at(hit.cell))
 			else:
 				world.terrain.dig_step(hit.cell)
-		Mode.VOXEL:
+		Tools.Mode.VOXEL:
 			# Clicking a slope or a half-dug block fills that very cell up to a whole block; anything else builds next to it.
 			var target: Vector3i = hit.cell if not Blocks.is_whole(world.get_block(hit.cell)) else hit.cell + hit.normal
 			world.terrain.build(target, Blocks.STONE)
@@ -382,7 +363,7 @@ func _on_secondary(pos: Vector2) -> void:
 		return
 	if not units.selection.is_empty():
 		_command_move(hit)
-	elif mode != Mode.SELECT:
+	elif mode != Tools.Mode.SELECT:
 		if hit.brick:
 			bricks.remove(bricks.brick_at(hit.cell))
 		else:
@@ -398,13 +379,13 @@ func _command_move(hit: Dictionary) -> void:
 
 
 func _on_double(pos: Vector2) -> void:
-	if mode == Mode.SELECT and units.unit_at(pos, rig.camera) != null:
+	if mode == Tools.Mode.SELECT and units.unit_at(pos, rig.camera) != null:
 		units.select_all()   # double tap on a unit: every unit (there is only one kind so far)
 
 
 func _on_box(rect: Rect2) -> void:
-	_selection_box.hide_rect()
-	if mode == Mode.MARK_TREES or mode == Mode.MARK_GRASS:
+	hud.selection_box.hide_rect()
+	if mode == Tools.Mode.MARK_TREES or mode == Tools.Mode.MARK_GRASS:
 		var lo := Vector2(INF, INF)
 		var hi := Vector2(-INF, -INF)
 		for p in [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]:
@@ -413,15 +394,27 @@ func _on_box(rect: Rect2) -> void:
 				lo = Vector2(minf(lo.x, h.cell.x), minf(lo.y, h.cell.z))
 				hi = Vector2(maxf(hi.x, h.cell.x + 1.0), maxf(hi.y, h.cell.z + 1.0))
 		if hi.x > lo.x:
-			_mark_harvest(HarvestTask.Kind.TREES if mode == Mode.MARK_TREES else HarvestTask.Kind.GRASS, Rect2(lo, hi - lo))
+			_mark_harvest(HarvestTask.Kind.TREES if mode == Tools.Mode.MARK_TREES else HarvestTask.Kind.GRASS, Rect2(lo, hi - lo))
 		return
-	if mode == Mode.WALL:
+	if mode == Tools.Mode.WALL or mode == Tools.Mode.BRICK or mode == Tools.Mode.STAIRS:
 		var a := _pick(rect.position)
 		var b := _pick(rect.end)
-		if not a.is_empty() and not b.is_empty():
+		if a.is_empty() or b.is_empty():
+			return
+		if mode == Tools.Mode.WALL:
 			_plan_wall(a, b)
+		else:
+			# The way of the drag, along the longer side, says how the brick lies / which way the stairs rise.
+			var d := Vector2i(b.cell.x - a.cell.x, b.cell.z - a.cell.z)
+			var dir := (Vector2i(signi(d.x), 0) if absi(d.x) >= absi(d.y) else Vector2i(0, signi(d.y)))
+			if dir == Vector2i.ZERO:
+				dir = _axis_step()
+			if mode == Tools.Mode.BRICK:
+				_plan_brick(a, dir)
+			else:
+				_plan_stairs(a, dir)
 		return
-	if mode == Mode.MARK_DIG:
+	if mode == Tools.Mode.MARK_DIG:
 		# The corners of the box on the ground give the area to dig.
 		var lo := Vector2i(1 << 30, 1 << 30)
 		var hi := Vector2i(-(1 << 30), -(1 << 30))
@@ -441,7 +434,7 @@ func _on_box(rect: Rect2) -> void:
 func _mark_harvest(kind: int, rect: Rect2) -> void:
 	var t := board.create_harvest(kind, rect)
 	if t == null:
-		_cell_info.text = "Nothing to harvest there"
+		hud.show_message("Nothing to harvest there")
 		return
 	var crew: Array = units.selection if not units.selection.is_empty() else units.units.filter(func(u: Unit) -> bool: return u.is_idle())
 	for u in crew:
@@ -450,25 +443,51 @@ func _mark_harvest(kind: int, rect: Rect2) -> void:
 
 func _place_station(hit: Dictionary) -> void:
 	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
-	var kind := Station.Kind.STUMP if mode == Mode.STUMP else Station.Kind.ROPE_MACHINE
+	var kind := Station.Kind.STUMP if mode == Tools.Mode.STUMP else Station.Kind.ROPE_MACHINE
 	if not hit.brick and board.place_blueprint("station", kind, origin) == null:
-		_cell_info.text = "Cannot plan it here: " + economy.last_error
+		hud.show_message("Cannot plan it here: " + economy.last_error)
 
 
 func _set_depth(d: int) -> void:
-	_dig_depth = clampi(d, 1, 12)
-	_depth_label.text = "level %d" % _dig_depth
+	var top := WallPlan.MAX_COURSES if mode == Tools.Mode.WALL else 12
+	_dig_depth = clampi(d, 1, top)
+	hud.set_level(_dig_depth)
 
 
 ## Plans a wall from the cell above the first point to the cell above the second, as many courses high as the level says (at most 3).
-func _plan_wall(a: Dictionary, b: Dictionary) -> void:
+func _axis_step() -> Vector2i:
+	return Vector2i(1, 0) if brick_axis == 0 else Vector2i(0, 1)
+
+
+func _cell_above(hit: Dictionary) -> Vector3i:
+	return hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
+
+
+## One stone brick 2 x 1 x 1, lying along `dir` (a unit step in x or z) from the cell above the point.
+func _plan_brick(a: Dictionary, dir: Vector2i) -> void:
+	if a.brick:
+		return
+	var from := _cell_above(a)
+	if board.place_wall(from, from + Vector3i(dir.x, 0, dir.y), 1) == null:
+		hud.show_message("Cannot plan a brick here: " + economy.last_error)
+
+
+## A stair block 2 x 1 x 1: steps in the cell above the point, rising `dir` towards a whole stone cube.
+func _plan_stairs(a: Dictionary, dir: Vector2i) -> void:
+	if a.brick:
+		return
+	if board.place_stairs(_cell_above(a), dir) == null:
+		hud.show_message("Cannot plan stairs here: " + economy.last_error)
+
+
+func _plan_wall(a: Dictionary, b: Dictionary, height := -1) -> void:
 	if a.brick or b.brick:
 		return
 	var from: Vector3i = a.cell + a.normal if not Blocks.is_partial(world.get_block(a.cell)) else a.cell
 	var to_cell: Vector3i = b.cell + b.normal if not Blocks.is_partial(world.get_block(b.cell)) else b.cell
 	to_cell.y = from.y
-	if board.place_wall(from, to_cell, _dig_depth) == null:
-		_cell_info.text = "Cannot plan a wall here: " + economy.last_error
+	if board.place_wall(from, to_cell, _dig_depth if height < 0 else height) == null:
+		hud.show_message("Cannot plan a wall here: " + economy.last_error)
 
 
 func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
@@ -482,57 +501,21 @@ func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
 
 func _place_stockpile(hit: Dictionary) -> void:
 	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
-	var style := Stockpile.Style.FRAME if mode == Mode.FRAME else Stockpile.Style.PLATFORM
+	var style := Stockpile.Style.FRAME if mode == Tools.Mode.FRAME else Stockpile.Style.PLATFORM
 	if not hit.brick and board.place_blueprint("stockpile", style, origin) == null:
-		_cell_info.text = "Cannot plan a stockpile here: " + economy.last_error
+		hud.show_message("Cannot plan a stockpile here: " + economy.last_error)
 
 
 func _refresh_tasks_panel() -> void:
-	for c in _tasks_panel.get_children():
-		c.queue_free()
-	for t in board.tasks:
-		var row := HBoxContainer.new()
-		if t is DigTask:
-			for kind in Resources.DIGGABLE:
-				var f := Button.new()
-				f.toggle_mode = true
-				f.button_pressed = t.collects(kind)
-				f.text = Resources.label(kind)
-				f.tooltip_text = "Bring %s home (off: break it and throw it away)" % Resources.label(kind).to_lower()
-				f.custom_minimum_size = Vector2(0, 48)
-				f.toggled.connect(func(on: bool) -> void: t.collect[kind] = on)
-				row.add_child(f)
-		var b := Button.new()
-		b.text = t.summary() + ("" if t.persistent else "  (assign selected)")
-		b.custom_minimum_size = Vector2(0, 48)
-		b.disabled = t.persistent
-		b.pressed.connect(func() -> void:
-			var crew: Array = units.selection if not units.selection.is_empty() else units.units.filter(func(u: Unit) -> bool: return u.is_idle())
-			for u in crew:
-				board.assign(u, t))
-		row.add_child(b)
-		var x := Button.new()
-		x.text = "X"
-		x.custom_minimum_size = Vector2(48, 48)
-		x.pressed.connect(func() -> void:
-			if t is BuildTask:
-				board.cancel_blueprint(t.blueprint)
-			else:
-				board.remove_task(t))
-		row.add_child(x)
-		_tasks_panel.add_child(row)
+	hud.set_tasks(board.tasks)
 
 
 func _refresh_stock_label() -> void:
-	var lines := PackedStringArray(["Stockpiles: %d" % economy.stockpiles.size()])
+	var lines := {}
 	var tot := economy.totals()
 	for k in tot:
 		if k == Resources.Kind.BRICK:
-			lines.append("Stone bricks in stacks: %.1f" % (tot[k] / 2.0))
+			lines["Stone bricks"] = "%.1f" % (tot[k] / 2.0)
 		else:
-			lines.append("%s: %d" % [Resources.label(k), tot[k]])
-	for st in economy.stations:
-		lines.append("%s%s" % [st.def().name, " (working)" if st.task != null and not st.task.workers.is_empty() else ""])
-	if economy.packed_bricks > 0:
-		lines.append("Stone bricks packed so far: %d" % economy.packed_bricks)
-	_stock_label.text = "\n".join(lines)
+			lines[Resources.label(k)] = tot[k]
+	hud.set_resources(lines)

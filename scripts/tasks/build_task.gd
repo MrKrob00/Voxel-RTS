@@ -22,6 +22,10 @@ func summary() -> String:
 	return "%s: %s%s" % [title, blueprint.needs_text() if not is_finished() else "done", "  (%d working)" % workers.size() if not workers.is_empty() else ""]
 
 
+func detail() -> String:
+	return blueprint.needs_text() if not is_finished() else "done"
+
+
 ## What is to be fetched next: a load of the first thing still missing.
 func input_needed() -> Dictionary:
 	var rem := blueprint.remaining()

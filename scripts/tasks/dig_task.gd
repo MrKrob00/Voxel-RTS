@@ -46,6 +46,10 @@ func summary() -> String:
 	return "Dig #%d: %d blocks, %d/%d workers" % [id, cells.size(), workers.size(), max_workers]
 
 
+func detail() -> String:
+	return "%d blocks%s" % [cells.size(), (", layer %d/%d" % [mini(layer, depth), depth]) if depth > 1 else ""]
+
+
 ## Opens the next layer when the one before is dug: marks the top block of every column that is still to be dug that deep.
 func update(board: TaskBoard) -> void:
 	while cells.is_empty() and layer < depth:

@@ -208,6 +208,15 @@ func place_wall(from: Vector3i, to: Vector3i, height: int) -> WallPlan:
 	return plan
 
 
+## A stair block (stair piece + stone cube) as a plan with its job.
+func place_stairs(at: Vector3i, rise: Vector2i) -> WallPlan:
+	var plan := economy.place_stairs(at, rise)
+	if plan == null:
+		return null
+	add_task(WallTask.new(plan), false)
+	return plan
+
+
 func cancel_wall(plan: WallPlan) -> void:
 	for t in tasks.duplicate():
 		if t is WallTask and t.plan == plan:

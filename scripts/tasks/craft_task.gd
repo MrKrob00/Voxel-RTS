@@ -24,6 +24,11 @@ func summary() -> String:
 	return "%s: %d %s makes %d %s%s" % [title, d.input.amount, Resources.label(d.input.kind).to_lower(), d.output.amount, Resources.label(d.output.kind).to_lower(), "  (working)" if not workers.is_empty() else ""]
 
 
+func detail() -> String:
+	var d := station.def()
+	return "%d %s -> %d %s" % [d.input.amount, Resources.label(d.input.kind).to_lower(), d.output.amount, Resources.label(d.output.kind).to_lower()]
+
+
 func input_needed() -> Dictionary:
 	return station.def().input
 

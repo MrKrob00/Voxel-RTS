@@ -21,6 +21,11 @@ func summary() -> String:
 	return title
 
 
+## One short line for the task card (what is left to do).
+func detail() -> String:
+	return summary()
+
+
 ## Takes the nearest free target for `unit` and returns it, or null when nothing is free right now.
 func claim(_unit: Unit, _from: Vector3i, _now: float) -> Variant:
 	return null

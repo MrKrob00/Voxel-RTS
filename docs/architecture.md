@@ -196,3 +196,10 @@ Screenshots (virtual display): `xvfb-run -a godot --path . --rendering-driver op
 - New game rules go into a rules module (like `TerrainEdit`), not into `VoxelWorld` or `main.gd`.
 - Anything that runs on a worker thread must not touch the scene tree; it reads immutable snapshots.
 - Parameters of a map type belong in `MapPreset`; magic numbers in generators should be moved there when they are tuned.
+
+## Interface (HUD) and tools
+
+- `scripts/ui/tools.gd` (`Tools`): the list of what a tap or drag can do (`Tools.Mode`), grouped Harvest / Mining / Construction / Sandbox, with labels, hints and whether the tool uses the level stepper. `main.gd` carries a tool out; the HUD only lists it.
+- `scripts/ui/hud.gd` (`Hud`, a CanvasLayer): shows what it is told (`set_*`) and reports what the player did (signals). Layout after the original's screenshots (see `docs/castle-story-reference.md`): top banner of the active tool, a dark left panel (info, or "New Task" palette of `ToolTile` icon tiles), a bottom-left dock ("+", Idle, All) with a ribbon of task cards beside it, tool actions (level, turn, done) above the ribbon, Home at the right edge. The window scales it from 1280x720 (720x1280 in portrait); under 760 px wide the panel takes the width and the ribbon goes above the dock; safe-area insets are kept clear in fullscreen. Touch targets are at least 56 px.
+- `scripts/ui/tool_tile.gd`: palette button with an emblem drawn in code (no art yet).
+- Stairs, brick and cube plans: `Economy.place_stairs` / `place_wall`; a stairs block is a `WallPlan` slot of kind "stairs" (two halves of stone: a stair piece of earth with a stone cube at its high end), built by `WallTask`.

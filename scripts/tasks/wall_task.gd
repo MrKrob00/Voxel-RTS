@@ -25,6 +25,10 @@ func summary() -> String:
 	return "Wall #%d: %d of %d halves of stone still to lay, %d working" % [id, plan.remaining_halves(), plan.total_halves(), workers.size()]
 
 
+func detail() -> String:
+	return "%d of %d halves left" % [plan.remaining_halves(), plan.total_halves()] if not is_finished() else "done"
+
+
 ## A brick (two halves) is fetched; one half is enough to start (a cube).
 func input_needed() -> Dictionary:
 	if is_finished():
@@ -41,6 +45,12 @@ func _open(s: WallPlan.Slot, now := 0.0) -> bool:
 	# the places that are left until the very last.
 	if s.col < s.course * _run():
 		return false
+	if s.kind == "stairs":
+		var at := s.origin
+		var cube := s.cells()[1]
+		var w := board.world
+		return w.get_block(at) == Blocks.AIR and Blocks.is_whole(w.get_block(at + Vector3i(0, -1, 0))) and not board.economy.bricks.occupied(at) \
+			and board.economy.bricks.can_place(cube, s.axis, 1)
 	return board.economy.bricks.can_place(s.origin, s.axis, s.length)
 
 
@@ -153,6 +163,17 @@ func perform(target: Variant, brd: TaskBoard, unit: Unit = null) -> Dictionary:
 	var s: WallPlan.Slot = target
 	if unit == null or unit.carried_amount() < s.halves():
 		return {"done": false}
+	if s.kind == "stairs":
+		var cube := s.cells()[1]
+		if not brd.world.terrain.make_stairs(s.origin, s.rise):
+			return {"done": false}
+		if brd.economy.bricks.place(cube, s.axis, BrickWorld.Kind.STONE, 1) == null:
+			brd.world.set_block(s.origin, Blocks.AIR)   # the cube could not stand: take the steps back
+			return {"done": false}
+		plan.mark_done(s)
+		var rest := unit.carried_amount() - s.halves()
+		unit.carry(Resources.Kind.BRICK if rest > 0 else Resources.Kind.NONE, rest)
+		return {"done": true}
 	var placed := brd.economy.bricks.place(s.origin, s.axis, BrickWorld.Kind.STONE, s.length)
 	if placed == null:
 		return {"done": false}

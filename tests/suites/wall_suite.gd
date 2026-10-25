@@ -101,6 +101,28 @@ func run() -> void:
 	check(not _board.tasks.any(func(t: WorkTask) -> bool: return t is WallTask), "the wall's job is over")
 	check(_economy.place_wall(base + Vector3i(2, 0, 13), base + Vector3i(13, 0, 13), 5) != null and _economy.walls[-1].courses == WallPlan.MAX_COURSES, "a taller wall is cut back to %d courses for now" % WallPlan.MAX_COURSES)
 
+	await _stairs_block(base, crew)
+
+
+## A stairs block: one 2x1x1 piece of half steps and half whole, built from two halves of stone, and walked over by a unit.
+func _stairs_block(base: Vector3i, crew: Array) -> void:
+	for st in _economy.stockpiles:
+		st.add(Resources.Kind.BRICK, 4)
+	var at := base + Vector3i(14, 0, 3)
+	var plan := _board.place_stairs(at, Vector2i(1, 0))
+	check(plan != null and plan.total_halves() == 2, "a stairs block is planned and costs two halves of stone (%s)" % _economy.last_error)
+	check(_board.place_stairs(at, Vector2i(1, 0)) == null, "the same place cannot be planned twice")
+	var ticks := 0
+	while plan != null and not plan.is_done() and ticks < 3000:
+		_step(1)
+		ticks += 1
+	check(plan.is_done(), "the stairs block is built (%.0f s)" % (ticks * DT))
+	check(Blocks.is_stairs(_world.get_block(at)), "its cell became a stair piece")
+	check(_bricks.occupied(at + Vector3i(1, 0, 0)), "a stone cube stands at its high end")
+	_step(300)
+	for u in crew:
+		check(u.is_idle() and u.carried_amount() == 0, "a unit is free again")
+
 
 ## The layout alone: bricks and cubes in a running bond.
 func _layout() -> void:

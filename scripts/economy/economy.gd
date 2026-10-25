@@ -154,6 +154,33 @@ func place_wall(from: Vector3i, to: Vector3i, height: int) -> WallPlan:
 	return plan
 
 
+## Plans a stair block of 2 x 1 x 1 on the ground: stair piece at `at`, rising towards a stone cube in the next cell (`rise` is a unit step in x or z).
+func place_stairs(at: Vector3i, rise: Vector2i) -> WallPlan:
+	last_error = ""
+	var slots := WallPlan.stairs_layout(at, rise)
+	for c in slots[0].cells():
+		if not world.in_bounds(c) or world.get_block(c) != Blocks.AIR or bricks.occupied(c):
+			last_error = "something is in the way"
+		for p in stockpiles + blueprints + stations:
+			if p.covers(c):
+				last_error = "overlaps a building"
+		for w in walls:
+			if w.covers(c):
+				last_error = "overlaps another plan"
+	if not Blocks.is_whole(world.get_block(at + Vector3i(0, -1, 0))):
+		last_error = "needs flat whole ground"
+	elif not bricks.can_place(slots[0].cells()[1], slots[0].axis, 1):
+		last_error = "the stone block needs flat whole ground too"
+	if last_error != "":
+		return null
+	var plan := WallPlan.new()
+	add_child(plan)
+	plan.build(at, slots[0].axis, 2, 1, slots)
+	walls.append(plan)
+	changed.emit()
+	return plan
+
+
 func cancel_wall(plan: WallPlan) -> void:
 	walls.erase(plan)
 	plan.queue_free()
