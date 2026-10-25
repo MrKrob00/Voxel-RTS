@@ -14,7 +14,7 @@ import itertools
 import math
 import os
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "blocks")
+OUT = os.environ.get("BLOCKGEN_OUT") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "blocks")
 EPS = 1e-5
 BEVEL = 0.035
 SMOOTH_DEG = 40.0
@@ -176,6 +176,25 @@ def solid(pieces, cuts=()):
                         pts.reverse()
                     quads.append((tuple(nrm), pts))
     return ("tris", quads)
+
+
+def merge(pieces):
+    """One mesh from convex pieces: their union (needs `pip install manifold3d`). The faces where pieces meet and the faces inside the
+    block disappear; what is left is one closed surface. Returns a ("tris", ...) piece that mesh_of passes through."""
+    import numpy as np
+    import manifold3d as m3d
+    parts = [m3d.Manifold.hull_points(np.array(piece, dtype=np.float64)) for piece in pieces]
+    union = m3d.Manifold.batch_boolean(parts, m3d.OpType.Add)
+    mesh = union.to_mesh()
+    vp, tv = mesh.vert_properties, mesh.tri_verts
+    out = []
+    for a, b, c in tv:
+        pa, pb, pc = [tuple(round(float(v), 5) for v in vp[i][:3]) for i in (a, b, c)]
+        nn = cross(sub(pb, pa), sub(pc, pa))
+        if dot(nn, nn) < 1e-12:
+            continue
+        out.append((norm(nn), [pa, pb, pc]))
+    return ("tris", out)
 
 
 # ---- the blocks ------------------------------------------------------------------------------------------------------------
@@ -423,6 +442,9 @@ def board(length, width):
     return [box(0, -0.44, 0, length, 0.12, width, 0.02)]
 
 
+STONE_BLOCKS = ["brick", "cube", "stairs", "stairs_small", "corner_out_l", "corner_out_r", "corner_in_l", "corner_in_r", "corner_in_cell",
+                "corner_out_cell", "tower_a", "tower_b", "tower_squat", "column", "tower_flared"]
+
 BLOCKS = {
     # --- Stone Blocks
     "brick":        lambda: [box(0, 0, 0, 2.0, 1.0, 1.0)],
@@ -516,8 +538,14 @@ def write_obj(name, tris):
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
+    only_stone = os.environ.get("BLOCKGEN_MERGE") == "stone"
     for name, make in BLOCKS.items():
-        tris = mesh_of(make())
+        if only_stone and name not in STONE_BLOCKS:
+            continue
+        pieces = make()
+        if only_stone:
+            pieces = [merge(pieces)]
+        tris = mesh_of(pieces)
         write_obj(name, tris)
         xs = [p[0] for t in tris for p, _ in t]
         ys = [p[1] for t in tris for p, _ in t]

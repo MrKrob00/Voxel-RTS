@@ -5,7 +5,8 @@ extends SceneTree
 ## The pictures are kept in the repository: the palette does not draw anything itself.
 
 const PX := 128
-const IDS_FROM := "res://assets/blocks"
+## BLOCKS_FROM (an environment variable) points the baker at another folder of meshes, e.g. to look at a trial set (icons go to its icons/).
+var IDS_FROM := OS.get_environment("BLOCKS_FROM") if OS.get_environment("BLOCKS_FROM") != "" else "res://assets/blocks"
 const STONE := Color(0.62, 0.62, 0.62)
 const WOOD := Color(0.72, 0.50, 0.27)
 ## The way a block is turned for its picture (degrees about y): the original shows a stair with its steps at the near, left-hand
@@ -18,7 +19,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/blocks/icons"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(IDS_FROM + "/icons"))
 	var sv := SubViewport.new()
 	sv.size = Vector2i(PX, PX)
 	sv.transparent_bg = true
@@ -77,9 +78,10 @@ func _run() -> void:
 		await process_frame
 		await process_frame
 		await RenderingServer.frame_post_draw
-		sv.get_texture().get_image().save_png("res://assets/blocks/icons/%s.png" % id)
+		sv.get_texture().get_image().save_png("%s/icons/%s.png" % [IDS_FROM, id])
 		mi.queue_free()
-	await _bake_structures(sv, cam)
+	if OS.get_environment("BLOCKS_FROM") == "":
+		await _bake_structures(sv, cam)
 	print("baked %d icons" % names.size())
 	quit()
 
