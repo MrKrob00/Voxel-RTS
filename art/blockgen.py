@@ -499,12 +499,20 @@ def cren_hip():
             pts_of((-0.5, 0.0, -0.5), (0.5, 0.0, -0.5), (0.5, 0.0, 0.5), (-0.5, 0.0, 0.5), (0.0, 0.5, 0.0))]
 
 
-def cren_corbel(length, shift):
-    hl = length / 2
-    top = box(0, 0.32, 0, length, 0.36, 1.0, 0.04)
-    body = box(shift, -0.18, 0.1, length * 0.7, 0.64, 0.8, 0.04)
-    nose = box(shift - length * 0.2, -0.38, 0.25, length * 0.35, 0.24, 0.5, 0.04)
-    return [top, body, nose]
+def cren_corbel(length=1.0, shift=0.0):
+    """The small corbel (one cell along x): a whole cube at the back (-x), in front of it a flat platform 22% thick along the top and
+    another along the bottom, and between the platforms, instead of the narrow block of the big corbel, an arch: a rib 30% as wide as
+    the cell whose front is a quarter ellipse from the cube's face at the bottom platform up to the front of the top platform."""
+    under, over = 0.28, -0.28
+    cube = box(-0.25, 0, 0, 0.5, 1.0, 1.0, 0.0)
+    top = box(0.25, 0.39, 0, 0.5, 0.22, 1.0, 0.0)
+    bottom = box(0.25, -0.39, 0, 0.5, 0.22, 1.0, 0.0)
+    cx, cy, ra, rb, n = 0.5, over, 0.5, under - over, 10
+    arc = [(cx - ra * math.cos(math.pi / 2 * i / n), cy + rb * math.sin(math.pi / 2 * i / n)) for i in range(n + 1)]
+    rib = []
+    for (x0, y0), (x1, y1) in zip(arc, arc[1:]):
+        rib.append([(x, y, z) for (x, y) in ((0.0, y0), (x0, y0), (x1, y1), (0.0, y1)) for z in (-0.15, 0.15)])
+    return [cube, top, bottom] + rib
 
 
 def wood_log():
