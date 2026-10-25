@@ -88,7 +88,7 @@ func update(delta: float) -> void:
 
 func _leave_or_wait() -> void:
 	if task.persistent and unit.carried_amount() == 0:
-		board.unassign(unit)   # a station with nothing to do: back to being a free unit
+		board.resume_or_free(unit)   # a station with nothing to do: back to the earlier job, or a free unit
 	else:
 		state = State.WAIT_TARGET
 		_timer = 1.0
@@ -241,7 +241,7 @@ func _work(delta: float) -> void:
 	if _timer < total:
 		return
 	unit.progress = -1.0
-	var res := task.perform(target, board)
+	var res := task.perform(target, board, unit)
 	if res.get("consumed", false):
 		unit.carry(Resources.Kind.NONE, 0)
 	if res.get("done", false):
@@ -250,7 +250,16 @@ func _work(delta: float) -> void:
 	var kind: int = res.get("kind", Resources.Kind.NONE)
 	if kind != Resources.Kind.NONE and res.get("amount", 0) > 0:
 		unit.carry(kind, res.amount)   # carried away before the next stage
+		# A log goes to a free stump first, to be made into planks (what is made of it is what goes on the stockpile).
+		if kind == Resources.Kind.LOG and not task.persistent and board.detour_to_stump(unit):
+			return
 		_find_stockpile()
+	elif res.get("consumed", false):
+		# Put into the job (a blueprint was given what it needs): that was the trip, back for the next load.
+		if target != null:
+			task.release(target)
+			target = null
+		state = State.SEEK
 	else:
 		state = State.SEEK if target == null else State.WORK
 		_timer = 0.0

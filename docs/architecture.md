@@ -123,6 +123,16 @@ picture is final; later stamps rebuild only the chunks they touch (`stamp_cover_
 - **Stair piece** (`Blocks.STAIRS_FLAG`): a wedge-shaped partial piece drawn as 4 steps (`ChunkMesher._emit_stairs`), height under the feet
   stepped (`Blocks.surface_height(..., stairs)`). Only workers make it (`TerrainEdit.make_stairs`); the neighbour rules never derive, change
   or replace it, it is removed when the ground under it goes, and digging it takes one stage.
+- **Where a log goes.** A worker only picks a log up when there is somewhere to take it: a free stump (with room for its planks) or a
+  stockpile that takes logs; otherwise the log stays where it lies. With a free stump the log goes **there first**: the worker makes 3
+  planks, carries them to a stockpile, then goes back to felling (`TaskBoard.detour_to_stump` / `resume_or_free`). Free units do the same
+  by themselves for logs already on a stockpile.
+- **How things are built**: the player puts down a **blueprint** (`Blueprint`, a translucent shape that covers its ground and shows what
+  it still needs); its standing job (`BuildTask`) lets idle units, whenever a stockpile holds something the blueprint still needs, fetch a
+  load (one log, three planks), carry it over and put it in; when everything is in, the real building stands (a station also gets its
+  job). Cancelling a plan removes its job. The game starts with a plank platform and a stump near the spawn crystal.
+- **Prices** (`Stockpile.COST`, `Station.DEFS`): a stockpile 3 planks (a guess; the original's price was not found), a stump 1 log, a rope
+  machine 2 planks (a guess).
 - Not done yet: wood and plant harvesting, building tasks, a task bar like the original (Harvest / Mining / Construction groups),
   and the *mining stair* state of the ground (one 2x1x1 piece, half whole block and half steps, which only units make).
 

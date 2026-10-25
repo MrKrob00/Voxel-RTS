@@ -10,6 +10,7 @@ var max_workers := 8
 var workers: Array[Unit] = []
 var persistent := false          ## a station's task never finishes; workers join it when there is something to do, and leave when not
 var overlay: MeshInstance3D      ## the marks drawn over the world, if any
+var board: TaskBoard             ## set when the task is put on the board
 
 
 func is_finished() -> bool:
@@ -69,7 +70,7 @@ func wants_workers(_board: TaskBoard) -> bool:
 
 ## Does the work. Returns {"kind": Kind (what the worker now carries, NONE for nothing), "amount": n, "done": the target is
 ## finished, "consumed": what it carried was used up}.
-func perform(_target: Variant, _board: TaskBoard) -> Dictionary:
+func perform(_target: Variant, _board: TaskBoard, _unit: Unit = null) -> Dictionary:
 	return {}
 
 

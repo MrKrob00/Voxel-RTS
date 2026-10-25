@@ -33,6 +33,7 @@ func run() -> void:
 	_economy = Economy.new()
 	add(_economy)
 	_economy.setup(_world, bricks)
+	_economy.charge_for_stockpiles = false   # the scene is set up with stockpiles for free
 	_units.nav.obstacle = _economy.blocks_cell
 	_board = TaskBoard.new()
 	add(_board)

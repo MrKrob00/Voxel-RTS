@@ -83,6 +83,9 @@ func claim(unit: Unit, from: Vector3i, now: float) -> Variant:
 	for t in targets:
 		if t.claimed != null or t.blocked_until > now or t.failures >= MAX_FAILURES:
 			continue
+		# A log is only picked up when there is somewhere to take it: otherwise it stays where it lies.
+		if t.type == "log" and board != null and not board.log_has_destination(from):
+			continue
 		var pos := t.log.global_position if (t.type == "log" and is_instance_valid(t.log)) else t.pos
 		var d := Vector2(pos.x - from.x, pos.z - from.z).length() + (0.0 if t.type == "log" else 12.0)
 		if d < best_score:
@@ -157,7 +160,7 @@ func work_time(target: Variant) -> float:
 	return PICK_TIME
 
 
-func perform(target: Variant, board: TaskBoard) -> Dictionary:
+func perform(target: Variant, board: TaskBoard, _unit: Unit = null) -> Dictionary:
 	var t: Target = target
 	match t.type:
 		"tree":

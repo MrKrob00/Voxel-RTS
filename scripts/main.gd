@@ -6,7 +6,7 @@ var world: VoxelWorld
 var props: PropField
 var rig: RTSCamera
 enum Mode { SELECT, MARK_DIG, MARK_TREES, MARK_GRASS, STOCKPILE, FRAME, STUMP, ROPE_MACHINE, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
-const MODE_NAMES := ["select / move", "mark dig area (depth +/-)", "mark trees to fell", "mark grass to cut", "stockpile: plank platform (logs, planks, rope, ore)", "stockpile: frame (stone, grass)", "stump with an axe (1 log): logs -> planks", "rope machine (2 planks): grass -> rope", "dig (instant)", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
+const MODE_NAMES := ["select / move", "mark dig area (depth +/-)", "mark trees to fell", "mark grass to cut", "stockpile: plank platform (3 planks; logs, planks, rope, ore)", "stockpile: frame (3 planks; stone, grass)", "stump with an axe (1 log): logs -> planks", "rope machine (2 planks): grass -> rope", "dig (instant)", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
 const START_UNITS := 5
 
 var bricks: BrickWorld
@@ -119,6 +119,28 @@ func _spawn_units() -> void:
 	var start := units.nav.nearest_standable(Vector3i(sp.x, sp.y + 1, sp.z), 4)
 	if start.x >= 0:
 		units.spawn_squad(start, START_UNITS, 2)
+	_place_starting_buildings(sp)
+
+
+## The game starts with a plank platform and a stump with an axe near the spawn crystal (nothing pays for them).
+func _place_starting_buildings(sp: Vector3i) -> void:
+	var was := economy.charge_for_stockpiles
+	economy.charge_for_stockpiles = false
+	var placed_platform := false
+	var placed_stump := false
+	for r in range(4, 10):
+		for step in 16:
+			var a := TAU * step / 16.0
+			var cx := sp.x + roundi(cos(a) * r)
+			var cz := sp.z + roundi(sin(a) * r)
+			var origin := Vector3i(cx, world.surface_y(cx, cz) + 1, cz)
+			if not placed_platform and economy.place_stockpile(origin, Stockpile.Style.PLATFORM) != null:
+				placed_platform = true
+			elif placed_platform and not placed_stump and board.place_station(Station.Kind.STUMP, origin, false) != null:
+				placed_stump = true
+		if placed_stump:
+			break
+	economy.charge_for_stockpiles = was
 
 
 func _setup_environment() -> void:
@@ -275,10 +297,10 @@ func _update_hover() -> void:
 		var gsize := Vector2(Stockpile.SIZE, Stockpile.SIZE)
 		if mode == Mode.STUMP or mode == Mode.ROPE_MACHINE:
 			var sk := Station.Kind.STUMP if mode == Mode.STUMP else Station.Kind.ROPE_MACHINE
-			why = Station.can_place(world, bricks, sk, origin, economy.stockpiles, economy.stations)
+			why = Station.can_place(world, bricks, sk, origin, economy.stockpiles + economy.blueprints, economy.stations)
 			gsize = Vector2(Station.DEFS[sk].size)
 		else:
-			why = Stockpile.can_place(world, bricks, origin, economy.stockpiles)
+			why = Stockpile.can_place(world, bricks, origin, economy.stockpiles + economy.blueprints)
 		(_stock_ghost.mesh as BoxMesh).size = Vector3(gsize.x, 0.2, gsize.y)
 		_stock_ghost.visible = true
 		_stock_ghost.position = Vector3(origin.x + gsize.x * 0.5, origin.y + 0.1, origin.z + gsize.y * 0.5)
@@ -421,8 +443,8 @@ func _mark_harvest(kind: int, rect: Rect2) -> void:
 func _place_station(hit: Dictionary) -> void:
 	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
 	var kind := Station.Kind.STUMP if mode == Mode.STUMP else Station.Kind.ROPE_MACHINE
-	if not hit.brick and board.place_station(kind, origin) == null:
-		_cell_info.text = "Cannot set it up here: " + economy.last_error
+	if not hit.brick and board.place_blueprint("station", kind, origin) == null:
+		_cell_info.text = "Cannot plan it here: " + economy.last_error
 
 
 func _set_depth(d: int) -> void:
@@ -442,8 +464,8 @@ func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
 func _place_stockpile(hit: Dictionary) -> void:
 	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
 	var style := Stockpile.Style.FRAME if mode == Mode.FRAME else Stockpile.Style.PLATFORM
-	if not hit.brick and economy.place_stockpile(origin, style) == null:
-		_cell_info.text = "Cannot place a stockpile here: " + economy.last_error
+	if not hit.brick and board.place_blueprint("stockpile", style, origin) == null:
+		_cell_info.text = "Cannot plan a stockpile here: " + economy.last_error
 
 
 func _refresh_tasks_panel() -> void:
@@ -473,7 +495,11 @@ func _refresh_tasks_panel() -> void:
 		var x := Button.new()
 		x.text = "X"
 		x.custom_minimum_size = Vector2(48, 48)
-		x.pressed.connect(func() -> void: board.remove_task(t))
+		x.pressed.connect(func() -> void:
+			if t is BuildTask:
+				board.cancel_blueprint(t.blueprint)
+			else:
+				board.remove_task(t))
 		row.add_child(x)
 		_tasks_panel.add_child(row)
 

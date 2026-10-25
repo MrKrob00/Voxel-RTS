@@ -21,6 +21,7 @@ func run() -> void:
 	var economy := Economy.new()
 	add(economy)
 	economy.setup(_world, bricks)
+	economy.charge_for_stockpiles = false
 	_board = TaskBoard.new()
 	add(_board)
 	_board.setup(_world, _units.nav, economy, null, null, _units)

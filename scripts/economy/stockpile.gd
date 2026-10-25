@@ -25,6 +25,8 @@ const CAPACITY := {
 	Style.PLATFORM: {Resources.Kind.LOG: 4, Resources.Kind.PLANK: 24, Resources.Kind.ROPE: 20, Resources.Kind.IRON: 24, Resources.Kind.COAL: 24, Resources.Kind.AMBER: 24},
 	Style.FRAME: {Resources.Kind.STONE: 16, Resources.Kind.PLANT: 16},
 }
+## What a stockpile costs, paid from the planks in the stockpiles (a guess: the original's price is not known here). The very first one is free.
+const COST := {Resources.Kind.PLANK: 3}
 const STYLE_NAMES := {Style.PLATFORM: "plank platform", Style.FRAME: "frame"}
 
 var style := Style.PLATFORM

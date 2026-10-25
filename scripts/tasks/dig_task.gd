@@ -115,7 +115,7 @@ func work_time(_target: Variant) -> float:
 	return WORK_TIME
 
 
-func perform(target: Variant, board: TaskBoard) -> Dictionary:
+func perform(target: Variant, board: TaskBoard, _unit: Unit = null) -> Dictionary:
 	var c: Vector3i = target
 	var kind := Resources.from_block(Blocks.mat(board.world.get_block(c)))
 	if kind != Resources.Kind.NONE and not collects(kind):

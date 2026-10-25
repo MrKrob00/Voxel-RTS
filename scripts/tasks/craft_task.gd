@@ -71,6 +71,6 @@ func work_time(_target: Variant) -> float:
 	return station.def().time
 
 
-func perform(_target: Variant, _board: TaskBoard) -> Dictionary:
+func perform(_target: Variant, _board: TaskBoard, _unit: Unit = null) -> Dictionary:
 	var d := station.def()
 	return {"kind": d.output.kind, "amount": d.output.amount, "consumed": true, "done": false}

@@ -19,6 +19,7 @@ func run() -> void:
 	_economy = Economy.new()
 	add(_economy)
 	_economy.setup(_world, bricks)
+	_economy.charge_for_stockpiles = false   # the scene is set up with stockpiles for free
 	_board = TaskBoard.new()
 	add(_board)
 	_board.setup(_world, _units.nav, _economy, null, null, _units)
@@ -101,6 +102,17 @@ func _stockpile_rules(bricks: BrickWorld, base: Vector3i) -> void:
 	plat.take(Resources.Kind.LOG, 4)
 	check(plat.add(Resources.Kind.ROPE, 30) == 20, "twenty ropes fit: a quarter of the area and a fifth of the height each")
 	_economy.remove_stockpile(plat)
+	# What a stockpile costs when put down at once: three planks in a stockpile (units bring them to a blueprint instead).
+	var bank := _economy.place_stockpile(at, Stockpile.Style.PLATFORM)
+	_economy.charge_for_stockpiles = true
+	var refused := _economy.place_stockpile(at + Vector3i(4, 0, 0), Stockpile.Style.PLATFORM)
+	check(refused == null and _economy.last_error.contains("3 plank"), "a stockpile needs three planks in a stockpile (%s)" % _economy.last_error)
+	bank.add(Resources.Kind.PLANK, 5)
+	var paid := _economy.place_stockpile(at + Vector3i(4, 0, 0), Stockpile.Style.FRAME)
+	check(paid != null and bank.count == 2, "with planks it is paid for: 3 of the 5 are gone (%d left)" % bank.count)
+	_economy.charge_for_stockpiles = false
+	_economy.remove_stockpile(bank)
+	_economy.remove_stockpile(paid)
 	check(Resources.carry_capacity(Resources.Kind.PLANK) == 3 and Resources.carry_capacity(Resources.Kind.LOG) == 1, "a unit carries three planks or one log at a time")
 	check(Resources.from_block(Blocks.GRASS) == Resources.Kind.NONE and Resources.from_block(Blocks.DIRT) == Resources.Kind.NONE and Resources.from_block(Blocks.STONE) == Resources.Kind.STONE, "earth gives nothing, stone gives stone")
 

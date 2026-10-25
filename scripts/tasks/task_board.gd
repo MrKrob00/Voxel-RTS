@@ -20,6 +20,7 @@ var _workers := {}                   ## Unit -> Worker
 var _next_id := 1
 var _redraw_timer := 0.0
 var _auto_timer := 0.0
+var _return_to := {}                 ## Unit -> the task it left for a detour (a log taken to a stump), to go back to
 
 
 func setup(w: VoxelWorld, n: Navigation, e: Economy, p: PropField = null, l: LooseItems = null, u: UnitManager = null) -> void:
@@ -42,7 +43,7 @@ func _process(delta: float) -> void:
 		t.update(self)
 	# A finished task goes once nobody is still carrying something from it to a stockpile.
 	for t in tasks.duplicate():
-		if not t.persistent and t.is_finished() and not t.workers.any(func(u: Unit) -> bool: return u.carried_amount() > 0):
+		if t.is_finished() and not t.workers.any(func(u: Unit) -> bool: return u.carried_amount() > 0):
 			remove_task(t)
 	_auto_timer -= delta
 	if _auto_timer <= 0.0:
@@ -68,6 +69,7 @@ func _make_overlay(t: WorkTask) -> void:
 
 
 func add_task(t: WorkTask, with_overlay := true) -> void:
+	t.board = self
 	t.id = _next_id
 	_next_id += 1
 	if with_overlay:
@@ -167,14 +169,41 @@ func create_harvest(kind: int, rect: Rect2) -> HarvestTask:
 
 
 ## Sets a station up (paying for it) and gives it its standing job.
-func place_station(kind: int, origin: Vector3i) -> Station:
-	var st := economy.place_station(kind, origin)
+func place_station(kind: int, origin: Vector3i, pay := true) -> Station:
+	var st := economy.place_station(kind, origin, pay)
 	if st == null:
 		return null
+	_give_station_its_job(st)
+	return st
+
+
+func _give_station_its_job(st: Station) -> void:
 	var t := CraftTask.new(st)
 	st.task = t
 	add_task(t, false)
-	return st
+
+
+## The player's way to build: a blueprint, and the job of bringing what it costs. Units come by themselves when the stockpiles have it.
+func place_blueprint(type: String, kind: int, origin: Vector3i) -> Blueprint:
+	var bp := economy.place_blueprint(type, kind, origin)
+	if bp == null:
+		return null
+	add_task(BuildTask.new(bp), false)
+	return bp
+
+
+## A blueprint has all it needs: the building stands (a station also gets its standing job).
+func finish_blueprint(bp: Blueprint) -> void:
+	var made := economy.finish_blueprint(bp)
+	if made is Station:
+		_give_station_its_job(made)
+
+
+func cancel_blueprint(bp: Blueprint) -> void:
+	for t in tasks.duplicate():
+		if t is BuildTask and t.blueprint == bp:
+			remove_task(t)
+	economy.cancel_blueprint(bp)
 
 
 func remove_station(st: Station) -> void:
@@ -210,6 +239,7 @@ func assign(u: Unit, t: WorkTask) -> bool:
 
 
 func unassign(u: Unit) -> void:
+	_return_to.erase(u)
 	var w: Worker = _workers.get(u)
 	if w == null:
 		return
@@ -217,6 +247,45 @@ func unassign(u: Unit) -> void:
 	w.task.workers.erase(u)
 	_workers.erase(u)
 	changed.emit()
+
+
+## A stump that is free to take a log right now and has room to put the planks: its task, or null.
+func free_stump() -> CraftTask:
+	for t in tasks:
+		var ct := t as CraftTask
+		if ct != null and is_instance_valid(ct.station) and ct.station.kind == Station.Kind.STUMP and ct.workers.size() < ct.max_workers and ct.claimed_by == null:
+			var d: Dictionary = ct.station.def()
+			if economy.find_space(Vector3i(ct.station.origin), d.output.kind, d.output.amount) != null:
+				return ct
+	return null
+
+
+## Can a log that is picked up now be taken somewhere? To a stump that is free (and the planks have room), or to a stockpile.
+func log_has_destination(from: Vector3i) -> bool:
+	return free_stump() != null or economy.find_space(from, Resources.Kind.LOG, 1) != null
+
+
+## A worker with a log in its hands goes to a free stump first, to make planks of it; afterwards it returns to its job.
+func detour_to_stump(u: Unit) -> bool:
+	var craft := free_stump()
+	if craft == null:
+		return false
+	var back := task_of(u)
+	unassign(u)
+	if not assign(u, craft):
+		if back != null and tasks.has(back):
+			assign(u, back)
+		return false
+	_return_to[u] = back
+	return true
+
+
+## A worker of a standing job (a station) has nothing more to do: back to what it was doing before, or free.
+func resume_or_free(u: Unit) -> void:
+	var back: WorkTask = _return_to.get(u)
+	unassign(u)
+	if back != null and tasks.has(back) and not back.is_finished():
+		assign(u, back)
 
 
 ## Idle units (no job, no order) join a station that has something to make: the nearest unit to each.

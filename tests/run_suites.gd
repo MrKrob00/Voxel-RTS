@@ -9,6 +9,8 @@ const SUITES := {
 	"work": "res://tests/suites/work_suite.gd",
 	"quarry": "res://tests/suites/quarry_suite.gd",
 	"craft": "res://tests/suites/craft_suite.gd",
+	"logs": "res://tests/suites/logs_suite.gd",
+	"build": "res://tests/suites/build_suite.gd",
 	"brick": "res://tests/suites/brick_suite.gd",
 }
 

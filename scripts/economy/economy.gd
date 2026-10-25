@@ -8,6 +8,7 @@ var world: VoxelWorld
 var bricks: BrickWorld
 var stockpiles: Array[Stockpile] = []
 var stations: Array = []     ## Station nodes (stump, rope machine)
+var blueprints: Array = []   ## Blueprint nodes: planned buildings waiting for what they cost
 var _reserved := {}          ## Stockpile -> {kind, count}: goods on their way there
 var _taking := {}            ## Stockpile -> how many of its goods someone is on the way to fetch
 
@@ -22,10 +23,21 @@ func setup(w: VoxelWorld, b: BrickWorld) -> void:
 var last_error := ""
 var packed_bricks := 0       ## stone bricks stacked up from frames that were filled to the brim
 
+## Whether stockpiles cost anything when put down at once (tests and the starting buildings switch it off). The player does not do
+## this: the player puts down a blueprint (place_blueprint) and units bring the price.
+var charge_for_stockpiles := true
+
 func place_stockpile(origin: Vector3i, style := Stockpile.Style.PLATFORM) -> Stockpile:
-	last_error = Stockpile.can_place(world, bricks, origin, stockpiles)
+	last_error = Stockpile.can_place(world, bricks, origin, stockpiles + blueprints)
 	if last_error != "":
 		return null
+	if charge_for_stockpiles:
+		for k in Stockpile.COST:
+			if stock_of(k) < Stockpile.COST[k]:
+				last_error = "needs %d %s in a stockpile" % [Stockpile.COST[k], Resources.label(k).to_lower()]
+				return null
+		for k in Stockpile.COST:
+			spend(k, Stockpile.COST[k])
 	var s := Stockpile.new()
 	add_child(s)
 	s.build(origin, style)
@@ -37,17 +49,18 @@ func place_stockpile(origin: Vector3i, style := Stockpile.Style.PLATFORM) -> Sto
 
 
 ## Puts a station up and takes its price out of the stockpiles. Returns null and the reason in `last_error` when it cannot be done.
-func place_station(kind: int, origin: Vector3i) -> Station:
-	last_error = Station.can_place(world, bricks, kind, origin, stockpiles, stations)
+func place_station(kind: int, origin: Vector3i, pay := true) -> Station:
+	last_error = Station.can_place(world, bricks, kind, origin, stockpiles + blueprints, stations)
 	if last_error != "":
 		return null
 	var cost: Dictionary = Station.DEFS[kind].cost
-	for k in cost:
-		if stock_of(k) < cost[k]:
-			last_error = "needs %d %s in a stockpile" % [cost[k], Resources.label(k).to_lower()]
-			return null
-	for k in cost:
-		spend(k, cost[k])
+	if pay:
+		for k in cost:
+			if stock_of(k) < cost[k]:
+				last_error = "needs %d %s in a stockpile" % [cost[k], Resources.label(k).to_lower()]
+				return null
+		for k in cost:
+			spend(k, cost[k])
 	var st := Station.new()
 	add_child(st)
 	st.build(kind, origin)
@@ -56,6 +69,56 @@ func place_station(kind: int, origin: Vector3i) -> Station:
 	world.stamp_cover_rect(Rect2(origin.x, origin.z, sz.x, sz.y), 0.9)
 	changed.emit()
 	return st
+
+
+## The player's way to build: a plan on the ground. Returns null (and the reason in `last_error`) when it cannot stand there.
+## `type` is "stockpile" (kind: Stockpile.Style) or "station" (kind: Station.Kind).
+func place_blueprint(type: String, kind: int, origin: Vector3i) -> Blueprint:
+	var cost: Dictionary
+	var size: Vector2i
+	var title: String
+	if type == "stockpile":
+		last_error = Stockpile.can_place(world, bricks, origin, stockpiles + blueprints)
+		cost = Stockpile.COST
+		size = Vector2i(Stockpile.SIZE, Stockpile.SIZE)
+		title = "Stockpile (%s)" % Stockpile.STYLE_NAMES[kind]
+	else:
+		last_error = Station.can_place(world, bricks, kind, origin, stockpiles + blueprints, stations)
+		cost = Station.DEFS[kind].cost
+		size = Station.DEFS[kind].size
+		title = Station.DEFS[kind].name
+	if last_error != "":
+		return null
+	var bp := Blueprint.new()
+	add_child(bp)
+	bp.build(type, kind, origin, size, cost, title)
+	blueprints.append(bp)
+	changed.emit()
+	return bp
+
+
+## Everything has arrived: the blueprint goes and the real thing stands there. Returns the Stockpile or the Station.
+func finish_blueprint(bp: Blueprint) -> Node:
+	blueprints.erase(bp)
+	bp.done = true
+	bp.queue_free()
+	var made: Node
+	if bp.kind_type == "stockpile":
+		var was := charge_for_stockpiles
+		charge_for_stockpiles = false   # it has been paid for, plank by plank
+		made = place_stockpile(bp.origin, bp.kind)
+		charge_for_stockpiles = was
+	else:
+		made = place_station(bp.kind, bp.origin, false)
+	changed.emit()
+	return made
+
+
+func cancel_blueprint(bp: Blueprint) -> void:
+	blueprints.erase(bp)
+	bp.done = true
+	bp.queue_free()
+	changed.emit()
 
 
 func remove_station(st: Station) -> void:
