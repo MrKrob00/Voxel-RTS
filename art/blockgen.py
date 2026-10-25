@@ -410,13 +410,13 @@ def cren_corner():
 
 
 def cren_roof():
-    """The roof block: the lower 33% is whole, set back 15% at the front; above it a slope (a right triangle with the right angle at the
+    """The roof block: the lower 66% is whole, set back 15% at the front; above it a slope (a right triangle with the right angle at the
     back, the long side climbing from the front to the top of the back wall) whose front edge juts out over the set-back with a rounded
     nose, and the back is the whole block again."""
-    lower = box(-0.075, -0.335, 0, 0.85, 0.33, 1.0, 0.0)           # x -0.5 .. 0.35, y -0.5 .. -0.17
-    r, cx, cy = 0.06, 0.44, -0.11
+    lower = box(-0.075, -0.17, 0, 0.85, 0.66, 1.0, 0.0)            # x -0.5 .. 0.35, y -0.5 .. 0.16
+    r, cx, cy = 0.06, 0.44, 0.22
     nose = [(cx + r * math.cos(math.tau * i / 12), cy + r * math.sin(math.tau * i / 12)) for i in range(12)]
-    pts = [(-0.5, -0.17), (-0.5, 0.5)] + nose
+    pts = [(-0.5, 0.16), (-0.5, 0.5)] + nose
     upper = [(x, y, z) for (x, y) in pts for z in (-0.5, 0.5)]
     return [lower, upper]
 
