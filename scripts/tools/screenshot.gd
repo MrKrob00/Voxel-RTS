@@ -35,7 +35,7 @@ func _ready() -> void:
 	for d in digs:
 		var terrain: TerrainEdit = world.terrain
 		var lv0 := terrain.level(d.x, d.y)
-		var cell := Vector3i(d.x, lv0 / 2 - 1, d.y)   # the top whole block; it stays the same cell through its stages
+		var cell := Vector3i(d.x, lv0 / Blocks.UNIT - 1, d.y)   # the top whole block; it stays the same cell through its stages
 		for _s in d.z:
 			terrain.dig_step(cell)
 	if focus.x >= 0.0:

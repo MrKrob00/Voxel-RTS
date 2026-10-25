@@ -1,12 +1,13 @@
 class_name Blocks
 extends RefCounted
 ## The voxel format and block palette. A voxel is one int:
-##   bits 0-7   material (AIR, GRASS, ...)
-##   bits 8-15  shape: 0 is a full cube; any other value is 1 + the heights of the cell's four top corners,
-##              each 0, 1 or 2 half-blocks (see corner_heights). (2,2,2,2) is the cube itself and is never stored.
-##   bit 16     DUG: a natural block that has been partly dug. This is a primary state of the ground, as opposed to
-##              a slope piece, which is derived from the neighbours (see Ramps / TerrainEdit).
-## Corners are numbered (0,0), (1,0), (1,1), (0,1) in (x, z).
+##   bits 0-7    material (AIR, GRASS, ...)
+##   bits 8-17   shape: 0 is a full cube; any other value is 1 + the heights of the cell's four top corners, each from
+##               0 to 4 quarter-blocks (see corner_heights). (4,4,4,4) is the cube itself and is never stored.
+##   bit 18      DUG: a natural block that has been partly dug. It stands DUG_HEIGHT quarters high in the middle and its
+##               corners are drawn up to the whole neighbours, so the pit has sloping sides. This is a primary state
+##               of the ground, as opposed to a slope piece, which is derived from the neighbours (Ramps / TerrainEdit).
+## Corners are numbered (0,0), (1,0), (1,1), (0,1) in (x, z). All heights are in quarter-blocks (UNIT per block).
 
 const CHUNK_SIZE := 16
 const CHUNK_VOLUME := CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE
@@ -26,11 +27,19 @@ const PLANK := 11
 
 const MAT_MASK := 255
 const SHAPE_SHIFT := 8
-const DUG_FLAG := 1 << 16
+const SHAPE_MASK := 1023
+const DUG_FLAG := 1 << 18
+
+## Quarter-blocks per block: the unit of every height.
+const UNIT := 4
+## How high a half-dug block stands in the middle (3 of 4: a small step down, not half the block).
+const DUG_HEIGHT := 3
 
 const SHAPE_CUBE := 0
-## Flat half-height slab: all four corners at one half-block. A half-dug block looks like this.
-const SHAPE_HALF := 41
+## A dug block whose four corners are all at DUG_HEIGHT: a flat pit floor.
+const SHAPE_DUG := 1 + DUG_HEIGHT * (1 + 5 + 25 + 125)
+## A dug block whose four corners are all raised to the full block: a bowl in the middle of whole neighbours.
+const SHAPE_BOWL := 626
 
 # Face order used everywhere: top, bottom, side.
 const FACE_TOP := 0
@@ -59,7 +68,7 @@ static func mat(raw: int) -> int:
 
 
 static func shape(raw: int) -> int:
-	return (raw >> SHAPE_SHIFT) & 255
+	return (raw >> SHAPE_SHIFT) & SHAPE_MASK
 
 
 static func is_dug(raw: int) -> bool:
@@ -70,21 +79,22 @@ static func make(material: int, shape_id: int = SHAPE_CUBE, dug := false) -> int
 	return material | (shape_id << SHAPE_SHIFT) | (DUG_FLAG if dug else 0)
 
 
-## Heights (0, 1 or 2 half-blocks) of the four top corners of a shape.
+## Heights (0 to 4 quarter-blocks) of the four top corners of a shape.
 static func corner_heights(shape_id: int) -> Array[int]:
-	if shape_id == SHAPE_CUBE:
-		return [2, 2, 2, 2]
+	if shape_id == SHAPE_CUBE or shape_id == SHAPE_BOWL:
+		return [UNIT, UNIT, UNIT, UNIT]
 	var c := shape_id - 1
-	return [c % 3, (c / 3) % 3, (c / 9) % 3, (c / 27) % 3]
+	return [c % 5, (c / 5) % 5, (c / 25) % 5, (c / 125) % 5]
 
 
-## Shape id for four corner heights; SHAPE_CUBE when all are 2, -1 when all are 0 (nothing there).
-static func shape_from_corners(h0: int, h1: int, h2: int, h3: int) -> int:
-	if h0 == 2 and h1 == 2 and h2 == 2 and h3 == 2:
-		return SHAPE_CUBE
+## Shape id for four corner heights; SHAPE_CUBE when all are UNIT, -1 when all are 0 (nothing there).
+## `dug` pieces never come out as a cube: with all four corners raised they are the bowl.
+static func shape_from_corners(h0: int, h1: int, h2: int, h3: int, dug := false) -> int:
+	if h0 == UNIT and h1 == UNIT and h2 == UNIT and h3 == UNIT:
+		return SHAPE_BOWL if dug else SHAPE_CUBE
 	if h0 == 0 and h1 == 0 and h2 == 0 and h3 == 0:
 		return -1
-	return 1 + h0 + 3 * h1 + 9 * h2 + 27 * h3
+	return 1 + h0 + 5 * h1 + 25 * h2 + 125 * h3
 
 
 ## What a block turns into when it is dug: the grass on top is torn up and the earth shows, snow gives way to stone.
@@ -99,7 +109,7 @@ static func dug_material(material: int) -> int:
 			return material
 
 
-## Highest corner of a shape, in half-blocks (2 for a cube).
+## Highest corner of a shape, in quarter-blocks (UNIT for a cube).
 static func max_height(shape_id: int) -> int:
 	var h := corner_heights(shape_id)
 	return maxi(maxi(h[0], h[1]), maxi(h[2], h[3]))

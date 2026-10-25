@@ -111,17 +111,17 @@ func _check_seams(world: VoxelWorld, label: String, radius := 70, around: Vector
 			var x := int(centre.x) + dx
 			var z := int(centre.y) + dz
 			var lv := world.terrain.level(x, z)
-			if lv < 0 or lv % 2 == 1:
+			if lv < 0 or (lv % Blocks.UNIT != 0 and lv % Blocks.UNIT != Blocks.DUG_HEIGHT):
 				continue
-			var cell := Vector3i(x, lv / 2, z)
+			var cell := Vector3i(x, lv / Blocks.UNIT, z)
 			var raw := world.get_block(cell)
-			if not Blocks.is_skin(raw):
+			if not Blocks.is_partial(raw):
 				continue
 			pieces += 1
 			for side in 4:
 				var qcell: Vector3i = cell + dirs[side]
 				var qraw := world.get_block(qcell)
-				if not Blocks.is_skin(qraw):
+				if not Blocks.is_partial(qraw):
 					continue
 				var a := _edge_heights(raw, side)
 				var b := _edge_heights(qraw, opposite[side])
@@ -129,7 +129,16 @@ func _check_seams(world: VoxelWorld, label: String, radius := 70, around: Vector
 					seams += 1
 					if example == "":
 						example = "%s side %d: %s vs %s" % [str(cell), side, str(a), str(b)]
-	_check(seams == 0, "%s: neighbouring slope pieces meet at equal heights (%d pieces, %d seams) %s" % [label, pieces, seams, example])
+					example += "\n   this: raw %d dug %s | other %s raw %d dug %s" % [raw, str(Blocks.is_dug(raw)), str(qcell), qraw, str(Blocks.is_dug(qraw))]
+					for zz in range(-2, 3):
+						var row := "   z%+d:" % zz
+						for xx in range(-2, 3):
+							var lvl := world.terrain.level(cell.x + xx, cell.z + zz)
+							var cellraw := world.get_block(Vector3i(cell.x + xx, cell.y, cell.z + zz))
+							var tag := "W" if Blocks.is_whole(cellraw) else ("D" if Blocks.is_dug(cellraw) else ("s" if Blocks.is_skin(cellraw) else "."))
+							row += " %3d%s" % [lvl, tag]
+						example += "\n" + row
+	_check(seams == 0, "%s: neighbouring pieces (slopes and dug blocks) meet at equal heights (%d pieces, %d seams) %s" % [label, pieces, seams, example])
 
 
 ## Heights (half-blocks) of the two top corners of a piece on one side, in a fixed order along the edge.
@@ -158,23 +167,29 @@ func _check_skin_consistency(world: VoxelWorld, label: String, radius := 60, aro
 			var x := int(centre.x) + dx
 			var z := int(centre.y) + dz
 			var lv := world.terrain.level(x, z, cache)
-			if lv < 0 or lv % 2 == 1:
+			if lv < 0:
+				continue
+			var cell := Vector3i(x, lv / Blocks.UNIT, z)
+			var have := world.get_block(cell)
+			var want := -1
+			if lv % Blocks.UNIT == 0:
+				if Blocks.is_solid(have) and not Blocks.is_skin(have):
+					continue   # something else sits there (not a slope cell)
+				if _destroyed.has(cell):
+					continue
+				if allow_missing and have == Blocks.AIR:
+					continue
+				want = world.terrain.expected_skin(x, z, cache)
+			elif lv % Blocks.UNIT == Blocks.DUG_HEIGHT and Blocks.is_dug(have):
+				want = world.terrain.expected_dug(x, z, cache)   # a half-dug block always follows its neighbours
+			else:
 				continue
 			checked += 1
-			var cell := Vector3i(x, lv / 2, z)
-			var have := world.get_block(cell)
-			if Blocks.is_solid(have) and not Blocks.is_skin(have):
-				continue   # something else sits there (not a slope cell)
-			if _destroyed.has(cell):
-				continue
-			var want := world.terrain.expected_skin(x, z, cache)
-			if allow_missing and have == Blocks.AIR:
-				continue
 			if have != want:
 				bad += 1
 				if first_bad == "":
 					first_bad = "%s have %d want %d" % [str(cell), have, want]
-	_check(bad == 0, "%s: slope pieces match the rules (%d columns checked, %d off) %s" % [label, checked, bad, first_bad])
+	_check(bad == 0, "%s: slope pieces and dug blocks match the rules (%d columns checked, %d off) %s" % [label, checked, bad, first_bad])
 
 
 ## Grass only on top, then a thin layer of earth: one block, a second one in patches, never more.
@@ -225,7 +240,7 @@ func _find_step(world: VoxelWorld, avoid_border := true) -> Dictionary:
 			if avoid_border and ((x & 15) == 0 or (x & 15) == 15 or (z & 15) == 0 or (z & 15) == 15):
 				continue
 			var lv := world.terrain.level(x, z)
-			if lv < 4 or lv % 2 == 1:
+			if lv < 4 or lv % Blocks.UNIT != 0:
 				continue
 			var lows := 0
 			for off in Ramps.NEIGHBOURS:
@@ -248,16 +263,16 @@ func _find_intermediate(world: VoxelWorld) -> Dictionary:
 			if (x & 15) == 0 or (x & 15) == 15 or (z & 15) == 0 or (z & 15) == 15:
 				continue
 			var lv := world.terrain.level(x, z)
-			if lv < 4 or lv % 2 == 1:
+			if lv < 4 or lv % Blocks.UNIT != 0:
 				continue
 			for off in Ramps.NEIGHBOURS:
 				var nx: int = x + off.x
 				var nz: int = z + off.y
 				var nlv := world.terrain.level(nx, nz)
-				if nlv < 0 or nlv % 2 == 1:
+				if nlv < 0 or nlv % Blocks.UNIT != 0:
 					continue
 				var shapes := []
-				for d_level in [lv, lv - 1, lv - 2]:
+				for d_level in [lv, lv - 1, lv - Blocks.UNIT]:
 					var around := {}
 					for o2 in Ramps.NEIGHBOURS:
 						var lvl := world.terrain.level(nx + o2.x, nz + o2.y)
@@ -278,8 +293,8 @@ func _test_stages(world: VoxelWorld) -> void:
 	var x: int = step.x
 	var z: int = step.z
 	var lv: int = step.level
-	var cell := Vector3i(x, lv / 2 - 1, z)
-	var neighbour_cell := Vector3i(step.nx, world.terrain.level(step.nx, step.nz) / 2, step.nz)
+	var cell := Vector3i(x, lv / Blocks.UNIT - 1, z)
+	var neighbour_cell := Vector3i(step.nx, world.terrain.level(step.nx, step.nz) / Blocks.UNIT, step.nz)
 	var raw := world.get_block(cell)
 	_check(Blocks.is_whole(raw), "the block is whole before digging")
 	_check(Blocks.shape(world.get_block(neighbour_cell)) == step.shapes[0], "the neighbouring slope starts in its first state")
@@ -287,8 +302,10 @@ func _test_stages(world: VoxelWorld) -> void:
 	# Stage 1: the block becomes half dug FIRST, and the neighbour follows that state, not "destroyed".
 	_check(world.terrain.dig_step(cell), "dig stage 1")
 	var half := world.get_block(cell)
-	_check(Blocks.is_dug(half) and Blocks.shape(half) == Blocks.SHAPE_HALF and Blocks.mat(half) == Blocks.dug_material(Blocks.mat(raw)), "stage 1: a half-dug block; its grass is gone and the earth shows")
-	_check(world.terrain.level(x, z) == lv - 1, "stage 1: the column level dropped by half a block (%d -> %d)" % [lv, world.terrain.level(x, z)])
+	_check(Blocks.is_dug(half) and Blocks.mat(half) == Blocks.dug_material(Blocks.mat(raw)), "stage 1: a half-dug block; its grass is gone and the earth shows")
+	var dug_corners := Blocks.corner_heights(Blocks.shape(half))
+	_check(dug_corners.min() >= Blocks.DUG_HEIGHT and dug_corners.max() <= Blocks.UNIT, "stage 1: the half-dug block stands %d/%d high, corners between %d and %d" % [Blocks.DUG_HEIGHT, Blocks.UNIT, dug_corners.min(), dug_corners.max()])
+	_check(world.terrain.level(x, z) == lv - 1, "stage 1: the column dropped by a quarter block (%d -> %d)" % [lv, world.terrain.level(x, z)])
 	_check(Blocks.shape(world.get_block(neighbour_cell)) == step.shapes[1], "stage 1: the neighbouring slope is in the half-way state (not the 'destroyed' one)")
 	_check_skin_consistency(world, "after stage 1", 8, Vector2(x, z), true)
 	_check_seams(world, "after stage 1", 10, Vector2(x, z))
@@ -296,7 +313,7 @@ func _test_stages(world: VoxelWorld) -> void:
 	# Stage 2: the block is gone and the neighbour follows.
 	_check(world.terrain.dig_step(cell), "dig stage 2")
 	_check(world.get_block(cell) == Blocks.AIR, "stage 2: the block is gone")
-	_check(world.terrain.level(x, z) == lv - 2, "stage 2: the column level dropped by a full block")
+	_check(world.terrain.level(x, z) == lv - Blocks.UNIT, "stage 2: the column level dropped by a full block")
 	_check(Blocks.shape(world.get_block(neighbour_cell)) == step.shapes[2] or world.get_block(neighbour_cell) == Blocks.AIR and step.shapes[2] < 0, "stage 2: the neighbouring slope is in its final state")
 	_check_skin_consistency(world, "after stage 2", 8, Vector2(x, z), true)
 	_check_seams(world, "after stage 2", 10, Vector2(x, z))
@@ -324,10 +341,10 @@ func _test_slope_rules(world: VoxelWorld) -> void:
 			var z := int(c0.y) + dz
 			var lv := world.terrain.level(x, z)
 			var lv2 := world.terrain.level(x + 1, z)
-			if lv < 0 or lv != lv2 or lv % 2 == 1:
+			if lv < 0 or lv != lv2 or lv % Blocks.UNIT != 0:
 				continue
-			var a := Vector3i(x, lv / 2, z)
-			var b := Vector3i(x + 1, lv / 2, z)
+			var a := Vector3i(x, lv / Blocks.UNIT, z)
+			var b := Vector3i(x + 1, lv / Blocks.UNIT, z)
 			if Blocks.is_skin(world.get_block(a)) and Blocks.is_skin(world.get_block(b)):
 				pair = [a, b]
 	_check(not pair.is_empty(), "found two neighbouring slope pieces")
@@ -350,9 +367,9 @@ func _test_slope_rules(world: VoxelWorld) -> void:
 			var x := int(c0.x) + dx
 			var z := int(c0.y) + dz
 			var lv := world.terrain.level(x, z)
-			if lv < 0 or lv % 2 == 1:
+			if lv < 0 or lv % Blocks.UNIT != 0:
 				continue
-			var cell := Vector3i(x, lv / 2, z)
+			var cell := Vector3i(x, lv / Blocks.UNIT, z)
 			if Blocks.is_skin(world.get_block(cell)):
 				target = cell
 	_check(target.x >= 0, "found a slope piece to build on")
@@ -364,7 +381,7 @@ func _test_slope_rules(world: VoxelWorld) -> void:
 	var after := world.get_block(target)
 	_check(Blocks.is_whole(after) and Blocks.mat(after) == m, "the slope became a whole block of the same material (not a new block on top)")
 	_check(world.get_block(target + Vector3i(0, 1, 0)) == Blocks.AIR or Blocks.is_skin(world.get_block(target + Vector3i(0, 1, 0))), "nothing was placed above it")
-	_check(world.terrain.level(target.x, target.z) == lv_before + 2, "the column is one block higher")
+	_check(world.terrain.level(target.x, target.z) == lv_before + Blocks.UNIT, "the column is one block higher")
 	_check_skin_consistency(world, "after building on a slope", 8, Vector2(target.x, target.z))
 	_check_seams(world, "after building on a slope", 10, Vector2(target.x, target.z))
 	for i in 5:
@@ -385,14 +402,14 @@ func _test_atomic_commit(world: VoxelWorld) -> void:
 			if (x & 15) != 0:
 				continue
 			var lv := world.terrain.level(x, z)
-			if lv > 0 and lv % 2 == 0 and Blocks.is_whole(world.get_block(Vector3i(x, lv / 2 - 1, z))):
+			if lv > 0 and lv % Blocks.UNIT == 0 and Blocks.is_whole(world.get_block(Vector3i(x, lv / Blocks.UNIT - 1, z))):
 				found = Vector2i(x, z)
 	_check(found.x >= 0, "found a block on a chunk border")
 	if found.x < 0:
 		return
 	_meshed_frames.clear()
 	var lv := world.terrain.level(found.x, found.y)
-	world.terrain.dig_step(Vector3i(found.x, lv / 2 - 1, found.y))
+	world.terrain.dig_step(Vector3i(found.x, lv / Blocks.UNIT - 1, found.y))
 	var frames_waited := 0
 	while not world.is_settled() and frames_waited < 600:
 		await process_frame
@@ -422,18 +439,19 @@ func _test_random_edits(world: VoxelWorld) -> void:
 			var lv := world.terrain.level(x, z)
 			if lv < 4:
 				continue
-			var whole_y := lv / 2 - 1
+			# the top block of the column: the half-dug block itself, or the highest whole one
+			var whole_y := lv / Blocks.UNIT if lv % Blocks.UNIT == Blocks.DUG_HEIGHT else lv / Blocks.UNIT - 1
 			var roll := rng.randf()
 			if roll < 0.55:
 				if world.terrain.dig_step(Vector3i(x, whole_y, z)):
 					edits += 1
 			elif roll < 0.8:
 				# build on whatever is above: a half-dug block, a slope piece, or free space next to ground
-				if world.terrain.build(Vector3i(x, lv / 2, z), Blocks.STONE):
+				if world.terrain.build(Vector3i(x, lv / Blocks.UNIT, z), Blocks.STONE):
 					edits += 1
 			else:
 				# dig a slope piece
-				if world.terrain.dig_step(Vector3i(x, lv / 2, z)):
+				if world.terrain.dig_step(Vector3i(x, lv / Blocks.UNIT, z)):
 					edits += 1
 		var centre := Vector2(origin.x + area / 2, origin.y + area / 2)
 		var before := _failed
@@ -455,7 +473,12 @@ func _test_random_edits(world: VoxelWorld) -> void:
 func _test_basic_editing(world: VoxelWorld, spawn: Vector3i) -> void:
 	var cube := Vector3i(spawn.x + 3, spawn.y, spawn.z + 3)
 	_check(world.get_block(cube) == Blocks.GRASS, "cube before digging")
-	_check(world.terrain.dig_step(cube) and Blocks.is_dug(world.get_block(cube)) and Blocks.shape(world.get_block(cube)) == Blocks.SHAPE_HALF, "first dig stage: a half-dug block")
+	var all_whole := true
+	for off in Ramps.NEIGHBOURS:
+		var nb := world.get_block(cube + Vector3i(off.x, 0, off.y))
+		all_whole = all_whole and Blocks.is_whole(nb)
+	_check(world.terrain.dig_step(cube) and Blocks.is_dug(world.get_block(cube)), "first dig stage: a half-dug block")
+	_check(not all_whole or Blocks.shape(world.get_block(cube)) == Blocks.SHAPE_BOWL, "in the middle of whole blocks it is a bowl: corners meet the neighbours, the middle is lower")
 	_check(world.terrain.dig_step(cube) and world.get_block(cube) == Blocks.AIR, "second dig stage: gone")
 	var hit := world.raycast(Vector3(spawn.x + 0.5, 90.0, spawn.z + 0.5), Vector3.DOWN, 100.0)
 	_check(not hit.is_empty() and hit.cell == spawn and hit.normal == Vector3i(0, 1, 0), "raycast hits spawn top face %s" % str(hit))

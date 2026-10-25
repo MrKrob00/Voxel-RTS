@@ -74,8 +74,8 @@ func _init() -> void:
 	# 2c. Bricks stand on whole ground blocks only: not on a slope piece or a half-dug block, and they never change terrain.
 	var sx := x + 8
 	var sz := z + 2
-	world.set_block(Vector3i(sx, spawn.y, sz), Blocks.make(Blocks.STONE, Blocks.SHAPE_HALF, true))
-	world.set_block(Vector3i(sx + 1, spawn.y, sz), Blocks.make(Blocks.STONE, Blocks.shape_from_corners(0, 2, 2, 0)))
+	world.set_block(Vector3i(sx, spawn.y, sz), Blocks.make(Blocks.STONE, Blocks.SHAPE_DUG, true))
+	world.set_block(Vector3i(sx + 1, spawn.y, sz), Blocks.make(Blocks.STONE, Blocks.shape_from_corners(0, 4, 4, 0)))
 	_check(not bricks.can_place(Vector3i(sx, y, sz), 0, 1), "no brick on a half-dug block")
 	_check(not bricks.can_place(Vector3i(sx + 1, y, sz), 0, 1), "no brick on a slope piece")
 	_check(not bricks.can_place(Vector3i(sx - 1, y, sz), 0, 2), "a long brick may not overhang a half-dug block either")

@@ -45,8 +45,7 @@ var _materials := {}
 var _shapes := {}       # length -> BoxShape3D
 var _debris: Array = [] # [RigidBody3D, spawn_time_msec]
 var _patches := {}      # Vector3i -> [StaticBody3D, last_touched_msec]
-var _patch_shape: BoxShape3D
-var _patch_shape_half: BoxShape3D
+var _patch_shapes := {}   # height in quarter-blocks -> BoxShape3D
 
 
 func _ready() -> void:
@@ -57,10 +56,10 @@ func _ready() -> void:
 		var shape := BoxShape3D.new()
 		shape.size = Vector3(length, 1, 1)
 		_shapes[length] = shape
-	_patch_shape = BoxShape3D.new()
-	_patch_shape.size = Vector3.ONE
-	_patch_shape_half = BoxShape3D.new()
-	_patch_shape_half.size = Vector3(1, 0.5, 1)
+	for quarters in range(1, Blocks.UNIT + 1):
+		var box := BoxShape3D.new()
+		box.size = Vector3(1, float(quarters) / Blocks.UNIT, 1)
+		_patch_shapes[quarters] = box
 	for k in [Kind.STONE, Kind.WOOD]:
 		var m := StandardMaterial3D.new()
 		m.albedo_color = Color("9a9da2") if k == Kind.STONE else Color("a8763f")
@@ -307,7 +306,7 @@ func _build_patch(key: Vector3i, now: int) -> void:
 				var raw := world.get_block(p)
 				if not Blocks.is_solid(raw):
 					continue
-				var half := Blocks.is_partial(raw) and Blocks.max_height(Blocks.shape(raw)) <= 1
+				var quarters := Blocks.max_height(Blocks.shape(raw)) if Blocks.is_partial(raw) else Blocks.UNIT
 				# Only voxels that touch open space can be hit (a slope piece always does).
 				var exposed := Blocks.is_partial(raw)
 				if not exposed:
@@ -318,8 +317,8 @@ func _build_patch(key: Vector3i, now: int) -> void:
 				if not exposed:
 					continue
 				var cs := CollisionShape3D.new()
-				cs.shape = _patch_shape_half if half else _patch_shape
-				cs.position = Vector3(x, y, z) + (Vector3(0.5, 0.25, 0.5) if half else Vector3.ONE * 0.5)
+				cs.shape = _patch_shapes[maxi(quarters, 1)]
+				cs.position = Vector3(x + 0.5, y + float(maxi(quarters, 1)) / Blocks.UNIT * 0.5, z + 0.5)
 				body.add_child(cs)
 				count += 1
 	body.position = Vector3(origin)

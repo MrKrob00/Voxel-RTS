@@ -24,14 +24,17 @@ docs/                          reference notes and this file
 ## Voxel format (`Blocks`)
 
 One int per voxel (`PackedInt32Array` per 16x16x16 chunk; an empty array is a chunk of open sky).
-- bits 0-7: material. bits 8-15: shape. bit 16: `DUG`.
-- Shape 0 is a full cube. Any other shape is `1 + h0 + 3*h1 + 9*h2 + 27*h3`, the heights (0, 1 or 2 half-blocks) of the four
-  top corners. That covers wedges, inner and outer corners and half-height slabs, whole or half height.
+- bits 0-7: material. bits 8-17: shape. bit 18: `DUG`.
+- Shape 0 is a full cube. Any other shape is `1 + h0 + 5*h1 + 25*h2 + 125*h3`: the heights, in quarter-blocks (0 to 4), of
+  the four top corners. A dug block (flag `DUG`) also has a centre vertex at `DUG_HEIGHT` (3 of 4), so its top is a shallow
+  bowl whose corners rise to meet the whole neighbours (`SHAPE_BOWL`: all four corners at full height).
 - Only **whole** cubes are opaque, set a column's height and let bricks stand on them.
 
 ## Ground: stages and slope pieces (`TerrainEdit`, `Ramps`)
 
-A block of ground has three states: **whole -> half dug -> gone**. A half-dug block is a flat half-block with the `DUG` flag.
+A block of ground has three states: **whole -> half dug -> gone**. A half-dug block stands 3/4 high (it is earth, not grass) and
+has the `DUG` flag. Its corners that touch whole neighbours rise to their height, so the first stage is a shallow bowl with
+sloping sides, not a square hole. A block covered by other ground has no half-way state and just goes.
 
 The generator also removes features one block wide (pits, trenches, pillars, ridges), which would only produce shard-like
 rings of slopes; players may dig and build any such shape.
@@ -41,14 +44,15 @@ a column that is lower than its neighbours. The rules live in one place, `Ramps.
 generator (from column levels) and by `TerrainEdit` (from the cells), so generated and edited ground follow the same law.
 
 - A slope piece is decided by the 3x3x3 neighbourhood of its cell: a whole block below it, the 8 neighbours in its layer
-  (a whole block that is a step top rises 1 block, a half-dug block half a block) and the same 8 columns one layer up
+  (a whole block that is a step top rises 1 block, a half-dug block 3/4 of a block) and the same 8 columns one layer up
   (anything natural there makes the neighbour a wall, which raises nothing). Each corner takes the highest rise among
   the three cells that touch it (two sides and the diagonal). The corner is a vertex shared by up to four pieces, and all of
   them compute it the same way, so neighbouring pieces always meet at equal heights (`tests/world_smoke_test.gd` checks the
   seams after generation and after every kind of edit).
-- The **level** of a column is measured in half-blocks: `2 * (y of its highest whole cube + 1)`, plus 1 if the block on top of
-  it is half dug. Slope pieces depend on the levels of the eight neighbours only.
-- Changing a natural block (whole or half dug) re-derives the slope pieces of the 3x3 columns around it **after** the block
+- The **level** of a column is measured in quarter-blocks: `4 * (y of its highest whole cube + 1)`, plus 3 if the block on top
+  of it is half dug.
+- Slope pieces and half-dug blocks are shaped by the same rule (a half-dug block just never goes below `DUG_HEIGHT`).
+- Changing a natural block (whole or half dug) re-derives the pieces of the 3x3 columns around it **after** the block
   changed, in the same call. So neighbours follow the block's current state, never the other way round.
 - Digging a slope piece changes no level, so nothing around it changes: a destroyed slope stays destroyed.
 - After digging, existing slope pieces only change shape or vanish; a pit the player dug is not refilled. After building,

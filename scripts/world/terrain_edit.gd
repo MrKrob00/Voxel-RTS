@@ -3,15 +3,16 @@ extends RefCounted
 ## The rules of changing the ground. VoxelWorld stores voxels; this decides what digging and building do to them.
 ##
 ## A block of ground goes through stages:   whole  ->  half dug  ->  gone. Digging tears the grass up: a half-dug grass
-## block is earth.
-## Slope pieces ("skin": wedges, corners, half slabs) are ground too and can be dug or filled, but unlike natural
-## blocks they are DERIVED: they fill the cell above a column that is lower than its neighbours, and are worked out from
-## the neighbours' surface levels by Ramps (the same rules the generator uses).
+## block is earth. A half-dug block stands 3/4 high and its corners rise to meet the whole blocks around it, so the pit has
+## sloping sides instead of a sheer step.
+## Slope pieces (wedges, corners) are ground too and can be dug or filled, but unlike natural blocks they are DERIVED: they
+## fill the cell above a column that is lower than its neighbours. Their shape, and the shape of a half-dug block, is
+## worked out from the neighbours by Ramps (the same rules the generator uses).
 ##
 ## What triggers a recompute: only a change to a *natural* block (whole or half dug), because only those set a column's
 ## level. Digging or filling a slope piece changes nothing around it, so a slope that was dug stays dug, and no new slope
-## appears next to it. When a natural block changes, the slope pieces of the 3x3 columns around it are re-derived from the
-## new state of the block, in the same call, so everything shows up in the same frame.
+## appears next to it. When a natural block changes, the pieces of the 3x3 columns around it are re-derived from the new
+## state of the block, in the same call, so everything shows up in the same frame.
 ## After DIGGING, existing slope pieces only change shape or disappear: a pit the player dug is never refilled with
 ## slopes. After BUILDING (the level rose), new slope pieces may appear beside the new wall, like at generation.
 ##
@@ -26,7 +27,8 @@ func _init(w: VoxelWorld) -> void:
 
 # --- queries ------------------------------------------------------------------------------------
 
-## Surface level of a column in half-blocks (see Ramps), or -1 for no ground. `cache` is an optional per-edit dictionary.
+## Surface level of a column in quarter-blocks (see Ramps): UNIT * (y of its highest whole block + 1), plus DUG_HEIGHT
+## if the block on top of that is half dug. -1 for no ground. `cache` is an optional per-edit dictionary.
 func level(x: int, z: int, cache: Dictionary = {}) -> int:
 	var key := Vector2i(x, z)
 	if cache.has(key):
@@ -37,25 +39,44 @@ func level(x: int, z: int, cache: Dictionary = {}) -> int:
 		for y in range(size.y - 1, -1, -1):
 			if Blocks.is_whole(world.get_block(Vector3i(x, y, z))):
 				var above := world.get_block(Vector3i(x, y + 1, z)) if y + 1 < size.y else Blocks.AIR
-				result = 2 * (y + 1) + (1 if Blocks.is_dug(above) else 0)
+				result = Blocks.UNIT * (y + 1) + (Blocks.DUG_HEIGHT if Blocks.is_dug(above) else 0)
 				break
 	cache[key] = result
 	return result
+
+
+## The y of the cell just above a column's highest whole block: where its slope piece or its half-dug block is.
+static func surface_cell_y(level_value: int) -> int:
+	return level_value / Blocks.UNIT
 
 
 ## What the voxel in the slope cell above a column should be right now (AIR when no slope belongs there).
 ## Decided from the cells around the slope cell (Ramps.rises_from_cells), the same rule the generator follows.
 func expected_skin(x: int, z: int, cache: Dictionary = {}) -> int:
 	var lv := level(x, z, cache)
-	if lv < 0 or lv % 2 == 1:
+	if lv < 0 or lv % Blocks.UNIT != 0:
 		return Blocks.AIR   # no ground, or the top block is half dug and is its own surface
-	var y := lv / 2
-	var raw_at := func(dx: int, dy: int, dz: int) -> int:
-		return world.get_block(Vector3i(x + dx, y + dy, z + dz))
-	var shape := Ramps.shape_from_rises(Ramps.rises_from_cells(raw_at))
+	var y := surface_cell_y(lv)
+	var shape := Ramps.shape_from_rises(Ramps.rises_from_cells(_sampler(x, y, z)), 0)
 	if shape < 0:
 		return Blocks.AIR
 	return Blocks.make(Blocks.mat(world.get_block(Vector3i(x, y - 1, z))), shape)
+
+
+## What a half-dug block's voxel should be right now: same material, flag set, corners following the neighbours.
+func expected_dug(x: int, z: int, cache: Dictionary = {}) -> int:
+	var lv := level(x, z, cache)
+	if lv < 0 or lv % Blocks.UNIT != Blocks.DUG_HEIGHT:
+		return Blocks.AIR
+	var y := surface_cell_y(lv)
+	var cur := world.get_block(Vector3i(x, y, z))
+	var shape := Ramps.shape_from_rises(Ramps.rises_from_cells(_sampler(x, y, z)), Blocks.DUG_HEIGHT)
+	return Blocks.make(Blocks.mat(cur), shape, true)
+
+
+func _sampler(x: int, y: int, z: int) -> Callable:
+	return func(dx: int, dy: int, dz: int) -> int:
+		return world.get_block(Vector3i(x + dx, y + dy, z + dz))
 
 
 func can_dig(cell: Vector3i) -> bool:
@@ -80,14 +101,16 @@ func can_build(cell: Vector3i) -> bool:
 
 # --- edits --------------------------------------------------------------------------------------
 
-## One stage of digging. A whole block becomes half dug; a half-dug block or a slope piece is gone.
+## One stage of digging. A whole block with open air above becomes half dug; a half-dug block or a slope piece is gone.
+## A block covered by other ground (a cliff face, a tunnel wall) has no half-way state and just goes.
 ## A worker repeats this while its task runs, so pits take shape gradually.
 func dig_step(cell: Vector3i) -> bool:
 	if not can_dig(cell):
 		return false
 	var raw := world.get_block(cell)
-	if Blocks.is_whole(raw):
-		return _apply(cell, Blocks.make(Blocks.dug_material(Blocks.mat(raw)), Blocks.SHAPE_HALF, true))
+	if Blocks.is_whole(raw) and not _is_natural(world.get_block(cell + Vector3i(0, 1, 0))):
+		# The corners are filled in by the re-derive right after (they depend on the neighbours).
+		return _apply(cell, Blocks.make(Blocks.dug_material(Blocks.mat(raw)), Blocks.SHAPE_DUG, true))
 	return _apply(cell, Blocks.AIR)
 
 
@@ -100,7 +123,7 @@ func build(cell: Vector3i, material: int) -> bool:
 	return _apply(cell, Blocks.make(m))
 
 
-## Writes the cell, then, if a natural block changed, re-derives the slope pieces around it from the new state.
+## Writes the cell, then, if a natural block changed, re-derives the pieces around it from the new state.
 func _apply(cell: Vector3i, raw: int) -> bool:
 	var old := world.get_block(cell)
 	var natural := _is_natural(old) or _is_natural(raw)
@@ -128,19 +151,21 @@ func _rederive_column(x: int, z: int, cache: Dictionary, allow_create: bool) -> 
 	var lv := level(x, z, cache)
 	if lv < 0:
 		return
-	var top_whole := lv / 2 - 1           # y of the highest whole cube
-	var first_free := top_whole + 1       # the cell above it: slope cell, or the half-dug block itself
+	var first_free := surface_cell_y(lv)   # the cell above the highest whole block
 	var size := world.size_blocks()
-	if lv % 2 == 0 and first_free < size.y:
+	if first_free < size.y:
 		var cell := Vector3i(x, first_free, z)
 		var cur := world.get_block(cell)
-		if Blocks.is_skin(cur) or (cur == Blocks.AIR and allow_create):
-			var want := expected_skin(x, z, cache)
-			if want != cur:
-				world.set_block(cell, want)
-		first_free += 1
-	else:
-		first_free += 1                    # skip the half-dug block
+		if lv % Blocks.UNIT == 0:
+			if Blocks.is_skin(cur) or (cur == Blocks.AIR and allow_create):
+				var want := expected_skin(x, z, cache)
+				if want != cur:
+					world.set_block(cell, want)
+		elif Blocks.is_dug(cur):
+			var want_dug := expected_dug(x, z, cache)
+			if want_dug != cur:
+				world.set_block(cell, want_dug)
+	first_free += 1   # the dug block itself, or the slope cell, is handled: what is left above is floating
 	# Slope pieces left floating above the surface by a lower level are removed.
 	for y in range(first_free, mini(first_free + 4, size.y)):
 		var c := Vector3i(x, y, z)

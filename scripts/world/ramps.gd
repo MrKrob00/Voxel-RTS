@@ -1,72 +1,75 @@
 class_name Ramps
 extends RefCounted
-## The one set of rules for slope pieces ("skin") and for cleaning the generated height field. Used by the generator and by
-## TerrainEdit, so freshly generated and freshly edited ground always agree.
+## The one set of rules for the pieces whose shape depends on their neighbours, and for cleaning the generated height
+## field. Used by the generator and by TerrainEdit, so freshly generated and freshly edited ground always agree.
 ##
-## A slope piece fills the cell P above a ground block that is lower than its neighbours. It is decided by the 3x3x3
-## neighbourhood of P:
-##   - below P: a whole block (the piece must rest on ground);
-##   - in P's layer, the 8 neighbours: how much of each one rises into the layer;
-##   - in the layer above, the same 8 columns: they tell a 1-block step (nothing natural above it) from a wall.
-## A neighbour contributes a RISE, in half-blocks: 2 for a whole block that is a step top, 1 for a half-dug block, 0 for a
-## wall (something natural is above it), air or another slope piece. Slope pieces never raise other slope pieces.
+## Two kinds of piece are shaped by their neighbours:
+##   - a SLOPE piece fills the cell P above a ground block that is lower than its neighbours (base height 0);
+##   - a DUG block, a natural block that was partly dug, stands Blocks.DUG_HEIGHT quarters high and is shaped the same way
+##     (base height DUG_HEIGHT), so its corners next to whole blocks rise to meet them and the pit gets sloping sides.
+## The shape is decided by the 3x3x3 neighbourhood of the cell:
+##   - for a slope piece, a whole block below it (it must rest on ground);
+##   - in the cell's layer, the 8 neighbours: how far each one rises into the layer;
+##   - in the layer above, the same 8 columns: they tell a 1-block step from a wall.
+## A neighbour contributes a RISE in quarter-blocks: UNIT for a whole block that is a step top, DUG_HEIGHT for a half-dug
+## block, 0 for a wall (something natural is above it), air or a slope piece. Slope pieces never raise other pieces.
 ##
-## The height of each corner of P is the highest rise among the three cells that touch that corner (two sides and the
-## diagonal). The same corner is computed identically by the neighbouring pieces that share it, so neighbouring pieces
-## always meet along edges of equal height: the surface has no cracks.
+## The height of each corner is the highest of the base height and the rises of the three cells that touch the corner (two
+## sides and the diagonal). A corner is a vertex shared by up to four pieces and all of them compute it the same way, so
+## neighbouring pieces always meet along edges of equal height: the surface has no cracks.
 
 const NEIGHBOURS: Array[Vector2i] = [
 	Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
 	Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1),
 ]
 
-## Largest height difference (half-blocks) that a slope piece bridges.
-const MAX_RISE := 2
-
 
 # --- the rule -----------------------------------------------------------------------------------
 
-## `rise` maps each of the 8 neighbour offsets (x, z) to 0, 1 or 2. Returns the shape id of the piece, or -1 for none.
-static func shape_from_rises(rise: Dictionary) -> int:
+## `rise` maps each of the 8 neighbour offsets (x, z) to a height in quarter-blocks. `base` is 0 for a slope piece (the
+## result is -1 when nothing needs filling) and Blocks.DUG_HEIGHT for a dug block (the result is always a shape).
+static func shape_from_rises(rise: Dictionary, base := 0) -> int:
 	var any := false
 	for off in NEIGHBOURS:
 		if rise.get(off, 0) > 0:
 			any = true
 			break
-	if not any:
+	var dug := base > 0
+	if not any and not dug:
 		return -1
-	var c0 := _corner(rise, Vector2i(-1, 0), Vector2i(0, -1), Vector2i(-1, -1))   # corner (0,0)
-	var c1 := _corner(rise, Vector2i(1, 0), Vector2i(0, -1), Vector2i(1, -1))     # (1,0)
-	var c2 := _corner(rise, Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1))       # (1,1)
-	var c3 := _corner(rise, Vector2i(-1, 0), Vector2i(0, 1), Vector2i(-1, 1))     # (0,1)
-	# Two opposite corners raised and the other two not (a saddle): leave it.
-	if (c0 > 0 and c2 > 0 and c1 == 0 and c3 == 0) or (c1 > 0 and c3 > 0 and c0 == 0 and c2 == 0):
-		return -1
-	var shape := Blocks.shape_from_corners(c0, c1, c2, c3)
+	var c0 := _corner(rise, base, Vector2i(-1, 0), Vector2i(0, -1), Vector2i(-1, -1))   # corner (0,0)
+	var c1 := _corner(rise, base, Vector2i(1, 0), Vector2i(0, -1), Vector2i(1, -1))     # (1,0)
+	var c2 := _corner(rise, base, Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1))       # (1,1)
+	var c3 := _corner(rise, base, Vector2i(-1, 0), Vector2i(0, 1), Vector2i(-1, 1))     # (0,1)
+	if not dug and ((c0 > 0 and c2 > 0 and c1 == 0 and c3 == 0) or (c1 > 0 and c3 > 0 and c0 == 0 and c2 == 0)):
+		return -1   # a saddle (two opposite corners raised): leave it
+	var shape := Blocks.shape_from_corners(c0, c1, c2, c3, dug)
 	return -1 if shape == Blocks.SHAPE_CUBE else shape   # raised on all corners: nothing to add
 
 
-static func _corner(rise: Dictionary, side_a: Vector2i, side_b: Vector2i, diagonal: Vector2i) -> int:
-	return maxi(maxi(rise.get(side_a, 0), rise.get(side_b, 0)), rise.get(diagonal, 0))
+static func _corner(rise: Dictionary, base: int, side_a: Vector2i, side_b: Vector2i, diagonal: Vector2i) -> int:
+	return maxi(base, maxi(maxi(rise.get(side_a, 0), rise.get(side_b, 0)), rise.get(diagonal, 0)))
 
 
 # --- samplers: where the rises come from -------------------------------------------------------------------
 
+## Surface height of a column in quarter-blocks from the y of its top whole block.
 static func level_of_top(top: int) -> int:
-	return 2 * (top + 1) if top >= 0 else -1
+	return Blocks.UNIT * (top + 1) if top >= 0 else -1
 
 
-## From column levels (half-blocks; -1 = no ground), used by the generator, which knows heights, not cells.
-static func rises_from_levels(level: int, around: Dictionary) -> Dictionary:
+## From column levels (quarter-blocks; -1 = no ground), used by the generator, which knows heights, not cells.
+## `cell_base` is the height of the bottom of the piece's cell.
+static func rises_from_levels(cell_base: int, around: Dictionary) -> Dictionary:
 	var rise := {}
 	for off in NEIGHBOURS:
 		var n: int = around.get(off, -1)
-		var d := n - level
-		rise[off] = d if (n >= 0 and d >= 1 and d <= MAX_RISE) else 0
+		var d := n - cell_base
+		rise[off] = d if (n >= 0 and d >= 1 and d <= Blocks.UNIT) else 0
 	return rise
 
 
-## From the cells themselves, used by TerrainEdit. `raw_at(dx, dy, dz)` returns the voxel at an offset from P.
+## From the cells themselves, used by TerrainEdit. `raw_at(dx, dy, dz)` returns the voxel at an offset from the piece's cell.
 static func rises_from_cells(raw_at: Callable) -> Dictionary:
 	var rise := {}
 	for off in NEIGHBOURS:
@@ -74,9 +77,9 @@ static func rises_from_cells(raw_at: Callable) -> Dictionary:
 		var above: int = raw_at.call(off.x, 1, off.y)
 		var r := 0
 		if Blocks.is_whole(here):
-			r = 2 if not _natural(above) else 0   # a step top, or a wall
+			r = Blocks.UNIT if not _natural(above) else 0   # a step top, or a wall
 		elif Blocks.is_dug(here):
-			r = 1
+			r = Blocks.DUG_HEIGHT
 		rise[off] = r
 	return rise
 
@@ -85,9 +88,14 @@ static func _natural(raw: int) -> bool:
 	return Blocks.is_whole(raw) or Blocks.is_dug(raw)
 
 
-## Level-based shortcut for `shape_from_rises(rises_from_levels(...))`.
+## Level-based shortcut for a slope piece in the cell whose bottom is at `level`.
 static func skin_shape(level: int, around: Dictionary) -> int:
-	return shape_from_rises(rises_from_levels(level, around))
+	return shape_from_rises(rises_from_levels(level, around), 0)
+
+
+## Level-based shortcut for a dug block whose top is at `level` (its cell starts DUG_HEIGHT lower).
+static func dug_shape(level: int, around: Dictionary) -> int:
+	return shape_from_rises(rises_from_levels(level - Blocks.DUG_HEIGHT, around), Blocks.DUG_HEIGHT)
 
 
 # --- generated height field ---------------------------------------------------------------------------------

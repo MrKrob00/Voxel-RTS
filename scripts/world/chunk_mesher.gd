@@ -61,7 +61,7 @@ static func build(snap: Array, origin: Vector3i, preset: MapPreset) -> Array:
 					continue
 				var shape := Blocks.shape(raw)
 				if shape != Blocks.SHAPE_CUBE:
-					_emit_shape(solid, snap, x, y, z, id, shape, origin, preset)
+					_emit_shape(solid, snap, x, y, z, id, shape, Blocks.is_dug(raw), origin, preset)
 					continue
 				var is_water := id == Blocks.WATER
 				for f in 6:
@@ -81,17 +81,19 @@ static func build(snap: Array, origin: Vector3i, preset: MapPreset) -> Array:
 	return out
 
 
-## Any non-cube ground piece: slopes, corners and half-height slabs. The top surface is described by the heights of its
-## four corners (0, 0.5 or 1 block); the sides are trapezoids between neighbouring corners.
-static func _emit_shape(buf: Buffers, snap: Array, x: int, y: int, z: int, id: int, shape: int, origin: Vector3i, preset: MapPreset) -> void:
-	var h := Blocks.corner_heights(shape)   # half-blocks
+## Any non-cube ground piece: slopes, corners and half-dug blocks. The top surface is described by the heights of its
+## four corners (quarter-blocks); the sides are trapezoids between neighbouring corners. A half-dug block also has a
+## centre vertex at DUG_HEIGHT, so its top is a shallow bowl: the corners next to whole blocks rise to meet them.
+static func _emit_shape(buf: Buffers, snap: Array, x: int, y: int, z: int, id: int, shape: int, dug: bool, origin: Vector3i, preset: MapPreset) -> void:
+	var h := Blocks.corner_heights(shape)   # quarter-blocks
+	var q := 1.0 / Blocks.UNIT
 	var base := Vector3(x, y, z)
 	var cx := [0.0, 1.0, 1.0, 0.0]
 	var cz := [0.0, 0.0, 1.0, 1.0]
 	var top: Array[Vector3] = []
 	var floor_pts: Array[Vector3] = []
 	for k in 4:
-		top.append(base + Vector3(cx[k], h[k] * 0.5, cz[k]))
+		top.append(base + Vector3(cx[k], h[k] * q, cz[k]))
 		floor_pts.append(base + Vector3(cx[k], 0.0, cz[k]))
 	# Split the top along the diagonal that makes a ridge (one corner highest) or a valley (one corner lowest).
 	var diag := 0   # 0: split 0-2, 1: split 1-3
@@ -113,7 +115,11 @@ static func _emit_shape(buf: Buffers, snap: Array, x: int, y: int, z: int, id: i
 			diag = 0 if lo_idx[0] % 2 == 0 else 1
 		else:
 			diag = 0 if s02 > s13 else 1
-	if diag == 0:
+	if dug:
+		var centre := base + Vector3(0.5, Blocks.DUG_HEIGHT * q, 0.5)
+		for k in 4:
+			_shape_tri(buf, [centre, top[k], top[(k + 1) % 4]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
+	elif diag == 0:
 		_shape_tri(buf, [top[0], top[1], top[2]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
 		_shape_tri(buf, [top[0], top[2], top[3]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
 	else:
