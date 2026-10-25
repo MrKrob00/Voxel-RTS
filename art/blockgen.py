@@ -134,47 +134,44 @@ def stairs(length, steps, start=None):
     return out
 
 
-def corner_out(length, steps, flip):
+def moved(pieces, dx=0.0, mirror_x=False):
+    """The pieces shifted along x (after mirroring x, if asked)."""
+    return [[((-x if mirror_x else x) + dx, y, z) for (x, y, z) in piece] for piece in pieces]
+
+
+def corner_cell(inner, steps=4):
+    """A one-cell corner stair: layers of a quarter of a block each. Outer: the layers shrink towards the (+x, +z) corner, so steps
+    go down on the -x and -z sides. Inner: the steps are carved into the (-x, -z) corner, so they go up from it."""
     out = []
+    h = 1.0 / steps
     for k in range(steps):
-        x0 = -length / 2 + length / 2 * k / steps * 1.0
-        z0 = -0.5 + 0.5 * k / steps if not flip else 0.5 - 0.5 * k / steps
-        y0 = -0.5 + k / steps
-        sx = length / 2 - x0
-        sz = 0.5 - (z0 if not flip else -z0) + 0.0
-        zc = (z0 + 0.5) / 2 if not flip else (z0 - 0.5) / 2
-        sz = abs(0.5 - z0) if not flip else abs(z0 + 0.5)
-        out.append(box(x0 + sx / 2, y0 + 0.5 / steps, zc, sx, 1.0 / steps, sz))
+        y = -0.5 + h * (k + 0.5)
+        cut = 1.0 / steps * k if not inner else 1.0 / steps * (steps - 1 - k)
+        if not inner:
+            out.append(box(0.5 - (1.0 - cut) / 2, y, 0.5 - (1.0 - cut) / 2, 1.0 - cut, h, 1.0 - cut))
+        else:
+            if cut <= 0.001:
+                out.append(box(0, y, 0, 1.0, h, 1.0))
+            else:
+                out.append(box(0.5 - (1.0 - cut) / 2, y, 0, 1.0 - cut, h, 1.0))           # beyond the carved part in x
+                out.append(box(-0.5 + cut / 2, y, 0.5 - (1.0 - cut) / 2, cut, h, 1.0 - cut))   # the strip before it, beyond it in z
     return out
 
 
-def corner_in(length, steps, flip):
+def corner_stairs(inner, right):
+    """A 2 x 1 x 1 block: a corner stair cell and a cube. `right`: the stairs are in the right-hand cell (and turned the other way)."""
+    cube = [box(0.5 if not right else -0.5, 0, 0, 1.0, 1.0, 1.0)]
+    cell = moved(corner_cell(inner), -0.5 if not right else 0.5, mirror_x=right)
+    return cell + cube
+
+
+def ridge(steps=4):
+    """A one-cell pyramid of steps going up from both sides (left and right) to a ridge in the middle."""
     out = []
-    half = length / 2
+    h = 1.0 / steps
     for k in range(steps):
-        cut = (steps - 1 - k)
-        nx = half * 2 * cut / steps * 0.75 if steps > 1 else 0
-        nx = length * 0.75 * cut / (steps - 1) if steps > 1 else 0
-        nz = 0.75 * cut / (steps - 1) if steps > 1 else 0
-        y0 = -0.5 + k / steps
-        h = 1.0 / steps
-        # A: the part beyond the cut in x (full width); B: the strip before it, beyond the cut in z
-        ax0 = -half + nx
-        out.append(box((ax0 + half) / 2, y0 + h / 2, 0, half - ax0, h, 1.0))
-        if nx > 0.01:
-            zb0, zb1 = (-0.5 + nz, 0.5) if not flip else (-0.5, 0.5 - nz)
-            out.append(box(-half + nx / 2, y0 + h / 2, (zb0 + zb1) / 2, nx, h, zb1 - zb0))
-    return out
-
-
-def pyramid():
-    out = []
-    y = -0.5
-    for s, h in ((1.0, 0.2), (0.74, 0.2), (0.48, 0.2)):
-        out.append(box(0, y + h / 2, 0, s, h, s, 0.03))
-        y += h
-    out.append(cyl(0, y + 0.15, 0, 0.17, 0.12, 0.3))
-    out.append(cyl(0, y + 0.34, 0, 0.08, 0.08, 0.1, b=0.01))
+        w = 1.0 - 2 * k * (0.5 / steps)
+        out.append(box(0, -0.5 + h * (k + 0.5), 0, w, h, 1.0))
     return out
 
 
@@ -335,12 +332,12 @@ BLOCKS = {
     "cube":         lambda: [box(0, 0, 0, 1.0, 1.0, 1.0)],
     "stairs":       lambda: stairs(1.0, 4, -1.0) + [box(0.5, 0, 0, 1.0, 1.0, 1.0)],   # one cell of steps and one cell of block
     "stairs_small": lambda: stairs(1.0, 4),
-    "corner_out_l": lambda: corner_out(2.0, 4, False),
-    "corner_out_r": lambda: corner_out(2.0, 4, True),
-    "corner_in_l":  lambda: corner_in(2.0, 4, False),
-    "corner_in_r":  lambda: corner_in(2.0, 4, True),
-    "corner_cube":  lambda: corner_out(1.0, 4, False),
-    "pyramid":      pyramid,
+    "corner_out_l": lambda: corner_stairs(False, False),
+    "corner_out_r": lambda: corner_stairs(False, True),
+    "corner_in_l":  lambda: corner_stairs(True, False),
+    "corner_in_r":  lambda: corner_stairs(True, True),
+    "corner_cube":  lambda: corner_cell(False),
+    "pyramid":      ridge,
     "tower_a":      lambda: tower(0.18, 0.42, 0.46, 0.3, 0.4, 0.03),
     "tower_b":      lambda: tower(0.14, 0.3, 0.44, 0.34, 0.56, 0.02),
     "tower_squat":  squat,
