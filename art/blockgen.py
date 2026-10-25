@@ -442,8 +442,8 @@ BLOCKS = {
     "tower_flared": lambda: tower_square(0.16, 0.5, 0.5, 0.3, 0.34),
     # --- Plugs
     "plug_1":       lambda: plug("F"),
-    "plug_2":       lambda: plug("FB"),
-    "plug_3":       lambda: plug("FL"),
+    "plug_2":       lambda: plug("LR"),
+    "plug_3":       lambda: plug("FR"),
     "plug_4":       lambda: plug("FLR"),
     "plug_5":       lambda: plug("FBLR"),
     # --- Round Bricks
