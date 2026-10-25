@@ -258,6 +258,15 @@ def squircle(y, half, seg=20, n=4.0):
     return pts
 
 
+def tower_square(base_h, flare_h, half_low, half_top, top_h):
+    """The same as `tower`, but square: a plate, a flare from a wide square to a narrower one, a square top."""
+    y0 = -0.5 + base_h
+    flare = [(sx * half_low, y0, sz * half_low) for sx in (-1, 1) for sz in (-1, 1)] \
+        + [(sx * half_top, y0 + flare_h, sz * half_top) for sx in (-1, 1) for sz in (-1, 1)]
+    return [box(0, -0.5 + base_h / 2, 0, 1.0, base_h, 1.0, 0.04), flare,
+            box(0, y0 + flare_h + top_h / 2, 0, half_top * 2, top_h, half_top * 2, 0.03)]
+
+
 def squat():
     return [box(0, -0.43, 0, 1.0, 0.14, 1.0, 0.03), squircle(-0.36, 0.5) + squircle(0.28, 0.4) + squircle(0.24, 0.43)]
 
@@ -340,7 +349,7 @@ BLOCKS = {
     "tower_b":      lambda: tower(0.14, 0.3, 0.44, 0.34, 0.56, 0.02),
     "tower_squat":  squat,
     "column":       column,
-    "tower_flared": lambda: tower(0.16, 0.5, 0.5, 0.3, 0.34),
+    "tower_flared": lambda: tower_square(0.16, 0.5, 0.5, 0.3, 0.34),
     # --- Plugs
     "plug_1":       lambda: plug("F"),
     "plug_2":       lambda: plug("FB"),
