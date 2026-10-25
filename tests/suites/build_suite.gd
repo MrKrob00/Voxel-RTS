@@ -45,7 +45,7 @@ func run() -> void:
 	var plan := _board.place_blueprint("stockpile", Stockpile.Style.PLATFORM, base + Vector3i(10, 0, 2))
 	check(plan != null and plan.cost == {Resources.Kind.PLANK: 3}, "a blueprint of a stockpile asks for three planks")
 	check(_economy.stockpiles.size() == 2 and _economy.blueprints.size() == 1, "nothing is built yet, only planned")
-	check(_board.place_blueprint("stockpile", Stockpile.Style.FRAME, base + Vector3i(11, 0, 3)) == null and _economy.last_error.contains("overlaps"), "a second plan cannot overlap the first (%s)" % _economy.last_error)
+	check(_board.place_blueprint("stockpile", Stockpile.Style.CRATE, base + Vector3i(11, 0, 3)) == null and _economy.last_error.contains("overlaps"), "a second plan cannot overlap the first (%s)" % _economy.last_error)
 	_step(400)
 	check(_economy.stockpiles.size() == 2 and plan.delivered.is_empty(), "with no planks anywhere nobody does anything")
 	for u in crew:

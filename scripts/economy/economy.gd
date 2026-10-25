@@ -290,7 +290,7 @@ func unreserve(s: Stockpile, n := 1) -> void:
 		_reserved.erase(s)
 
 
-## Puts a bag down. A frame filled with stone to the brim is replaced by a stack of stone bricks. Returns how many were taken.
+## Puts a bag down. A crate filled with stone to the brim is replaced by a stack of stone bricks. Returns how many were taken.
 func deposit(s: Stockpile, kind: int, n: int) -> int:
 	unreserve(s, n)
 	var put := s.add(kind, n)
@@ -300,7 +300,7 @@ func deposit(s: Stockpile, kind: int, n: int) -> int:
 	return put
 
 
-## The frame goes, a stack of 4 stone bricks of 2x1x1 (two layers of two) stands where it was: the material of walls.
+## The crate goes, a stack of 4 stone bricks of 2x1x1 (two layers of two) stands where it was: the material of walls.
 func _pack_into_bricks(s: Stockpile) -> void:
 	var at := s.origin
 	remove_stockpile(s)
@@ -354,7 +354,7 @@ func spend(kind: int, n: int) -> bool:
 	return true
 
 
-## Cells nobody can walk through: the solid crate of a frame and the stations.
+## Cells nobody can walk through: the solid crate of a crate and the stations.
 func blocks_cell(c: Vector3i) -> bool:
 	for s in stockpiles:
 		if s.blocks(c):

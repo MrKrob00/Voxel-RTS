@@ -45,7 +45,7 @@ func run() -> void:
 	_flatten(Vector3i(sp.x - 12, sp.y, sp.z - 12), 20, 14)
 	var base := Vector3i(sp.x - 12, sp.y + 1, sp.z - 12)
 	var logs_pile := _economy.place_stockpile(base + Vector3i(2, 0, 2), Stockpile.Style.PLATFORM)
-	var grass_frame := _economy.place_stockpile(base + Vector3i(6, 0, 2), Stockpile.Style.FRAME)
+	var grass_frame := _economy.place_stockpile(base + Vector3i(6, 0, 2), Stockpile.Style.CRATE)
 	check(logs_pile != null and grass_frame != null, "a platform for logs and a frame for grass are down")
 	var crew := _units.spawn_squad(base + Vector3i(8, 0, 8), 2, 1)
 

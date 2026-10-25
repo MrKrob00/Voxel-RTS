@@ -102,9 +102,9 @@ func _bake_structures(sv: SubViewport, cam: Camera3D) -> void:
 			mi.position = Vector3(1.0, 0.55, 1.0)
 			n.add_child(mi)
 			return n, Vector3(1.0, 0.4, 1.0), 4.0],
-		["frame", func() -> Node3D:
+		["crate", func() -> Node3D:
 			var n := Stockpile.new()
-			n.build(Vector3i.ZERO, Stockpile.Style.FRAME)
+			n.build(Vector3i.ZERO, Stockpile.Style.CRATE)
 			return n, Vector3(1.0, 0.8, 1.0), 4.2],
 		["stump", func() -> Node3D:
 			var n := Station.new()

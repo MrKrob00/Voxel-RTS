@@ -88,7 +88,7 @@ func _ready() -> void:
 			break
 		var top := world.surface_y(sp.x, sp.y)
 		var framed := OS.get_cmdline_user_args().has("--frame")
-		var made := economy.place_stockpile(Vector3i(sp.x, top + 1, sp.y), Stockpile.Style.FRAME if framed else Stockpile.Style.PLATFORM)
+		var made := economy.place_stockpile(Vector3i(sp.x, top + 1, sp.y), Stockpile.Style.CRATE if framed else Stockpile.Style.PLATFORM)
 		print("stockpile: ", "placed" if made != null else economy.last_error)
 		if made != null and sp.z > 0:
 			made.add(Resources.Kind.STONE if framed else Resources.Kind.IRON, sp.z)

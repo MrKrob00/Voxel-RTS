@@ -236,7 +236,7 @@ func _update_hover() -> void:
 	_ghost.visible = false
 	_stock_ghost.visible = false
 	var info := "" if hit.is_empty() else _describe_cell(hit.cell, hit.brick)
-	if (mode == Tools.Mode.STOCKPILE or mode == Tools.Mode.FRAME or mode == Tools.Mode.STUMP or mode == Tools.Mode.ROPE_MACHINE) and not hit.is_empty() and not hit.brick:
+	if (mode == Tools.Mode.STOCKPILE or mode == Tools.Mode.CRATE or mode == Tools.Mode.STUMP or mode == Tools.Mode.ROPE_MACHINE) and not hit.is_empty() and not hit.brick:
 		var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
 		var why := ""
 		var gsize := Vector2(Stockpile.SIZE, Stockpile.SIZE)
@@ -335,7 +335,7 @@ func _on_primary(pos: Vector2) -> void:
 			_mark_harvest(HarvestTask.Kind.TREES, Vector2(hit.cell.x + 0.5, hit.cell.z + 0.5), 4.0)
 		Tools.Mode.MARK_GRASS:
 			_mark_harvest(HarvestTask.Kind.GRASS, Vector2(hit.cell.x + 0.5, hit.cell.z + 0.5), 4.0)
-		Tools.Mode.STOCKPILE, Tools.Mode.FRAME:
+		Tools.Mode.STOCKPILE, Tools.Mode.CRATE:
 			_place_stockpile(hit)
 		Tools.Mode.STUMP, Tools.Mode.ROPE_MACHINE:
 			_place_station(hit)
@@ -477,7 +477,7 @@ func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
 
 func _place_stockpile(hit: Dictionary) -> void:
 	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
-	var style := Stockpile.Style.FRAME if mode == Tools.Mode.FRAME else Stockpile.Style.PLATFORM
+	var style := Stockpile.Style.CRATE if mode == Tools.Mode.CRATE else Stockpile.Style.PLATFORM
 	if not hit.brick and board.place_blueprint("stockpile", style, origin) == null:
 		hud.show_message("Cannot plan a stockpile here: " + economy.last_error)
 

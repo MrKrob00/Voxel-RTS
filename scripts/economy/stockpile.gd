@@ -2,16 +2,16 @@ class_name Stockpile
 extends Node3D
 ## A 2x2 place where units put what they carry. Two styles, as in the original game:
 ##   PLATFORM  a plank platform with the goods lying on it: logs, planks, rope, ores
-##   FRAME     the same platform with a copy of it standing up on each of the four sides: a solid crate of 2 x 2 x 2 blocks for
-##             loose stuff, stone and grass. When a frame is filled with stone to the brim the crate goes and what is left is a
+##   CRATE     the same platform with a copy of it standing up on each of the four sides: a solid crate of 2 x 2 x 2 blocks for
+##             loose stuff, stone and grass. When a crate is filled with stone to the brim the crate goes and what is left is a
 ##             stack of 2x1x1 stone bricks (BrickWorld), 4 of them: the 2x2x2 volume of the stockpile.
 ## A stockpile holds one kind at a time (it takes a new kind once it is empty). How much fits depends on the kind: bags are half
-## blocks (a frame holds 16 of stone, a brick is four), a platform holds 4 logs, 24 planks or 20 ropes (a rope takes a quarter
+## blocks (a crate holds 16 of stone, a brick is four), a platform holds 4 logs, 24 planks or 20 ropes (a rope takes a quarter
 ## of the area and a fifth of the height).
 ##
 ## `origin` is the lowest-x/z cell of the platform at the height of the cell ABOVE the ground (where feet stand on it).
 
-enum Style { PLATFORM, FRAME, STACK }
+enum Style { PLATFORM, CRATE, STACK }
 
 const SIZE := 2
 const PLATFORM_HEIGHT := 0.18
@@ -19,17 +19,17 @@ const WALL_HEIGHT := 2.0
 const BAGS_PER_BRICK := 4
 const ACCEPTS := {
 	Style.PLATFORM: [Resources.Kind.LOG, Resources.Kind.PLANK, Resources.Kind.ROPE, Resources.Kind.IRON, Resources.Kind.COAL, Resources.Kind.AMBER],
-	Style.FRAME: [Resources.Kind.STONE, Resources.Kind.PLANT],
-	Style.STACK: [Resources.Kind.BRICK],   # the bricks a full frame turned into; builders take them from the top
+	Style.CRATE: [Resources.Kind.STONE, Resources.Kind.PLANT],
+	Style.STACK: [Resources.Kind.BRICK],   # the bricks a full crate turned into; builders take them from the top
 }
 const CAPACITY := {
 	Style.PLATFORM: {Resources.Kind.LOG: 4, Resources.Kind.PLANK: 24, Resources.Kind.ROPE: 20, Resources.Kind.IRON: 24, Resources.Kind.COAL: 24, Resources.Kind.AMBER: 24},
-	Style.FRAME: {Resources.Kind.STONE: 16, Resources.Kind.PLANT: 16},
+	Style.CRATE: {Resources.Kind.STONE: 16, Resources.Kind.PLANT: 16},
 	Style.STACK: {Resources.Kind.BRICK: 8},   # 4 bricks of 2x1x1 = 8 halves, two layers of two
 }
 ## What a stockpile costs, paid from the planks in the stockpiles (a guess: the original's price is not known here). The very first one is free.
 const COST := {Resources.Kind.PLANK: 3}
-const STYLE_NAMES := {Style.PLATFORM: "plank platform", Style.FRAME: "frame", Style.STACK: "stack of bricks"}
+const STYLE_NAMES := {Style.PLATFORM: "plank platform", Style.CRATE: "crate", Style.STACK: "stack of bricks"}
 
 var style := Style.PLATFORM
 var origin := Vector3i.ZERO
@@ -80,9 +80,9 @@ func covers(c: Vector3i) -> bool:
 	return c.y == origin.y and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
 
 
-## The frame is a solid crate two blocks high: nobody walks through its cells.
+## The crate is a solid crate two blocks high: nobody walks through its cells.
 func blocks(c: Vector3i) -> bool:
-	return (style == Style.FRAME or style == Style.STACK) and (c.y == origin.y or c.y == origin.y + 1) and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
+	return (style == Style.CRATE or style == Style.STACK) and (c.y == origin.y or c.y == origin.y + 1) and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
 
 
 func free_space() -> int:
@@ -126,9 +126,9 @@ func take(kind: int, n: int) -> int:
 	return got
 
 
-## True when a frame has been filled with stone to the brim: time to turn it into bricks.
+## True when a crate has been filled with stone to the brim: time to turn it into bricks.
 func packed_stone() -> bool:
-	return style == Style.FRAME and holding == Resources.Kind.STONE and count >= capacity_for(Resources.Kind.STONE)
+	return style == Style.CRATE and holding == Resources.Kind.STONE and count >= capacity_for(Resources.Kind.STONE)
 
 
 ## Where a unit may stand to use it: any standable cell touching the platform (from the 12 around it).
@@ -151,8 +151,12 @@ func build(cell: Vector3i, new_style: int) -> void:
 	position = Vector3(cell.x, cell.y, cell.z)
 	if style != Style.STACK:
 		_plank_panel(Transform3D.IDENTITY)   # the floor (a stack of bricks stands on the bare ground)
-	if style == Style.FRAME:
-		_wooden_frame()
+	if style == Style.CRATE:
+		# The floor copied onto the four sides, standing up: x = 0 and 2, z = 0 and 2.
+		_plank_panel(Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
+		_plank_panel(Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(SIZE, 0.0, 0.0)))
+		_plank_panel(Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
+		_plank_panel(Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, SIZE)))
 	_piles = Node3D.new()
 	add_child(_piles)
 	_label = Label3D.new()
@@ -178,40 +182,6 @@ func _plank_panel(t: Transform3D) -> void:
 		_box(panel, Vector3(SIZE - 0.08, PLATFORM_HEIGHT * 0.6, SIZE / 5.0 - 0.05), Vector3(SIZE * 0.5, PLATFORM_HEIGHT * 0.7, (i + 0.5) * SIZE / 5.0), wood if i % 2 == 0 else dark)
 	for bx in [0.3, SIZE - 0.3]:
 		_box(panel, Vector3(0.18, PLATFORM_HEIGHT * 0.5, SIZE - 0.04), Vector3(bx, PLATFORM_HEIGHT * 0.25, SIZE * 0.5), dark)
-
-
-## The frame of the original's storage: an open wooden rack. Two A-frames (an upright post on each side, a thick top bar, two lower
-## bars, a slanted leg splayed outwards) joined by long bars along the top and the middle; what is stored shows between the posts.
-func _wooden_frame() -> void:
-	var wood := _mat(Color("b98a4e"))
-	var dark := _mat(Color("7b5630"))
-	var h := WALL_HEIGHT
-	var t := 0.16
-	for x in [0.1, SIZE - 0.1]:
-		for z in [0.1, SIZE - 0.1]:
-			_beam(self, Vector3(x, PLATFORM_HEIGHT, z), Vector3(x, h, z), t, wood)                    # the posts
-		_beam(self, Vector3(x, h, 0.0), Vector3(x, h, SIZE), t * 1.3, dark)                          # the thick top bar
-		_beam(self, Vector3(x, h * 0.5, 0.0), Vector3(x, h * 0.5, SIZE), t, dark)                    # the middle bar
-		_beam(self, Vector3(x, h * 0.2, 0.0), Vector3(x, h * 0.2, SIZE), t, dark)                    # the low bar
-		var out := -1.0 if x < 1.0 else 1.0
-		for z in [0.1, SIZE - 0.1]:
-			_beam(self, Vector3(x, h * 0.85, z), Vector3(x + out * 0.45, PLATFORM_HEIGHT, z), t, wood)  # the splayed legs
-	for z in [0.1, SIZE - 0.1]:
-		_beam(self, Vector3(0.1, h, z), Vector3(SIZE - 0.1, h, z), t * 1.3, dark)                    # the long bars on top
-		_beam(self, Vector3(0.1, h * 0.5, z), Vector3(SIZE - 0.1, h * 0.5, z), t, dark)
-
-
-## A square beam between two points.
-func _beam(parent: Node3D, from: Vector3, to: Vector3, thickness: float, m: StandardMaterial3D) -> void:
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	var d := to - from
-	bm.size = Vector3(thickness, thickness, d.length())
-	mi.mesh = bm
-	mi.material_override = m
-	parent.add_child(mi)
-	var up := Vector3.UP if absf(d.normalized().y) < 0.99 else Vector3.RIGHT
-	mi.transform = Transform3D(Basis.looking_at(d.normalized(), up), (from + to) * 0.5)
 
 
 func _box(parent: Node3D, size: Vector3, pos: Vector3, m: StandardMaterial3D) -> void:
@@ -270,9 +240,9 @@ func _show_heap() -> void:
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = _chunk_mesh()
 	mm.instance_count = shown
-	var inner := 0.28 if style == Style.FRAME else 0.18
+	var inner := 0.28 if style == Style.CRATE else 0.18
 	var half := SIZE * 0.5 - inner
-	var top := (WALL_HEIGHT - PLATFORM_HEIGHT - 0.15) if style == Style.FRAME else 0.8
+	var top := (WALL_HEIGHT - PLATFORM_HEIGHT - 0.15) if style == Style.CRATE else 0.8
 	for k in shown:
 		var u := _fract((k + 1) * _GOLDEN_U) * 2.0 - 1.0
 		var v := _fract((k + 1) * _GOLDEN_V) * 2.0 - 1.0
@@ -322,7 +292,7 @@ func _show_planks() -> void:
 		_piles.add_child(mi)
 
 
-## A stack of stone bricks, two layers of two (the frame's 2 x 2 x 2): one brick per two halves, a lone half as a cube on top.
+## A stack of stone bricks, two layers of two (the crate's 2 x 2 x 2): one brick per two halves, a lone half as a cube on top.
 func _show_bricks() -> void:
 	var m := _mat(Resources.COLORS[Resources.Kind.BRICK])
 	var whole := count / 2

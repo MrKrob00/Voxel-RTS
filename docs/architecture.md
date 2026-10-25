@@ -108,8 +108,8 @@ picture is final; later stamps rebuild only the chunks they touch (`stamp_cover_
 - Two **stockpile** styles, both 2x2 on four whole ground blocks at one height with two free cells above (`Stockpile.can_place`: not
   on slopes or half-dug blocks, not over bricks or another stockpile):
   - the **plank platform** (24 bags; wood and ores);
-  - the **frame**, four low walls round the pile (16 bags; stone and plants). Stone shows as a heap of gravel that grows with every
-    bag. When the frame is filled with stone to the brim it disappears and **4 stone bricks of 2x1x1** (two layers of two, the 2x2x2
+  - the **crate** (before: "frame"), four low walls round the pile (16 bags; stone and plants). Stone shows as a heap of gravel that grows with every
+    bag. When the crate is filled with stone to the brim it disappears and **4 stone bricks of 2x1x1** (two layers of two, the 2x2x2
     volume) stand in its place as ordinary `BrickWorld` bricks.
   A stockpile holds one kind at a time and takes another once it is empty. With no stockpile that takes the kind, the worker
   keeps its bag and says "No free stockpile for stone".
@@ -131,7 +131,7 @@ picture is final; later stamps rebuild only the chunks they touch (`stamp_cover_
   it still needs); its standing job (`BuildTask`) lets idle units, whenever a stockpile holds something the blueprint still needs, fetch a
   load (one log, three planks), carry it over and put it in; when everything is in, the real building stands (a station also gets its
   job). Cancelling a plan removes its job. The game starts with a plank platform and a stump near the spawn crystal.
-- **Bricks and walls.** A frame filled with stone to the brim becomes a **stack of 4 stone bricks** (a `Stockpile.Style.STACK` holding 8
+- **Bricks and walls.** A crate filled with stone to the brim becomes a **stack of 4 stone bricks** (a `Stockpile.Style.STACK` holding 8
   halves; a brick is 2 halves, a 1x1x1 cube 1). A wall is planned as a line (`WallPlan`: bricks along it, cubes where a half is needed,
   every course offset by a cell, a running bond; up to 3 courses, because a unit lays at arm's length, 2 blocks above its feet, and
   scaffolding does not exist yet). Its job (`WallTask`) lets idle units fetch a brick from a stack (carried on the back), stand next to
