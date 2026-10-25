@@ -38,8 +38,19 @@ var _label: Label3D
 var _idle_time := 0.0
 var _falling := false
 
-## What it carries: {resource id: amount} (see Resources); drawn as a sack on its back.
+## What it carries: {Resources.Kind: bags}; drawn as a sack on its back, coloured by the material.
 var carrying := {}
+## A short line over its head about what is wrong or going on ("No free stockpile"); empty when all is well.
+var status := ""
+## 0..1 while it works on something (a bar over its head), -1 when not working.
+var progress := -1.0:
+	set(v):
+		progress = v
+		if _bar != null:
+			_bar.visible = v >= 0.0
+			_bar.scale.x = maxf(v, 0.001)
+			_bar.position.x = -0.4 + 0.4 * maxf(v, 0.001)
+var _bar: MeshInstance3D
 
 
 func _ready() -> void:
@@ -57,6 +68,25 @@ func is_moving() -> bool:
 
 func is_idle() -> bool:
 	return path.is_empty() and not _falling
+
+
+func carry(kind: int, bags: int) -> void:
+	carrying = {kind: bags} if bags > 0 else {}
+	if _pack != null and bags > 0:
+		(_pack.material_override as StandardMaterial3D).albedo_color = Resources.COLORS.get(kind, Color("8a5a2b"))
+
+
+func carried_kind() -> int:
+	for k in carrying:
+		return k
+	return Resources.Kind.NONE
+
+
+## Turns to face a point (workers face what they dig).
+func face(point: Vector3) -> void:
+	var d := point - position
+	if Vector2(d.x, d.z).length() > 0.01:
+		rotation.y = atan2(d.x, d.z)
 
 
 func carried_amount() -> int:
@@ -182,7 +212,12 @@ func _animate(delta: float) -> void:
 		_body.position.y = lerpf(_body.position.y, 0.0, minf(1.0, delta * 10.0))
 		_body.rotation.z = lerpf(_body.rotation.z, 0.0, minf(1.0, delta * 10.0))
 	_pack.visible = carried_amount() > 0
-	_label.visible = selected and is_idle() and _idle_time > 1.0
+	if status != "":
+		_label.text = status
+		_label.visible = true
+	else:
+		_label.text = "Nothing to do"
+		_label.visible = selected and is_idle() and _idle_time > 1.0
 
 
 func _build_model() -> void:
@@ -231,6 +266,18 @@ func _build_model() -> void:
 	_pack.position = Vector3(0, 0.75, -r - 0.1)
 	_pack.visible = false
 	_body.add_child(_pack)
+	_bar = MeshInstance3D.new()
+	var bar_mesh := BoxMesh.new()
+	bar_mesh.size = Vector3(0.8, 0.09, 0.09)
+	_bar.mesh = bar_mesh
+	var bar_mat := StandardMaterial3D.new()
+	bar_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bar_mat.albedo_color = Color("ffe14a")
+	bar_mat.no_depth_test = true
+	_bar.material_override = bar_mat
+	_bar.position = Vector3(0, HEIGHT + 0.2, 0)
+	_bar.visible = false
+	add_child(_bar)
 	_ring = MeshInstance3D.new()
 	var disc := CylinderMesh.new()
 	disc.top_radius = 0.7

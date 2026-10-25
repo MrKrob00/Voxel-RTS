@@ -10,6 +10,9 @@ func _ready() -> void:
 	var pitch := -1.0
 	var yaw := -1000.0
 	var select_all := false
+	var stockpile := Vector2(-1, -1)      # --stockpile=x,z: put a stockpile on the ground there
+	var task_rect: Array[int] = []        # --task=x0,z0,x1,z1: mark an area to dig and put every unit on it
+	var wait_frames := 400                # --wait=N: frames to wait before the shot (let units work)
 	var move_to := Vector2(-1, -1)   # --move=x,z: select every unit and send it there, then wait for it to walk a bit
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shot="):
@@ -24,6 +27,14 @@ func _ready() -> void:
 			pitch = float(a.substr(8))
 		elif a.begins_with("--yaw="):
 			yaw = float(a.substr(6))
+		elif a.begins_with("--stockpile="):
+			var sp := a.substr(12).split(",")
+			stockpile = Vector2(float(sp[0]), float(sp[1]))
+		elif a.begins_with("--task="):
+			for part in a.substr(7).split(","):
+				task_rect.append(int(part))
+		elif a.begins_with("--wait="):
+			wait_frames = int(a.substr(7))
 		elif a == "--select-all":
 			select_all = true
 		elif a.begins_with("--move="):
@@ -47,6 +58,17 @@ func _ready() -> void:
 		var gc := units.nav.nearest_standable(Vector3i(int(move_to.x), world.surface_y(int(move_to.x), int(move_to.y)) + 1, int(move_to.y)), 5)
 		if gc.x >= 0:
 			units.command_move(gc)
+	var economy: Economy = get_parent().get("economy")
+	if stockpile.x >= 0.0 and economy != null:
+		var top := world.surface_y(int(stockpile.x), int(stockpile.y))
+		var made := economy.place_stockpile(Vector3i(int(stockpile.x), top + 1, int(stockpile.y)))
+		print("stockpile: ", "placed" if made != null else economy.last_error)
+	var board: TaskBoard = get_parent().get("board")
+	if task_rect.size() == 4 and board != null:
+		var t := board.create_dig(task_rect[0], task_rect[1], task_rect[2], task_rect[3])
+		if t != null and units != null:
+			for u in units.units:
+				board.assign(u, t)
 	for d in digs:
 		var terrain: TerrainEdit = world.terrain
 		var lv0 := terrain.level(d.x, d.y)
@@ -61,7 +83,7 @@ func _ready() -> void:
 		get_parent().get("rig").yaw = deg_to_rad(yaw)
 	if zoom > 0.0:
 		get_parent().get("rig").distance = zoom
-	for i in 400:
+	for i in wait_frames:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)

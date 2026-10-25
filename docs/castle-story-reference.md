@@ -78,3 +78,12 @@ Next work, in order:
 4. Units: Bricktron model, selection, move orders, voxel pathfinding (bridges between islands).
 5. Tasks: harvest / quarry / build with a task bar, stockpiles, hauling.
 6. Combat and enemies, then multiplayer.
+
+## From the second batch of screenshots (task panel)
+
+- The "New Task" panel groups tools: **Maintenance**, **Harvest** (tree, plants, ...; several resource icons), **Mining** (dig, dig
+  with a block, a shovel) and **Construction**. A harvest task is a circle on the map with a counter of workers `x 0/8`; idle
+  Bricktrons show "Nothing to do" above their heads. The spawn crystal sits on a small ring of bare earth.
+- The player assigns Bricktrons to tasks; a task with no free stockpile, no reachable target or no resource leaves them idle.
+- Mining tunnels have a special piece (`cs_mining_tunnel_or_01`): one 2x1x1 block, half a normal block and half steps. Only units
+  make it (the ground generator never does): it is the digging state for walking into a hillside. TODO with sideways digging.

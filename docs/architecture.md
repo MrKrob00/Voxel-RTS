@@ -16,7 +16,12 @@ main.gd (sandbox scene: wires everything, input -> actions)
  │    └─ world/blocks.gd         Blocks: the voxel format and the block palette
  ├─ world/prop_field.gd       PropField: trees, boulders, crystals, ferns (zones), MultiMesh
  │    └─ world/props.gd          Props: procedural low-poly models
- └─ building/brick_world.gd   BrickWorld: player bricks (1x1x1, 2x1x1), support rule, collapse into RigidBody3D
+ ├─ building/brick_world.gd   BrickWorld: player bricks (1x1x1, 2x1x1), support rule, collapse into RigidBody3D
+ ├─ units/navigation.gd       Navigation: where units can stand, 8-way moves, A* (pure rules on voxel data)
+ ├─ units/unit.gd             Unit: one worker (1.7 x 0.8 blocks): walking, hopping, falling, model, status label
+ ├─ units/unit_manager.gd     UnitManager: spawning, selection (tap, box, double tap), formation move orders
+ ├─ economy/                  Resources (kinds of bags), Stockpile (2x2 wooden platform, 24 bags), Economy (where bags go)
+ └─ tasks/                    TaskBoard (jobs, assignment, marks), DigTask (marked blocks), Worker (the FSM of one worker)
 tests/                         headless checks (see below)
 scripts/tools/screenshot.gd    debug helper for screenshots
 docs/                          reference notes and this file
@@ -74,6 +79,33 @@ and blends it per vertex (bilinear), so the turf fades into the earth with no ti
 transitions. `VoxelWorld.hold_meshing()` keeps meshing back until the cliff pass and the prop scatter are done, so the first
 picture is final; later stamps rebuild only the chunks they touch (`stamp_cover_disc`, `stamp_cover_rect`).
 
+## Units (`Navigation`, `Unit`, `UnitManager`)
+
+- A unit is **1.7 blocks tall and 0.8 wide**: it needs the cell it stands in and the one above free, and fits a one-block corridor.
+- A navigation NODE is the cell the feet are in: open air over a whole block or a brick, or *inside* a slope piece / half-dug
+  block (a unit stands in a pit or on a slope, at `Blocks.surface_height` of that piece). Moves go to the 8 neighbouring
+  columns, up 1 block (a hop) or down at most 3; a diagonal needs both cells beside it free. A* returns the way to the
+  closest reachable cell when the goal is walled in. Everything is read from voxel data (and bricks), nothing from the scene.
+- If the floor under a unit is dug away it falls to the next one; if its path is cut during a walk it looks for another.
+- **Gestures** (`RTSCamera` turns raw input into the same signals on every device): tap / click = select (or use the tool),
+  tap on the ground with a selection = move there, long press = command (like a right click), long press then drag = selection
+  box, mouse drag = box, double tap on a unit = select all, two fingers = zoom and rotate, one finger drag = pan.
+  Buttons "All units" and "Idle units" select groups.
+
+## Work (`TaskBoard`, `Worker`, `Economy`, `Stockpile`)
+
+- **Dig task**: the player marks columns (tap one, or drag/long-press-drag a box in "mark dig area" mode); the surface block of
+  every column is marked. Units are assigned from the task list (the selection, or all idle units if none is selected).
+- A **Worker** is a small state machine (SEEK -> GO_DIG -> DIG -> GO_STOCK -> PUT, WAIT when there is no room). One dig stage
+  (1.3 s) gives **one bag** of what the block is made of (`Resources.from_block`: grass and dirt give earth, ore gives ore); the worker
+  carries it to the nearest stockpile with room (reserved while it is on its way), puts it down and comes back to the same block
+  for its next stage. A block takes two stages (whole -> half dug -> gone), a slope piece one.
+- A **stockpile** is a 2x2 wooden platform that needs four whole ground blocks at one height with two free cells above
+  (`Stockpile.can_place`: not on slopes or half-dug blocks, not over bricks or another stockpile). It holds 24 bags in total.
+  Without any stockpile with room the worker keeps its bag and says "No free stockpile".
+- Not done yet: wood and plant harvesting, building tasks, a task bar like the original (Harvest / Mining / Construction groups),
+  and the *mining stair* state of the ground (one 2x1x1 piece, half whole block and half steps, which only units make).
+
 ## Pipeline and frames (`VoxelWorld`)
 
 - Generation and meshing run on `WorkerThreadPool`; the main thread commits results.
@@ -107,6 +139,8 @@ godot --headless --path . -s res://tests/ramps_rule_test.gd     # the slope rule
 godot --headless --path . -s res://tests/brick_test.gd          # support rules, collapse, flat-ground-only building
 godot --headless --path . -s res://tests/island_seeds_test.gd   # 40 seeds x 3 island counts: layout and bridges
 godot --headless --path . -s res://tests/ground_cover_test.gd   # bare-earth brushes, cliff pass, mesher slices
+godot --headless --path . -s res://tests/navigation_test.gd     # standing rules, A*, bridges, bricks, a unit walking and falling
+godot --headless --path . -s res://tests/work_test.gd           # stockpile rules, the dig / carry / put-down loop
 ```
 
 Screenshots (virtual display): `xvfb-run -a godot --path . --rendering-driver opengl3 -- --shot=out.png [--zoom=D --focus=X,Z

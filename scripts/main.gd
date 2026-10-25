@@ -5,12 +5,17 @@ var preset := MapPreset.plains()
 var world: VoxelWorld
 var props: PropField
 var rig: RTSCamera
-enum Mode { SELECT, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
-const MODE_NAMES := ["select / move", "dig", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
+enum Mode { SELECT, MARK_DIG, STOCKPILE, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
+const MODE_NAMES := ["select / move", "mark dig area", "place stockpile 2x2", "dig (instant)", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
 const START_UNITS := 5
 
 var bricks: BrickWorld
 var units: UnitManager
+var economy: Economy
+var board: TaskBoard
+var _tasks_panel: VBoxContainer
+var _stock_label: Label
+var _stock_ghost: MeshInstance3D
 var mode := Mode.SELECT
 var brick_axis := 0
 var _ghost: MeshInstance3D
@@ -67,6 +72,16 @@ func _ready() -> void:
 	units.name = "Units"
 	add_child(units)
 	units.setup(world, bricks)
+	economy = Economy.new()
+	economy.name = "Economy"
+	add_child(economy)
+	economy.setup(world, bricks)
+	board = TaskBoard.new()
+	board.name = "Tasks"
+	add_child(board)
+	board.setup(world, units.nav, economy)
+	board.changed.connect(_refresh_tasks_panel)
+	economy.changed.connect(_refresh_stock_label)
 	world.generation_finished.connect(_spawn_units, CONNECT_ONE_SHOT)
 
 	_setup_hover()
@@ -74,7 +89,14 @@ func _ready() -> void:
 	add_child(load("res://scripts/tools/screenshot.gd").new())
 
 
-func _process(_delta: float) -> void:
+var _panel_timer := 0.0
+
+
+func _process(delta: float) -> void:
+	_panel_timer -= delta
+	if _panel_timer <= 0.0 and not board.tasks.is_empty():
+		_panel_timer = 0.5
+		_refresh_tasks_panel()
 	_info.text = "%d fps | %s | %s | units %d (selected %d) | bricks %d" % [Engine.get_frames_per_second(), world.stats(), MODE_NAMES[mode], units.units.size(), units.selection.size(), bricks.brick_count()]
 	_update_hover()
 
@@ -135,6 +157,13 @@ func _setup_hover() -> void:
 	_ghost.material_override = _ghost_mat
 	_ghost.visible = false
 	add_child(_ghost)
+	_stock_ghost = MeshInstance3D.new()
+	var sbox := BoxMesh.new()
+	sbox.size = Vector3(Stockpile.SIZE, 0.2, Stockpile.SIZE)
+	_stock_ghost.mesh = sbox
+	_stock_ghost.material_override = _ghost_mat.duplicate()
+	_stock_ghost.visible = false
+	add_child(_stock_ghost)
 	_hover = MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = Vector3.ONE * 1.02
@@ -160,6 +189,13 @@ func _setup_ui() -> void:
 	layer.add_child(_cell_info)
 	_selection_box = SelectionBox.new()
 	layer.add_child(_selection_box)
+	_stock_label = Label.new()
+	_stock_label.position = Vector2(12, 360)
+	_stock_label.add_theme_font_size_override("font_size", 15)
+	layer.add_child(_stock_label)
+	_tasks_panel = VBoxContainer.new()
+	_tasks_panel.position = Vector2(220, 40)
+	layer.add_child(_tasks_panel)
 	var all_button := Button.new()
 	all_button.text = "All units"
 	all_button.custom_minimum_size = Vector2(190, 56)
@@ -198,7 +234,16 @@ func _update_hover() -> void:
 	var hit := _pick(rig.pointer)
 	_hover.visible = not hit.is_empty() and not _is_brick_mode()
 	_ghost.visible = false
+	_stock_ghost.visible = false
 	_cell_info.text = "" if hit.is_empty() else _describe_cell(hit.cell, hit.brick)
+	if mode == Mode.STOCKPILE and not hit.is_empty() and not hit.brick:
+		var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
+		var why := Stockpile.can_place(world, bricks, origin, economy.stockpiles)
+		_stock_ghost.visible = true
+		_stock_ghost.position = Vector3(origin.x + 1.0, origin.y + 0.1, origin.z + 1.0)
+		(_stock_ghost.material_override as StandardMaterial3D).albedo_color = Color(0.2, 0.9, 0.3, 0.5) if why == "" else Color(0.95, 0.2, 0.2, 0.5)
+		if why != "":
+			_cell_info.text += "  |  stockpile: " + why
 	if hit.is_empty():
 		return
 	if _hover.visible:
@@ -242,6 +287,10 @@ func _on_primary(pos: Vector2) -> void:
 	match mode:
 		Mode.SELECT:
 			_command_move(hit)
+		Mode.MARK_DIG:
+			_mark_dig(hit.cell.x, hit.cell.z, hit.cell.x, hit.cell.z)
+		Mode.STOCKPILE:
+			_place_stockpile(hit)
 		Mode.DIG:
 			if hit.brick:
 				bricks.remove(bricks.brick_at(hit.cell))
@@ -284,4 +333,61 @@ func _on_double(pos: Vector2) -> void:
 
 func _on_box(rect: Rect2) -> void:
 	_selection_box.hide_rect()
+	if mode == Mode.MARK_DIG:
+		# The corners of the box on the ground give the area to dig.
+		var lo := Vector2i(1 << 30, 1 << 30)
+		var hi := Vector2i(-(1 << 30), -(1 << 30))
+		for p in [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]:
+			var h := _pick(p)
+			if not h.is_empty():
+				lo = Vector2i(mini(lo.x, h.cell.x), mini(lo.y, h.cell.z))
+				hi = Vector2i(maxi(hi.x, h.cell.x), maxi(hi.y, h.cell.z))
+		if hi.x >= lo.x:
+			_mark_dig(lo.x, lo.y, hi.x, hi.y)
+		return
 	units.select_rect(rect, rig.camera, Input.is_key_pressed(KEY_SHIFT))
+
+
+## Marks ground to be dug and puts the selected units (or, with nothing selected, the idle ones) on it.
+func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
+	var t := board.create_dig(x0, z0, x1, z1)
+	if t == null:
+		return
+	var crew: Array = units.selection if not units.selection.is_empty() else units.units.filter(func(u: Unit) -> bool: return u.is_idle())
+	for u in crew:
+		board.assign(u, t)
+
+
+func _place_stockpile(hit: Dictionary) -> void:
+	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
+	if not hit.brick and economy.place_stockpile(origin) == null:
+		_cell_info.text = "Cannot place a stockpile here: " + economy.last_error
+
+
+func _refresh_tasks_panel() -> void:
+	for c in _tasks_panel.get_children():
+		c.queue_free()
+	for t in board.tasks:
+		var row := HBoxContainer.new()
+		var b := Button.new()
+		b.text = "Dig #%d: %d blocks, %d/%d workers  (assign selected)" % [t.id, t.cell_count(), t.workers.size(), t.max_workers]
+		b.custom_minimum_size = Vector2(0, 48)
+		b.pressed.connect(func() -> void:
+			var crew: Array = units.selection if not units.selection.is_empty() else units.units.filter(func(u: Unit) -> bool: return u.is_idle())
+			for u in crew:
+				board.assign(u, t))
+		row.add_child(b)
+		var x := Button.new()
+		x.text = "X"
+		x.custom_minimum_size = Vector2(48, 48)
+		x.pressed.connect(func() -> void: board.remove_task(t))
+		row.add_child(x)
+		_tasks_panel.add_child(row)
+
+
+func _refresh_stock_label() -> void:
+	var lines := PackedStringArray(["Stockpiles: %d" % economy.stockpiles.size()])
+	var tot := economy.totals()
+	for k in tot:
+		lines.append("%s: %d" % [Resources.label(k), tot[k]])
+	_stock_label.text = "\n".join(lines)
