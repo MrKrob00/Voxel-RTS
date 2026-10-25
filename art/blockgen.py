@@ -391,16 +391,16 @@ def cren_slab():
 
 
 def cren_bracket():
-    """A bracket, the whole block 22% as wide as a cell: a flat platform on top (15% of the height), a back platform (35% of the length),
+    """A bracket, the whole block 30% as wide as a cell: a flat platform on top (15% of the height), a back platform (35% of the length),
     and between them, in the free zone, half an arch whose front is a quarter ellipse from the foot of the back platform up to the front
     of the top platform (two of these mirrored make a whole arch)."""
-    top = box(0, 0.425, 0, 1.0, 0.15, 0.22, 0.0)
-    back = box(-0.325, 0, 0, 0.35, 1.0, 0.22, 0.0)
+    top = box(0, 0.425, 0, 1.0, 0.15, 0.30, 0.0)
+    back = box(-0.325, 0, 0, 0.35, 1.0, 0.30, 0.0)
     wall, cx, cy, ra, rb, n = -0.15, 0.5, -0.5, 0.65, 0.85, 10
     arc = [(cx - ra * math.cos(math.pi / 2 * i / n), cy + rb * math.sin(math.pi / 2 * i / n)) for i in range(n + 1)]
     rib = []
     for (x0, y0), (x1, y1) in zip(arc, arc[1:]):
-        rib.append([(x, y, z) for (x, y) in ((wall, y0), (x0, y0), (x1, y1), (wall, y1)) for z in (-0.11, 0.11)])
+        rib.append([(x, y, z) for (x, y) in ((wall, y0), (x0, y0), (x1, y1), (wall, y1)) for z in (-0.15, 0.15)])
     return [top, back] + rib
 
 
@@ -456,11 +456,20 @@ def cren_roof_inner():
 
 def cren_corbel_long():
     """The long corbel (2 cells along x): a whole cube at -x; in front of it a flat platform 22% of a block thick along the top; under
-    the platform, from the cube to its end, a block that is 22% as wide as the cell (as long as the platform)."""
+    the platform, from the cube to its end, a block 30% as wide as the cell. Where that block meets the cube and the platform there
+    are slopes (a quarter of a block wide) so the joins are not square."""
     cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
     platform = box(0.5, 0.39, 0, 1.0, 0.22, 1.0, 0.0)
-    support = box(0.5, -0.11, 0, 1.0, 0.78, 0.22, 0.0)
-    return [cube, platform, support]
+    w, f, under = 0.15, 0.2, 0.28            # half the width of the narrow block, the size of the slopes, the underside of the platform
+    support = box(0.5, (-0.5 + under) / 2, 0, 1.0, under + 0.5, 2 * w, 0.0)
+    out = [cube, platform, support]
+    for side in (-1, 1):
+        # slope under the platform, along the whole narrow block
+        out.append([(x, y, side * z) for (x, y, z) in ((0.0, under, w), (1.0, under, w), (0.0, under, w + f), (1.0, under, w + f),
+                                                       (0.0, under - f, w), (1.0, under - f, w))])
+        # slope against the face of the cube, from the foot of it up to the platform
+        out.append([(x, y, side * z) for (x, y, z) in ((0.0, -0.5, w), (0.0, -0.5, w + f), (f, -0.5, w), (0.0, under, w), (0.0, under, w + f), (f, under, w))])
+    return out
 
 
 def cren_slope(length=1.0, half=False):
