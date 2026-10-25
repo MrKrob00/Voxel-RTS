@@ -17,7 +17,7 @@ import os
 OUT = os.environ.get("BLOCKGEN_OUT") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "blocks")
 EPS = 1e-5
 BEVEL = 0.035
-MERGING = os.environ.get("BLOCKGEN_MERGE") == "stone"   # one-mesh blocks: no chamfers on the boxes, so no grooves where pieces meet
+MERGING = bool(os.environ.get("BLOCKGEN_MERGE"))   # BLOCKGEN_MERGE=stone|cren: make that set of blocks one mesh each; one-mesh blocks: no chamfers on the boxes, so no grooves where pieces meet
 SMOOTH_DEG = 40.0
 
 
@@ -444,6 +444,9 @@ def board(length, width):
 
 
 ROUND_STONE = ["tower_a", "tower_b", "tower_squat", "column"]   # the stone blocks with curved parts: only these get smoothed normals
+CREN_BLOCKS = ["cren_slab", "cren_bracket", "cren_corner", "cren_slope", "cren_slope_corner", "cren_slope_long", "cren_hip", "cren_corbel_long",
+               "cren_corbel", "cren_corbel_small"]
+MERGE_SETS = {"stone": None, "cren": CREN_BLOCKS}
 STONE_BLOCKS = ["brick", "cube", "stairs", "stairs_small", "corner_out_l", "corner_out_r", "corner_in_l", "corner_in_r", "corner_in_cell",
                 "corner_out_cell", "tower_a", "tower_b", "tower_squat", "column", "tower_flared"]
 
@@ -540,14 +543,15 @@ def write_obj(name, tris):
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    only_stone = os.environ.get("BLOCKGEN_MERGE") == "stone"
+    which = os.environ.get("BLOCKGEN_MERGE", "")
+    chosen = (STONE_BLOCKS if which == "stone" else MERGE_SETS.get(which)) if which else None
     for name, make in BLOCKS.items():
-        if only_stone and name not in STONE_BLOCKS:
+        if which and name not in chosen:
             continue
         pieces = make()
-        if only_stone:
+        if which:
             pieces = [merge(pieces)]
-        tris = mesh_of(pieces, smooth=not only_stone or name in ROUND_STONE)
+        tris = mesh_of(pieces, smooth=not which or name in ROUND_STONE)
         write_obj(name, tris)
         xs = [p[0] for t in tris for p, _ in t]
         ys = [p[1] for t in tris for p, _ in t]

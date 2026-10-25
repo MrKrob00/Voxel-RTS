@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://b6tl3mveh5gew"
+path="res://.godot/imported/cren_corbel.obj-32532a78bb962a70c1d94d1d446fbfd5.mesh"
+
+[deps]
+
+files=["res://.godot/imported/cren_corbel.obj-32532a78bb962a70c1d94d1d446fbfd5.mesh"]
+
+source_file="res://assets/blocks_merged/cren_corbel.obj"
+dest_files=["res://.godot/imported/cren_corbel.obj-32532a78bb962a70c1d94d1d446fbfd5.mesh", "res://.godot/imported/cren_corbel.obj-32532a78bb962a70c1d94d1d446fbfd5.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
