@@ -47,12 +47,12 @@ static func _build() -> void:
 	_d("cube", s, "Cube", 1, m, "H")
 	_d("stairs", s, "Stairs", 2, m, "R")                 # a cell of steps and a cell of block
 	_d("stairs_small", s, "Steps", 1, m)
-	_d("corner_out_l", s, "Outer corner stairs L", 2, m)    # an outer corner stair cell and a cube
-	_d("corner_out_r", s, "Outer corner stairs R", 2, m)
-	_d("corner_in_l", s, "Inner corner stairs L", 2, m)     # an inner corner stair cell and a cube
-	_d("corner_in_r", s, "Inner corner stairs R", 2, m)
-	_d("corner_in_cell", s, "Inner corner step", 1, m)
-	_d("corner_out_cell", s, "Outer corner step", 1, m)
+	_d("corner_out_l", s, "Corner L", 2, m)    # an outer corner stair cell and a cube
+	_d("corner_out_r", s, "Corner R", 2, m)
+	_d("corner_in_l", s, "Inner L", 2, m)     # an inner corner stair cell and a cube
+	_d("corner_in_r", s, "Inner R", 2, m)
+	_d("corner_in_cell", s, "Inner step", 1, m)
+	_d("corner_out_cell", s, "Corner step", 1, m)
 	_d("tower_a", s, "Tower 1", 1, m, "I")
 	_d("tower_b", s, "Tower 2", 1, m)
 	_d("tower_squat", s, "Tower 3", 1, m)

@@ -1,23 +1,24 @@
 extends Node3D
 ## Sandbox scene: world + RTS camera + a tiny dig/place tool to exercise voxel editing.
 
-var preset := MapPreset.plains()
-var world: VoxelWorld
-var props: PropField
-var rig: RTSCamera
+## The game scene (scenes/main.tscn): every part is a node there, with its own settings in the inspector; this script only wires them
+## together and carries out what the player does.
+@onready var world: VoxelWorld = $World
+@onready var colliders: GroundColliders = $GroundColliders
+@onready var bricks: BrickWorld = $Bricks
+@onready var loose: LooseItems = $LooseItems
+@onready var rig: RTSCamera = $Camera
+@onready var units: UnitManager = $Units
+@onready var economy: Economy = $Economy
+@onready var board: TaskBoard = $Tasks
+@onready var _aim: AimPreview = $AimPreview
+@onready var hud: Hud = $Hud
+@onready var day: DayCycle = $DayCycle
+var props: PropField          # null when started with --noprops
 const START_UNITS := 5
 
-var bricks: BrickWorld
-var units: UnitManager
-var economy: Economy
-var colliders: GroundColliders
-var loose: LooseItems
-var board: TaskBoard
 var _stock_ghost: MeshInstance3D
 var _dig_depth := 1
-var _aim: AimPreview
-var hud: Hud
-var day: DayCycle
 var mode: int = Tools.Mode.SELECT
 var brick_axis := 0
 var _ghost: MeshInstance3D
@@ -26,46 +27,33 @@ var _ghost_mat: StandardMaterial3D
 var _hover: MeshInstance3D
 
 
-func _ready() -> void:
-	_setup_environment()
-
-	world = VoxelWorld.new()
-	world.name = "World"
-	world.preset = preset
-	for arg in OS.get_cmdline_user_args():   # debug: --extras=0..4, --seed=N, --noprops
+## Debug switches for the command line (after `--`): --extras=0..4 more islands, --seed=N, --noprops. Applied before the world starts.
+func _enter_tree() -> void:
+	var w := get_node_or_null("World") as VoxelWorld
+	if w == null:
+		return
+	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--extras="):
-			world.extra_islands = int(arg.substr(9))
+			w.extra_islands = int(arg.substr(9))
 		elif arg.begins_with("--seed="):
-			world.world_seed = int(arg.substr(7))
-	add_child(world)
+			w.world_seed = int(arg.substr(7))
 
-	if not OS.get_cmdline_user_args().has("--noprops"):   # debug: terrain only
-		props = PropField.new()
-		props.name = "Props"
-		add_child(props)
+
+func _ready() -> void:
+	if OS.get_cmdline_user_args().has("--noprops"):   # debug: terrain only
+		$Props.queue_free()
+	else:
+		props = $Props
 		props.setup(world)
-
-	colliders = GroundColliders.new()
-	colliders.name = "GroundColliders"
-	add_child(colliders)
 	colliders.setup(world)
-	bricks = BrickWorld.new()
-	bricks.name = "Bricks"
-	add_child(bricks)
 	bricks.setup(world, colliders)
-	loose = LooseItems.new()
-	loose.name = "LooseItems"
-	add_child(loose)
 	loose.setup(world, colliders)
 
-	rig = RTSCamera.new()
-	rig.name = "Camera"
 	var s := world.size_blocks()
 	var spawn := world.spawn_point()
 	rig.bounds = Rect2(0, 0, s.x, s.z)
 	rig.focus = Vector3(spawn.x, spawn.y, spawn.z)
 	rig.ground_height = world.surface_y
-	add_child(rig)
 	rig.primary_action.connect(_on_primary)
 	rig.secondary_action.connect(_on_secondary)
 	rig.double_action.connect(_on_double)
@@ -76,17 +64,8 @@ func _ready() -> void:
 	rig.drag_finished.connect(_on_aim_finished)
 	rig.drag_cancelled.connect(func() -> void: _aim.clear())
 
-	units = UnitManager.new()
-	units.name = "Units"
-	add_child(units)
 	units.setup(world, bricks)
-	economy = Economy.new()
-	economy.name = "Economy"
-	add_child(economy)
 	economy.setup(world, bricks)
-	board = TaskBoard.new()
-	board.name = "Tasks"
-	add_child(board)
 	units.nav.obstacle = economy.blocks_cell
 	board.setup(world, units.nav, economy, props, loose, units)
 	board.changed.connect(_refresh_tasks_panel)
@@ -95,6 +74,7 @@ func _ready() -> void:
 
 	_setup_hover()
 	_setup_ui()
+	day.clock_changed.connect(func(text: String) -> void: hud.set_clock(text))
 	add_child(load("res://scripts/tools/screenshot.gd").new())
 
 
@@ -140,25 +120,6 @@ func _place_starting_buildings(sp: Vector3i) -> void:
 	economy.charge_for_stockpiles = was
 
 
-func _setup_environment() -> void:
-	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = preset.sky_color
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = preset.ambient_color
-	env.ambient_light_energy = 0.9
-	var we := WorldEnvironment.new()
-	we.environment = env
-	add_child(we)
-	var sun := DirectionalLight3D.new()
-	add_child(sun)
-	day = DayCycle.new()   # moves the sun, and the light of the ground, water and props by itself
-	day.sun = sun
-	day.environment = env
-	add_child(day)
-	day.clock_changed.connect(func(text: String) -> void: hud.set_clock(text))
-
-
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_T:
 		_rotate_brick()
@@ -181,8 +142,6 @@ func _brick_kind() -> int:
 
 
 func _setup_hover() -> void:
-	_aim = AimPreview.new()
-	add_child(_aim)
 	_ghost = MeshInstance3D.new()
 	var gbox := BoxMesh.new()
 	gbox.size = BrickWorld.SIZE * 1.02
@@ -215,9 +174,6 @@ func _setup_hover() -> void:
 
 
 func _setup_ui() -> void:
-	hud = Hud.new()
-	hud.name = "Hud"
-	add_child(hud)
 	hud.tool_chosen.connect(_choose_tool)
 	hud.level_changed.connect(_set_depth)
 	hud.select_all_pressed.connect(func() -> void: units.select_all())

@@ -1,0 +1,35 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/tools/map_view.gd" id="1_view"]
+[ext_resource type="Script" path="res://scripts/world/voxel_world.gd" id="2_world"]
+[ext_resource type="Script" path="res://scripts/camera/rts_camera.gd" id="3_camera"]
+[ext_resource type="Script" path="res://scripts/world/day_cycle.gd" id="4_day"]
+
+[sub_resource type="Environment" id="Environment_sky"]
+background_mode = 1
+background_color = Color(0.611765, 0.780392, 0.933333, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.72, 0.76, 0.85, 1)
+ambient_light_energy = 0.9
+
+[node name="MapView" type="Node3D"]
+script = ExtResource("1_view")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_sky")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.8, -0.4, 0.45, 0, 0.75, 0.66, -0.6, -0.53, 0.6, 0, 40, 0)
+
+[node name="DayCycle" type="Node" parent="." node_paths=PackedStringArray("sun", "world_environment")]
+script = ExtResource("4_day")
+sun = NodePath("../Sun")
+world_environment = NodePath("../WorldEnvironment")
+time_of_day = 0.45
+day_seconds = 0.0
+
+[node name="World" type="Node3D" parent="."]
+script = ExtResource("2_world")
+
+[node name="Camera" type="Node3D" parent="."]
+script = ExtResource("3_camera")

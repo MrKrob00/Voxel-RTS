@@ -29,7 +29,9 @@ const SKY_NIGHT := Color("0b1330")
 ## Real seconds a whole day lasts; 0 stops the clock.
 @export var day_seconds := 300.0
 
-var sun: DirectionalLight3D
+## The light and the sky it moves (set in the scene: the DirectionalLight3D and the WorldEnvironment).
+@export var sun: DirectionalLight3D
+@export var world_environment: WorldEnvironment
 var environment: Environment
 var _last_push := -1.0
 var _last_text := ""
@@ -73,6 +75,8 @@ static func world_material(double_sided := false, water := false) -> ShaderMater
 
 func _ready() -> void:
 	ensure_globals()
+	if world_environment != null:
+		environment = world_environment.environment
 	_apply()
 
 

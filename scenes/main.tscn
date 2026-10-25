@@ -1,6 +1,71 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=14 format=3]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/world/voxel_world.gd" id="2_world"]
+[ext_resource type="Script" path="res://scripts/world/prop_field.gd" id="3_props"]
+[ext_resource type="Script" path="res://scripts/physics/ground_colliders.gd" id="4_colliders"]
+[ext_resource type="Script" path="res://scripts/building/brick_world.gd" id="5_bricks"]
+[ext_resource type="Script" path="res://scripts/items/loose_items.gd" id="6_loose"]
+[ext_resource type="Script" path="res://scripts/camera/rts_camera.gd" id="7_camera"]
+[ext_resource type="Script" path="res://scripts/units/unit_manager.gd" id="8_units"]
+[ext_resource type="Script" path="res://scripts/economy/economy.gd" id="9_economy"]
+[ext_resource type="Script" path="res://scripts/tasks/task_board.gd" id="10_tasks"]
+[ext_resource type="Script" path="res://scripts/tools/aim_preview.gd" id="11_aim"]
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="12_hud"]
+[ext_resource type="Script" path="res://scripts/world/day_cycle.gd" id="13_day"]
+
+[sub_resource type="Environment" id="Environment_sky"]
+background_mode = 1
+background_color = Color(0.611765, 0.780392, 0.933333, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.72, 0.76, 0.85, 1)
+ambient_light_energy = 0.9
 
 [node name="Main" type="Node3D"]
-script = ExtResource("1")
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_sky")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.8, -0.4, 0.45, 0, 0.75, 0.66, -0.6, -0.53, 0.6, 0, 40, 0)
+
+[node name="DayCycle" type="Node" parent="." node_paths=PackedStringArray("sun", "world_environment")]
+script = ExtResource("13_day")
+sun = NodePath("../Sun")
+world_environment = NodePath("../WorldEnvironment")
+time_of_day = 0.4
+day_seconds = 300.0
+
+[node name="World" type="Node3D" parent="."]
+script = ExtResource("2_world")
+
+[node name="Props" type="Node3D" parent="."]
+script = ExtResource("3_props")
+
+[node name="GroundColliders" type="Node3D" parent="."]
+script = ExtResource("4_colliders")
+
+[node name="Bricks" type="Node3D" parent="."]
+script = ExtResource("5_bricks")
+
+[node name="LooseItems" type="Node3D" parent="."]
+script = ExtResource("6_loose")
+
+[node name="Camera" type="Node3D" parent="."]
+script = ExtResource("7_camera")
+
+[node name="Units" type="Node3D" parent="."]
+script = ExtResource("8_units")
+
+[node name="Economy" type="Node3D" parent="."]
+script = ExtResource("9_economy")
+
+[node name="Tasks" type="Node3D" parent="."]
+script = ExtResource("10_tasks")
+
+[node name="AimPreview" type="Node3D" parent="."]
+script = ExtResource("11_aim")
+
+[node name="Hud" type="CanvasLayer" parent="."]
+script = ExtResource("12_hud")
