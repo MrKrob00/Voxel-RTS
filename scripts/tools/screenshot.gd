@@ -14,6 +14,7 @@ func _ready() -> void:
 	var task_rect: Array[int] = []        # --task=x0,z0,x1,z1[,depth]: mark an area to dig and put every unit on it (--nocollect: bring nothing home)
 	var tool_mode := -1                   # --tool=N: choose that Tools.Mode, --palette: open the tool palette
 	var palette := false
+	var tab := "stone"                    # --tab=wood|structures: which tab of the build panel
 	var demo := false                     # --demo-blocks: one of every block of the catalog on the ground near the spawn
 	var clock := -1.0                     # --time=0.75: freeze the day at that time (0 midnight, 0.5 noon)
 	var radial := false                   # --radial: the round menu of the first station
@@ -49,6 +50,10 @@ func _ready() -> void:
 			demo = true
 		elif a == "--radial":
 			radial = true
+		elif a.begins_with("--tab="):
+			tab = a.get_slice("=", 1)
+			palette = true
+			blocks = true
 		elif a == "--blocks":
 			palette = true
 			blocks = true
@@ -121,6 +126,7 @@ func _ready() -> void:
 		hud_node._set_palette(true)
 		if blocks:
 			hud_node._page = "blocks"
+			hud_node._tab = tab
 			hud_node._fill_palette()
 	for d in digs:
 		var terrain: TerrainEdit = world.terrain

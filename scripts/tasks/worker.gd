@@ -276,7 +276,7 @@ func _work(delta: float) -> void:
 	if kind != Resources.Kind.NONE and res.get("amount", 0) > 0:
 		unit.carry(kind, res.amount)   # carried away before the next stage
 		# A log goes to a free stump first, to be made into planks (what is made of it is what goes on the stockpile).
-		if kind == Resources.Kind.LOG and not task.persistent and board.detour_to_stump(unit):
+		if kind == Resources.Kind.LOG and task.logs_go_to_stump() and board.detour_to_stump(unit):
 			return
 		_find_stockpile()
 	elif res.get("consumed", false):

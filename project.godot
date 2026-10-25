@@ -30,3 +30,22 @@ pointing/emulate_mouse_from_touch=false
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+
+[shader_globals]
+
+sun_direction={
+"type": "vec3",
+"value": Vector3(0.4, -0.8, 0.4)
+}
+sun_color={
+"type": "vec3",
+"value": Vector3(1, 1, 1)
+}
+sky_ambient={
+"type": "vec3",
+"value": Vector3(0.5, 0.55, 0.65)
+}
+ground_ambient={
+"type": "vec3",
+"value": Vector3(0.3, 0.3, 0.3)
+}

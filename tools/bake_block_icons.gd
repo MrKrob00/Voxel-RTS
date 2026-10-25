@@ -79,5 +79,43 @@ func _run() -> void:
 		await RenderingServer.frame_post_draw
 		sv.get_texture().get_image().save_png("res://assets/blocks/icons/%s.png" % id)
 		mi.queue_free()
+	await _bake_structures(sv, cam)
 	print("baked %d icons" % names.size())
 	quit()
+
+
+## The structures of the Structures tab, photographed from their own nodes (a stockpile, a station) with the same camera.
+func _bake_structures(sv: SubViewport, cam: Camera3D) -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/structures/icons"))
+	var jobs := [
+		["platform", func() -> Node3D:
+			var n := Stockpile.new()
+			n.build(Vector3i.ZERO, Stockpile.Style.PLATFORM)
+			return n, Vector3(1.0, 0.3, 1.0), 4.0],
+		["frame", func() -> Node3D:
+			var n := Stockpile.new()
+			n.build(Vector3i.ZERO, Stockpile.Style.FRAME)
+			return n, Vector3(1.0, 0.8, 1.0), 4.2],
+		["stump", func() -> Node3D:
+			var n := Station.new()
+			n.build(Station.Kind.STUMP, Vector3i.ZERO)
+			return n, Vector3(0.5, 0.5, 0.5), 2.4],
+		["rope_machine", func() -> Node3D:
+			var n := Station.new()
+			n.build(Station.Kind.ROPE_MACHINE, Vector3i.ZERO)
+			return n, Vector3(1.0, 0.6, 0.5), 3.2],
+	]
+	for j in jobs:
+		var node: Node3D = j[1].call()
+		sv.add_child(node)
+		var az := deg_to_rad(45.0)
+		var el := deg_to_rad(22.0)
+		var d := Vector3(sin(az) * cos(el), sin(el), cos(az) * cos(el))
+		cam.look_at_from_position(j[2] + d * 12.0, j[2], Vector3.UP)
+		cam.size = j[3]
+		cam.far = 40.0
+		await process_frame
+		await process_frame
+		await RenderingServer.frame_post_draw
+		sv.get_texture().get_image().save_png("res://assets/structures/icons/%s.png" % j[0])
+		node.queue_free()

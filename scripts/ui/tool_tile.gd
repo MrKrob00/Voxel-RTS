@@ -11,6 +11,7 @@ const WOOD := Color(0.72, 0.5, 0.28)
 
 var mode := Tools.Mode.SELECT
 var caption := ""
+var has_picture := false
 
 
 func setup(tool_mode: int, text: String) -> ToolTile:
@@ -19,10 +20,12 @@ func setup(tool_mode: int, text: String) -> ToolTile:
 	custom_minimum_size = Vector2(68, 76)
 	focus_mode = Control.FOCUS_NONE
 	tooltip_text = text
-	if Tools.is_block(tool_mode):
-		# a block is shown by its photograph (assets/blocks/icons, made from the block's own mesh)
+	var picture: Texture2D = BlockCatalog.icon(Tools.block_of(tool_mode)) if Tools.is_block(tool_mode) else Tools.structure_picture(tool_mode)
+	has_picture = picture != null
+	if picture != null:
+		# a block or a structure is shown by its photograph (assets/blocks/icons, assets/structures/icons: made from its own model)
 		var pic := TextureRect.new()
-		pic.texture = BlockCatalog.icon(Tools.block_of(tool_mode))
+		pic.texture = picture
 		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -35,7 +38,7 @@ func setup(tool_mode: int, text: String) -> ToolTile:
 func _draw() -> void:
 	var c := Vector2(size.x * 0.5, size.y * 0.4)
 	var u := minf(size.x, size.y) / 76.0
-	if not Tools.is_block(mode):
+	if not has_picture:
 		_emblem(c, u)
 	var font := get_theme_default_font()
 	var w := font.get_string_size(caption, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4.0, 11).x

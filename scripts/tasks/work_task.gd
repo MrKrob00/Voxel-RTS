@@ -22,6 +22,11 @@ func fetch_wanted(_unit: Unit) -> bool:
 	return true
 
 
+## Whether a log this task produces is first taken to a free stump (to be made into planks) before it goes to a stockpile.
+func logs_go_to_stump() -> bool:
+	return false
+
+
 ## Whether the task has a card in the HUD's ribbon.
 func shown() -> bool:
 	return true

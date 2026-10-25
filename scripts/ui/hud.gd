@@ -41,6 +41,7 @@ var _clock: Label
 var _palette: PanelContainer
 var _palette_open := false
 var _page := "tasks"                    # "tasks": the New Task panel; "blocks": what can be built
+var _tab := "stone"                     # which tab of the build panel: stone, wood, structures
 var _palette_title: Label
 var _radial: RadialMenu
 var _banner: PanelContainer
@@ -310,11 +311,28 @@ func _fill_palette() -> void:
 	for c in sections.get_children():
 		c.queue_free()
 	if _page == "blocks":
-		_palette_title.text = "Blocks"
-		for section in Tools.BUILD_SECTIONS:
+		var tabs := HBoxContainer.new()
+		sections.add_child(tabs)
+		for t in Tools.TAB_ORDER:
+			var tb := Button.new()
+			tb.toggle_mode = true
+			tb.button_pressed = t == _tab
+			tb.custom_minimum_size = Vector2(0, MIN_TOUCH)
+			tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			tb.focus_mode = Control.FOCUS_NONE
+			tb.expand_icon = true
+			var icon_id: String = Tools.TABS[t].icon
+			tb.icon = BlockCatalog.icon(icon_id) if t != "structures" else load("res://assets/structures/icons/platform.png")
+			tb.tooltip_text = Tools.TABS[t].title
+			tb.pressed.connect(func() -> void:
+				_tab = t
+				_fill_palette())
+			tabs.add_child(tb)
+		_palette_title.text = Tools.TABS[_tab].title
+		for section in Tools.TABS[_tab].sections:
 			var grid := _section(sections, section)
 			for d in Tools.defs():
-				if d.get("section", "") == section:
+				if d.get("section", "") == section and d.get("tab", "") == _tab:
 					grid.add_child(_tile(d))
 		var back := _button("< New Task", Vector2(0, 44))
 		back.pressed.connect(func() -> void:

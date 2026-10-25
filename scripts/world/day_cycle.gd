@@ -45,6 +45,8 @@ static func ensure_globals() -> void:
 		return
 	_globals_added = true
 	for k in GLOBALS:
+		if ProjectSettings.has_setting("shader_globals/" + k):
+			continue   # declared in the project settings (so the editor knows them too)
 		RenderingServer.global_shader_parameter_add(k, RenderingServer.GLOBAL_VAR_TYPE_VEC3, GLOBALS[k])
 
 

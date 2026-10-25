@@ -47,6 +47,10 @@ func _init(k := Kind.TREES, circle_center := Vector2.ZERO, circle_radius := 0.0)
 	persistent = circle_radius > 0.0
 
 
+func logs_go_to_stump() -> bool:
+	return true
+
+
 func is_circle() -> bool:
 	return radius > 0.0
 
