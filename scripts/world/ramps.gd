@@ -37,14 +37,37 @@ static func shape_from_rises(rise: Dictionary, base := 0) -> int:
 	var dug := base > 0
 	if not any and not dug:
 		return -1
+	if dug:
+		return _dug_shape(rise, base)
 	var c0 := _corner(rise, base, Vector2i(-1, 0), Vector2i(0, -1), Vector2i(-1, -1))   # corner (0,0)
 	var c1 := _corner(rise, base, Vector2i(1, 0), Vector2i(0, -1), Vector2i(1, -1))     # (1,0)
 	var c2 := _corner(rise, base, Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1))       # (1,1)
 	var c3 := _corner(rise, base, Vector2i(-1, 0), Vector2i(0, 1), Vector2i(-1, 1))     # (0,1)
-	if not dug and ((c0 > 0 and c2 > 0 and c1 == 0 and c3 == 0) or (c1 > 0 and c3 > 0 and c0 == 0 and c2 == 0)):
+	if (c0 > 0 and c2 > 0 and c1 == 0 and c3 == 0) or (c1 > 0 and c3 > 0 and c0 == 0 and c2 == 0):
 		return -1   # a saddle (two opposite corners raised): leave it
-	var shape := Blocks.shape_from_corners(c0, c1, c2, c3, dug)
+	var shape := Blocks.shape_from_corners(c0, c1, c2, c3)
 	return -1 if shape == Blocks.SHAPE_CUBE else shape   # raised on all corners: nothing to add
+
+
+## A half-dug block: corners raised to a whole neighbour's height where one touches them, and the middle of every side
+## that borders another half-dug block sunk to the dug height, so neighbouring pits merge instead of leaving a ridge.
+static func _dug_shape(rise: Dictionary, base: int) -> int:
+	var corners := [
+		_corner(rise, base, Vector2i(-1, 0), Vector2i(0, -1), Vector2i(-1, -1)),
+		_corner(rise, base, Vector2i(1, 0), Vector2i(0, -1), Vector2i(1, -1)),
+		_corner(rise, base, Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)),
+		_corner(rise, base, Vector2i(-1, 0), Vector2i(0, 1), Vector2i(-1, 1)),
+	]
+	var corner_mask := 0
+	for k in 4:
+		if corners[k] >= Blocks.UNIT:
+			corner_mask |= 1 << k
+	var dip_mask := 0
+	var sides := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for s in 4:
+		if rise.get(sides[s], 0) == Blocks.DUG_HEIGHT:
+			dip_mask |= 1 << s
+	return Blocks.dug_shape(corner_mask, dip_mask)
 
 
 static func _corner(rise: Dictionary, base: int, side_a: Vector2i, side_b: Vector2i, diagonal: Vector2i) -> int:

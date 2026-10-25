@@ -302,7 +302,7 @@ func _test_stages(world: VoxelWorld) -> void:
 	# Stage 1: the block becomes half dug FIRST, and the neighbour follows that state, not "destroyed".
 	_check(world.terrain.dig_step(cell), "dig stage 1")
 	var half := world.get_block(cell)
-	_check(Blocks.is_dug(half) and Blocks.mat(half) == Blocks.dug_material(Blocks.mat(raw)), "stage 1: a half-dug block; its grass is gone and the earth shows")
+	_check(Blocks.is_dug(half) and Blocks.mat(half) == Blocks.mat(raw), "stage 1: a half-dug block that keeps its material (the turf is drawn at the rim, earth in the middle)")
 	var dug_corners := Blocks.corner_heights(Blocks.shape(half))
 	_check(dug_corners.min() >= Blocks.DUG_HEIGHT and dug_corners.max() <= Blocks.UNIT, "stage 1: the half-dug block stands %d/%d high, corners between %d and %d" % [Blocks.DUG_HEIGHT, Blocks.UNIT, dug_corners.min(), dug_corners.max()])
 	_check(world.terrain.level(x, z) == lv - 1, "stage 1: the column dropped by a quarter block (%d -> %d)" % [lv, world.terrain.level(x, z)])

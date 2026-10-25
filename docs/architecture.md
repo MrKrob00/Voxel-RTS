@@ -25,15 +25,19 @@ docs/                          reference notes and this file
 
 One int per voxel (`PackedInt32Array` per 16x16x16 chunk; an empty array is a chunk of open sky).
 - bits 0-7: material. bits 8-17: shape. bit 18: `DUG`.
-- Shape 0 is a full cube. Any other shape is `1 + h0 + 5*h1 + 25*h2 + 125*h3`: the heights, in quarter-blocks (0 to 4), of
-  the four top corners. A dug block (flag `DUG`) also has a centre vertex at `DUG_HEIGHT` (3 of 4), so its top is a shallow
-  bowl whose corners rise to meet the whole neighbours (`SHAPE_BOWL`: all four corners at full height).
+- Shape 0 is a full cube. Any other shape of a slope piece is `1 + h0 + 5*h1 + 25*h2 + 125*h3`: the heights, in
+  quarter-blocks (0 to 4), of the four top corners.
+- A dug block (flag `DUG`) has shape `DUG_SHAPE_BASE + 16 * corner_mask + dip_mask`: which corners are raised to a full block
+  (they touch whole neighbours) and which sides sink to the dug height because another dug block is next to them. Its
+  centre is at `DUG_HEIGHT` (3 of 4), so its top is a shallow bowl (`SHAPE_BOWL`: all four corners raised) and neighbouring
+  pits run into one another instead of leaving a ridge between them.
 - Only **whole** cubes are opaque, set a column's height and let bricks stand on them.
 
 ## Ground: stages and slope pieces (`TerrainEdit`, `Ramps`)
 
-A block of ground has three states: **whole -> half dug -> gone**. A half-dug block stands 3/4 high (it is earth, not grass) and
-has the `DUG` flag. Its corners that touch whole neighbours rise to their height, so the first stage is a shallow bowl with
+A block of ground has three states: **whole -> half dug -> gone**. A half-dug block stands 3/4 high and
+has the `DUG` flag. It keeps its material: the mesher paints the turf only where the ground rises to a whole block (the rim)
+and earth towards the middle, and building the block up again brings the grass back. Its corners that touch whole neighbours rise to their height, so the first stage is a shallow bowl with
 sloping sides, not a square hole. A block covered by other ground has no half-way state and just goes.
 
 The generator also removes features one block wide (pits, trenches, pillars, ridges), which would only produce shard-like

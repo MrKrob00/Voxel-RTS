@@ -25,6 +25,9 @@ var focus := Vector3(128, 48, 128)
 var ground_height := Callable()
 
 var camera: Camera3D
+## Where the pointer is on screen: the mouse, or the last finger that touched. Game code reads this for hover, never the
+## viewport's mouse position (on a touch screen that stays at the corner).
+var pointer := Vector2.ZERO
 
 var _touches := {}
 var _tap_start := Vector2.ZERO
@@ -40,6 +43,7 @@ func _ready() -> void:
 	camera.far = 1400.0
 	camera.fov = 60.0
 	add_child(camera)
+	pointer = get_viewport().get_visible_rect().size * 0.5
 	_apply()
 
 
@@ -87,6 +91,7 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
+		pointer = mb.position
 		if mb.pressed:
 			match mb.button_index:
 				MOUSE_BUTTON_WHEEL_UP: _zoom(0.9)
@@ -95,6 +100,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				MOUSE_BUTTON_RIGHT: secondary_action.emit(mb.position)
 	elif event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
+		pointer = mm.position
 		if mm.button_mask & MOUSE_BUTTON_MASK_MIDDLE:
 			yaw -= mm.relative.x * 0.006
 			pitch = clampf(pitch + mm.relative.y * 0.004, deg_to_rad(20), deg_to_rad(80))
@@ -105,6 +111,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_touch(e: InputEventScreenTouch) -> void:
+	pointer = e.position
 	if e.pressed:
 		_touches[e.index] = e.position
 		if _touches.size() == 1:
@@ -127,6 +134,7 @@ func _on_touch(e: InputEventScreenTouch) -> void:
 func _on_drag(e: InputEventScreenDrag) -> void:
 	if not _touches.has(e.index):
 		return
+	pointer = e.position
 	_touches[e.index] = e.position
 	if _touches.size() == 1:
 		if _tap_valid and e.position.distance_to(_tap_start) > tap_max_move:

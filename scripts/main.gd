@@ -160,8 +160,8 @@ func _pick(screen_pos: Vector2) -> Dictionary:
 
 
 func _update_hover() -> void:
-	# Hover only makes sense with a mouse; on touch the cursor is parked at the last click.
-	var hit := _pick(get_viewport().get_mouse_position())
+	# The pointer is the mouse or the last finger on the screen (the viewport's mouse position stays at 0,0 on touch).
+	var hit := _pick(rig.pointer)
 	_hover.visible = not hit.is_empty() and not _is_brick_mode()
 	_ghost.visible = false
 	_cell_info.text = "" if hit.is_empty() else _describe_cell(hit.cell, hit.brick)

@@ -4,9 +4,12 @@ extends RefCounted
 ##   bits 0-7    material (AIR, GRASS, ...)
 ##   bits 8-17   shape: 0 is a full cube; any other value is 1 + the heights of the cell's four top corners, each from
 ##               0 to 4 quarter-blocks (see corner_heights). (4,4,4,4) is the cube itself and is never stored.
-##   bit 18      DUG: a natural block that has been partly dug. It stands DUG_HEIGHT quarters high in the middle and its
-##               corners are drawn up to the whole neighbours, so the pit has sloping sides. This is a primary state
-##               of the ground, as opposed to a slope piece, which is derived from the neighbours (Ramps / TerrainEdit).
+##   bit 18      DUG: a natural block that has been partly dug. It keeps its material (a dug grass block still holds its
+##               turf), stands DUG_HEIGHT quarters high in the middle and its corners are drawn up to the whole
+##               neighbours, so the pit has sloping sides. Its shape is a corner mask (which corners are raised to a full
+##               block) and a dip mask (which sides border another dug block, so the pits run into each other).
+##               This is a primary state of the ground, as opposed to a slope piece, which is derived from the
+##               neighbours (Ramps / TerrainEdit).
 ## Corners are numbered (0,0), (1,0), (1,1), (0,1) in (x, z). All heights are in quarter-blocks (UNIT per block).
 
 const CHUNK_SIZE := 16
@@ -36,10 +39,12 @@ const UNIT := 4
 const DUG_HEIGHT := 3
 
 const SHAPE_CUBE := 0
+## Shapes from here up belong to dug blocks: DUG_SHAPE_BASE + 16 * corner_mask + dip_mask.
+const DUG_SHAPE_BASE := 700
 ## A dug block whose four corners are all at DUG_HEIGHT: a flat pit floor.
-const SHAPE_DUG := 1 + DUG_HEIGHT * (1 + 5 + 25 + 125)
+const SHAPE_DUG := DUG_SHAPE_BASE
 ## A dug block whose four corners are all raised to the full block: a bowl in the middle of whole neighbours.
-const SHAPE_BOWL := 626
+const SHAPE_BOWL := DUG_SHAPE_BASE + 16 * 15
 
 # Face order used everywhere: top, bottom, side.
 const FACE_TOP := 0
@@ -81,25 +86,41 @@ static func make(material: int, shape_id: int = SHAPE_CUBE, dug := false) -> int
 
 ## Heights (0 to 4 quarter-blocks) of the four top corners of a shape.
 static func corner_heights(shape_id: int) -> Array[int]:
-	if shape_id == SHAPE_CUBE or shape_id == SHAPE_BOWL:
+	if shape_id == SHAPE_CUBE:
 		return [UNIT, UNIT, UNIT, UNIT]
+	if shape_id >= DUG_SHAPE_BASE:
+		var mask := dug_corner_mask(shape_id)
+		return [UNIT if mask & 1 else DUG_HEIGHT, UNIT if mask & 2 else DUG_HEIGHT, UNIT if mask & 4 else DUG_HEIGHT, UNIT if mask & 8 else DUG_HEIGHT]
 	var c := shape_id - 1
 	return [c % 5, (c / 5) % 5, (c / 25) % 5, (c / 125) % 5]
 
 
-## Shape id for four corner heights; SHAPE_CUBE when all are UNIT, -1 when all are 0 (nothing there).
-## `dug` pieces never come out as a cube: with all four corners raised they are the bowl.
-static func shape_from_corners(h0: int, h1: int, h2: int, h3: int, dug := false) -> int:
+## Shape id of a slope piece for four corner heights; SHAPE_CUBE when all are UNIT, -1 when all are 0 (nothing there).
+static func shape_from_corners(h0: int, h1: int, h2: int, h3: int) -> int:
 	if h0 == UNIT and h1 == UNIT and h2 == UNIT and h3 == UNIT:
-		return SHAPE_BOWL if dug else SHAPE_CUBE
+		return SHAPE_CUBE
 	if h0 == 0 and h1 == 0 and h2 == 0 and h3 == 0:
 		return -1
 	return 1 + h0 + 5 * h1 + 25 * h2 + 125 * h3
 
 
-## What a block turns into when it is dug: the grass on top is torn up and the earth shows, snow gives way to stone.
-## Grass does not grow back on its own.
-static func dug_material(material: int) -> int:
+## Shape id of a dug block. `corner_mask` bit k: corner k is raised to a full block (otherwise DUG_HEIGHT).
+## `dip_mask` bit s: side s borders another dug block, so its middle sinks to DUG_HEIGHT (sides: +x, -x, +z, -z).
+static func dug_shape(corner_mask: int, dip_mask: int) -> int:
+	return DUG_SHAPE_BASE + 16 * corner_mask + dip_mask
+
+
+static func dug_corner_mask(shape_id: int) -> int:
+	return ((shape_id - DUG_SHAPE_BASE) >> 4) & 15
+
+
+static func dug_dip_mask(shape_id: int) -> int:
+	return (shape_id - DUG_SHAPE_BASE) & 15
+
+
+## The material that shows at the bottom of a half-dug block: the turf is torn up and the earth shows, snow gives way to
+## stone. The block itself keeps its material, so building it up again brings the grass back.
+static func dug_bottom_material(material: int) -> int:
 	match material:
 		GRASS:
 			return DIRT

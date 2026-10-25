@@ -2,9 +2,10 @@ class_name TerrainEdit
 extends RefCounted
 ## The rules of changing the ground. VoxelWorld stores voxels; this decides what digging and building do to them.
 ##
-## A block of ground goes through stages:   whole  ->  half dug  ->  gone. Digging tears the grass up: a half-dug grass
-## block is earth. A half-dug block stands 3/4 high and its corners rise to meet the whole blocks around it, so the pit has
-## sloping sides instead of a sheer step.
+## A block of ground goes through stages:   whole  ->  half dug  ->  gone. A half-dug block stands 3/4 high and its
+## corners rise to meet the whole blocks around it, so the pit has sloping sides instead of a sheer step; a grass block
+## keeps its turf at the rim and shows earth towards the middle (and gets its grass back if it is built up again). Where two
+## half-dug blocks touch, their pits run into each other.
 ## Slope pieces (wedges, corners) are ground too and can be dug or filled, but unlike natural blocks they are DERIVED: they
 ## fill the cell above a column that is lower than its neighbours. Their shape, and the shape of a half-dug block, is
 ## worked out from the neighbours by Ramps (the same rules the generator uses).
@@ -110,7 +111,7 @@ func dig_step(cell: Vector3i) -> bool:
 	var raw := world.get_block(cell)
 	if Blocks.is_whole(raw) and not _is_natural(world.get_block(cell + Vector3i(0, 1, 0))):
 		# The corners are filled in by the re-derive right after (they depend on the neighbours).
-		return _apply(cell, Blocks.make(Blocks.dug_material(Blocks.mat(raw)), Blocks.SHAPE_DUG, true))
+		return _apply(cell, Blocks.make(Blocks.mat(raw), Blocks.SHAPE_DUG, true))
 	return _apply(cell, Blocks.AIR)
 
 

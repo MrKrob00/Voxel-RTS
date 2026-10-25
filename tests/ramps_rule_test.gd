@@ -32,6 +32,7 @@ func _exhaustive(base: int) -> void:
 	var corner_ok := true
 	var rot_ok := true
 	var mirror_ok := true
+	var dip_ok := true
 	for code in 6561:
 		var rise := {}
 		var c := code
@@ -51,8 +52,17 @@ func _exhaustive(base: int) -> void:
 		for k in 4:
 			if h[k] < base or h[k] > Blocks.UNIT:
 				valid = false
-		if Blocks.shape_from_corners(h[0], h[1], h[2], h[3], base > 0) != shape:
+		if base == 0 and Blocks.shape_from_corners(h[0], h[1], h[2], h[3]) != shape:
 			valid = false
+		if base > 0:
+			# A side sinks to the dug height exactly where it borders another half-dug block.
+			var dips := Blocks.dug_dip_mask(shape)
+			var sides := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+			for si in 4:
+				if ((dips >> si) & 1 == 1) != (rise[sides[si]] == Blocks.DUG_HEIGHT):
+					dip_ok = false
+			if Blocks.dug_shape(Blocks.dug_corner_mask(shape), dips) != shape:
+				valid = false
 		# Each corner is the highest of the base and the three cells that touch it.
 		var expect := [
 			maxi(base, maxi(maxi(rise[Vector2i(-1, 0)], rise[Vector2i(0, -1)]), rise[Vector2i(-1, -1)])),
@@ -90,6 +100,8 @@ func _exhaustive(base: int) -> void:
 	_check(corner_ok, "%s: every corner is the highest of the base and the three cells that touch it" % label)
 	_check(rot_ok, "%s: a quarter turn of the neighbours turns the piece (no orientation bias)" % label)
 	_check(mirror_ok, "%s: mirroring the neighbours mirrors the piece" % label)
+	if base > 0:
+		_check(dip_ok, "half-dug block: each side next to another half-dug block sinks, the others do not")
 	_check(all_shapes.size() > 0 and shapes["whole only"].size() > 0 and shapes["mixed whole + half"].size() > 0, "%s: whole-only and mixed neighbourhoods produce pieces" % label)
 	if base > 0:
 		_check(all_shapes.has(Blocks.SHAPE_BOWL) and all_shapes.has(Blocks.SHAPE_DUG), "half-dug block: both the flat pit floor and the bowl in the middle of whole blocks occur")
