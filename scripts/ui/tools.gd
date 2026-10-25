@@ -29,7 +29,6 @@ static func defs() -> Array[Dictionary]:
 		{"mode": Mode.FRAME, "category": "Construction", "label": "Frame 2x2x2", "section": "Buildings", "short": "Frame", "hint": "A crate for stone and grass. Full of stone, it becomes a stack of bricks. Costs 3 planks."},
 		{"mode": Mode.STUMP, "category": "Construction", "label": "Stump with axe", "section": "Buildings", "short": "Stump", "hint": "Makes 3 planks of a log. Costs a log. Free units use it by themselves."},
 		{"mode": Mode.ROPE_MACHINE, "category": "Construction", "label": "Rope machine", "section": "Buildings", "short": "Rope", "hint": "Makes a rope of 2 sacks of grass. Costs 2 planks."},
-		{"mode": Mode.WALL, "category": "Construction", "label": "Wall", "section": "Stone Blocks", "short": "Wall", "hint": "Drag a line. Level = courses (up to 3). Laid from the stone in brick stacks, bottom up.", "level": true, "level_name": "courses"},
 		{"mode": Mode.CUBE, "category": "Construction", "label": "Cube 1x1x1", "section": "Stone Blocks", "short": "Cube", "hint": "One stone cube (one half of a brick)."},
 		{"mode": Mode.BRICK, "category": "Construction", "label": "Brick 2x1x1", "section": "Stone Blocks", "short": "Brick", "hint": "One stone brick. Tap, or drag along the way it lies. Rotate with the turn button."},
 		{"mode": Mode.STAIRS, "category": "Construction", "label": "Stairs 2x1x1", "section": "Stone Blocks", "short": "Stairs", "hint": "A block of one half steps, one half whole. Drag the way it rises; tap uses the turn button."},

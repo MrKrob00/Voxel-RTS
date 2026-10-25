@@ -111,3 +111,13 @@ The flow in the original: **"+" → "New Task" panel** (task *types*: Maintenanc
 - **Bottom ribbon**: left "Tasks: 4/15"; cards ~90 px wide: title (Crystal / Quarry / Build / Harvest) top-left in small yellow text, a task icon, worker dots (filled = busy); the selected card has a thin outline. Idle workers have a card too (blue drop icon, "Bezczynni"). Population panel above it: units 6/15, dead, spawn, main crystal energy bar.
 - **Minimap** thumbnail at the top left with resource counts under it (planks, stone, grass).
 - **In the world**, the things worth copying: a *badge over a work site* with a tool icon and "x done/total" (e.g. "x 1/8"); a *speech label over a unit* when it is stuck ("can't find what I need") or idle ("Nothing to do"); a *pole with a yellow disc* marking where a task is; the **blueprint of a station drawn as a translucent ghost** (white for a workbench, cyan cylinders for posts) while units bring the materials; units visibly **carry** things (a sack on the back); goods **lie on the building** (planks stacked on the workbench/platform).
+
+### The "Blocks" panel of the original (images/blocks UI build.jpg)
+
+What can be built is **blocks, not walls**: there is no "wall" tool; walls are what you get by placing blocks. The panel has sections (icon grids, a hotkey letter above some icons):
+- **Stone Blocks**: brick 2x1x1 (B), cube 1x1x1 (H), stairs (R) and more stair/ramp variants (half steps, corner steps, stepped and pyramid shapes, pillars/towers of 1-2 blocks).
+- **Plugs** (U): blocks with a notch, to fit into others.
+- **Round Bricks**: rounded versions of the brick (O).
+- **Crenelations** (Y, L, M, J): battlement pieces and corner/wedge pieces.
+- **Wood Blocks**: log (N), beam, post (V), wedge, boards (K, Z), small plank.
+This game has so far: cube, brick, stairs (stone). Walls are built by placing bricks; the "Wall" tool was my invention and is out of the palette.
