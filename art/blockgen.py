@@ -184,7 +184,12 @@ def merge(pieces):
     block disappear; what is left is one closed surface. Returns a ("tris", ...) piece that mesh_of passes through."""
     import numpy as np
     import manifold3d as m3d
-    parts = [m3d.Manifold.hull_points(np.array(piece, dtype=np.float64)) for piece in pieces]
+    def solid_of(piece):
+        if isinstance(piece, tuple) and piece[0] == "clip":   # ("clip", points, [mask pieces]): the piece cut to the union of the masks
+            masks = m3d.Manifold.batch_boolean([m3d.Manifold.hull_points(np.array(m, dtype=np.float64)) for m in piece[2]], m3d.OpType.Add)
+            return m3d.Manifold.hull_points(np.array(piece[1], dtype=np.float64)) ^ masks
+        return m3d.Manifold.hull_points(np.array(piece, dtype=np.float64))
+    parts = [solid_of(piece) for piece in pieces]
     union = m3d.Manifold.batch_boolean(parts, m3d.OpType.Add)
     mesh = union.to_mesh()
     vp, tv = mesh.vert_properties, mesh.tri_verts
@@ -513,14 +518,17 @@ def cren_corbel(length=2.0, shift=0.0):
     cx, cy, ra, rb, n = 1.0, -0.5, 1.0 - foot, arch_top + 0.5, 12
     arc = [(cx - ra * math.cos(math.pi / 2 * i / n), cy + rb * math.sin(math.pi / 2 * i / n)) for i in range(n + 1)]
     rib = []
+    mask = [[(x, y, z) for (x, y) in ((0.0, arch_top), (1.0, arch_top), (1.0, top_low), (0.0, top_low)) for z in (-0.6, 0.6)]]   # the plate's side view
     for (x0, y0), (x1, y1) in zip(arc, arc[1:]):
         rib.append([(x, y, z) for (x, y) in ((0.0, y0), (x0, y0), (x1, y1), (0.0, y1)) for z in (-plate_w, plate_w)])
+        mask.append([(x, y, z) for (x, y) in ((0.0, y0), (x0, y0), (x1, y1), (0.0, y1)) for z in (-0.6, 0.6)])
     out = [cube, platform, strip] + rib
     # The slopes of the big corbel where the plate meets the platform and the cube: from the side edges of the platform half way down the
-    # plate, and 10% of a block along the plate from the side edges of the cube's face.
+    # plate (cut to the arch), and 10% of a block along the plate from the side edges of the cube's face.
     low = top_low - 0.5 * (top_low + 0.5)
     for side in (-1, 1):
-        out.append([(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((top_low, plate_w), (top_low, 0.5), (low, plate_w))])
+        slope = [(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((top_low, plate_w), (top_low, 0.5), (low, plate_w))]
+        out.append(("clip", slope, mask))   # the slope follows the arch: it is only where the plate is
         out.append([(x, y, side * z) for y in (-0.5, top_low) for (x, z) in ((0.0, plate_w), (0.0, 0.5), (0.1, plate_w))])
     return out
 
