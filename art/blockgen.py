@@ -502,12 +502,12 @@ def cren_hip():
 def cren_corbel(length=2.0, shift=0.0):
     """The small corbel, 2 cells along x: a whole cube at the back (-x); in front of it, along the second cell, a flat platform 22% thick
     along the top and, under the platform, an arch instead of the narrow block of the big corbel: a rib 30% as wide as the cell whose
-    front is a quarter ellipse from the foot of the cube's face up to the front of the platform."""
+    front is a quarter ellipse bulging out, from the foot of the cube's face to the front of the platform."""
     under = 0.28
     cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
     top = box(0.5, 0.39, 0, 1.0, 0.22, 1.0, 0.0)
-    cx, cy, ra, rb, n = 1.0, -0.5, 1.0, under + 0.5, 12
-    arc = [(cx - ra * math.cos(math.pi / 2 * i / n), cy + rb * math.sin(math.pi / 2 * i / n)) for i in range(n + 1)]
+    ra, rb, n = 1.0, under + 0.5, 12     # the arch bulges out: a quarter ellipse centred where the cube's face meets the platform
+    arc = [(ra * math.sin(math.pi / 2 * i / n), under - rb * math.cos(math.pi / 2 * i / n)) for i in range(n + 1)]
     rib = []
     for (x0, y0), (x1, y1) in zip(arc, arc[1:]):
         rib.append([(x, y, z) for (x, y) in ((0.0, y0), (x0, y0), (x1, y1), (0.0, y1)) for z in (-0.15, 0.15)])
