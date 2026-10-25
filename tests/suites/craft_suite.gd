@@ -52,6 +52,8 @@ func run() -> void:
 	var planks_pile := await _stump(logs_pile, base)
 	var grass_pile := _economy.place_stockpile(base + Vector3i(6, 0, 2))   # for the grass: made when the logs and planks are done with
 	await _grass_and_rope(grass_pile, planks_pile, crew, base, sp)
+	await _log_on_the_ground(base)
+	await _first_stockpile(base)
 	_circle(sp)
 	Engine.time_scale = 1.0
 	var waited := 0
@@ -215,3 +217,32 @@ func _circle(sp: Vector3i) -> void:
 	check(task.radius == 2.0 and task.targets.size() <= n, "a smaller one lets go of what is outside")
 	_board.remove_task(task)
 	check(not _board.tasks.has(task), "closing it removes it")
+
+
+## No task at all: a log lies on the ground, a stump is free and a stockpile has room for planks. Idle units carry the log to the
+## stump, make planks of it and put them in the stockpile, by themselves.
+func _log_on_the_ground(base: Vector3i) -> void:
+	var planks_before := _economy.stock_of(Resources.Kind.PLANK)
+	var spot := Vector3(base.x + 5.0, base.y + 1.0, base.z + 11.0)
+	var log := _loose.spawn_log(spot, Vector3.ZERO)
+	check(log != null and _loose.logs.size() == 1, "a log lies on the ground")
+	var ticks := await _until(func() -> bool: return _economy.stock_of(Resources.Kind.PLANK) >= planks_before + 3 and _loose.logs.is_empty(), 60 * 90)
+	check(_economy.stock_of(Resources.Kind.PLANK) == planks_before + 3 and _loose.logs.is_empty(), "idle units took the log to the stump and the three planks to a stockpile (%d planks, %.0f s)" % [_economy.stock_of(Resources.Kind.PLANK), ticks * DT])
+	await _tick(120)
+	for u in _units.units:
+		check(u.is_idle() and u.carried_amount() == 0, "a unit is free again")
+
+
+## The very beginning: no stockpile at all, only a stump, a log on the ground and a plan for a stockpile. Nothing can be stored, and a
+## stockpile cannot be built without planks: the log goes to the stump and its planks go straight to the plan.
+func _first_stockpile(base: Vector3i) -> void:
+	for st in _economy.stockpiles.duplicate():
+		_economy.remove_stockpile(st)
+	var plan := _board.place_blueprint("stockpile", 0, base + Vector3i(9, 0, 12))
+	check(plan != null and _economy.stockpiles.is_empty(), "no stockpile, one planned (%s)" % _economy.last_error)
+	_loose.spawn_log(Vector3(base.x + 5.0, base.y + 1.0, base.z + 11.0), Vector3.ZERO)
+	var ticks := await _until(func() -> bool: return _economy.stockpiles.size() == 1, 60 * 120)
+	check(_economy.stockpiles.size() == 1 and _loose.logs.is_empty(), "the log became planks at the stump and the planks built the first stockpile (%.0f s)" % (ticks * DT))
+	await _tick(120)
+	for u in _units.units:
+		check(u.is_idle() and u.carried_amount() == 0, "a unit is free again")

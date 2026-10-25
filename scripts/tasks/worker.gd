@@ -10,8 +10,9 @@ extends RefCounted
 ##   GO_STOCK     walk to a stockpile that takes the result            PUT    put it down
 ##   WAIT_STOCK   the result cannot be put anywhere: wait and look again
 ##   WAIT_TARGET  nothing to claim right now
+##   GO_PICKUP    walk to a log lying on the ground (for a stump)     PICKUP   pick it up
 
-enum State { SEEK, GO_FETCH, TAKE, GO_WORK, WORK, GO_STOCK, PUT, WAIT_STOCK, WAIT_TARGET }
+enum State { SEEK, GO_FETCH, TAKE, GO_WORK, WORK, GO_STOCK, PUT, WAIT_STOCK, WAIT_TARGET, GO_PICKUP, PICKUP }
 
 const TAKE_TIME := 0.4
 const PUT_TIME := 0.45
@@ -26,6 +27,7 @@ var stockpile: Stockpile
 var _fetch := {}
 var _timer := 0.0
 var _moving := false
+var _log: LooseLog               ## the log lying on the ground this worker is on its way to
 
 
 func _init(u: Unit, t: WorkTask, b: TaskBoard) -> void:
@@ -49,6 +51,7 @@ func detach() -> void:
 	if target != null and task != null:
 		task.release(target)
 	_drop_stockpile_claims()
+	_drop_log()
 	unit.status = ""
 	unit.progress = -1.0
 	unit.stop()
@@ -79,6 +82,10 @@ func update(delta: float) -> void:
 				_take()
 		State.WORK:
 			_work(delta)
+		State.PICKUP:
+			_timer -= delta
+			if _timer <= 0.0:
+				_pickup()
 		State.PUT:
 			_timer -= delta
 			if _timer <= 0.0:
@@ -165,6 +172,9 @@ func _on_arrived() -> void:
 		State.GO_FETCH:
 			state = State.TAKE
 			_timer = TAKE_TIME
+		State.GO_PICKUP:
+			state = State.PICKUP
+			_timer = HarvestTask.PICK_TIME
 		State.GO_STOCK:
 			state = State.PUT
 			_timer = PUT_TIME
@@ -184,6 +194,9 @@ func _on_failed() -> void:
 		State.GO_FETCH:
 			_drop_stockpile_claims()
 			_leave_or_wait()
+		State.GO_PICKUP:
+			_drop_log()
+			_leave_or_wait()
 		State.GO_STOCK:
 			_drop_stockpile_claims()
 			state = State.WAIT_STOCK
@@ -195,6 +208,8 @@ func _on_failed() -> void:
 func _start_fetch(need: Dictionary) -> void:
 	var s := board.economy.find_stock(unit.cell, need.kind, need.amount)
 	if s == null:
+		if need.kind == Resources.Kind.LOG and _start_pickup():
+			return   # no log in a stockpile, but one lies on the ground
 		_leave_or_wait()
 		return
 	var spots := s.access_cells(board.nav)
@@ -214,6 +229,43 @@ func _start_fetch(need: Dictionary) -> void:
 			return
 	_drop_stockpile_claims()
 	_leave_or_wait()
+
+
+## A log lying on the ground that nobody has claimed: walk to it (the stump's units do this by themselves).
+func _start_pickup() -> bool:
+	var l := board.free_loose_log(unit.cell)
+	if l == null:
+		return false
+	var at := board.nav.nearest_standable(Vector3i(floori(l.global_position.x), floori(l.global_position.y), floori(l.global_position.z)), 1)
+	if at.x < 0:
+		return false
+	_log = l
+	l.claimed_by = unit
+	if at == unit.cell:
+		state = State.PICKUP
+		_timer = HarvestTask.PICK_TIME
+		return true
+	if unit.walk_to(at):
+		state = State.GO_PICKUP
+		_moving = true
+		return true
+	_drop_log()
+	return false
+
+
+func _pickup() -> void:
+	if _log != null and is_instance_valid(_log) and board.loose != null and board.loose.logs.has(_log):
+		board.loose.remove_log(_log)
+		_log = null
+		unit.carry(Resources.Kind.LOG, 1)
+	_drop_log()
+	state = State.SEEK
+
+
+func _drop_log() -> void:
+	if _log != null and is_instance_valid(_log):
+		_log.claimed_by = null
+	_log = null
 
 
 func _take() -> void:

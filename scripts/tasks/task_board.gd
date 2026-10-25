@@ -326,6 +326,22 @@ func supplies_coming(t: WorkTask, kind: int, amount: int, except: Unit = null) -
 	return n
 
 
+## The nearest log lying on the ground that nobody has claimed (for a stump), or null.
+func free_loose_log(from: Vector3i) -> LooseLog:
+	if loose == null:
+		return null
+	var best: LooseLog = null
+	var best_d := INF
+	for l in loose.logs:
+		if not is_instance_valid(l) or l.claimed_by != null or l.linear_velocity.length() > 0.5:
+			continue   # lying still
+		var d := Vector2(l.global_position.x - from.x, l.global_position.z - from.z).length()
+		if d < best_d:
+			best_d = d
+			best = l
+	return best
+
+
 ## A building job that still needs `kind` and has room for another worker, or null.
 func build_task_needing(kind: int) -> BuildTask:
 	for t in tasks:

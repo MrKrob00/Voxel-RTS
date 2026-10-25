@@ -44,7 +44,9 @@ func wants_workers(board: TaskBoard) -> bool:
 	var d := station.def()
 	# Something to make it of, and somewhere to take what is made: a stockpile with room, or a building that is waiting for it
 	# (the planks of a stump go to the stockpile that is being built when there is no other).
-	return board.economy.find_stock(Vector3i(station.origin), d.input.kind, d.input.amount) != null \
+	var has_input: bool = board.economy.find_stock(Vector3i(station.origin), d.input.kind, d.input.amount) != null \
+		or (d.input.kind == Resources.Kind.LOG and board.free_loose_log(Vector3i(station.origin)) != null)   # a log on the ground will do
+	return has_input \
 		and (board.economy.find_space(Vector3i(station.origin), d.output.kind, d.output.amount) != null or board.build_task_needing(d.output.kind) != null)
 
 
