@@ -459,20 +459,11 @@ def corbel_slab(rounded):
     platform, from the cube to its end, a block 30% as wide as the cell. Two slopes join that block to the rest:
       - from the side edges of the platform, down to half the height of the straight part of the block;
       - from the side edges of the cube's face, about 10% of a block out along the block, up to the platform's slope.
-    `rounded`: the slopes are curves (quarter ellipses bulging outwards) and the front corners of the platform are round."""
+    `rounded`: the slopes are curves (quarter ellipses bulging outwards); nothing else is rounded."""
     cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
     w, under, rise = 0.15, 0.28, 0.1            # half the width of the narrow block, the underside of the platform, the slope at the cube
     low = under - 0.5 * (under + 0.5)             # half way down the straight part
-    if rounded:
-        r, n = 0.14, 6
-        plan_pts = [(0.0, -0.5), (0.0, 0.5)]
-        for sign in (1, -1):
-            for i in range(n + 1):
-                a = math.pi / 2 * i / n
-                plan_pts.append((1.0 - r + r * math.sin(a), sign * (0.5 - r + r * math.cos(a))))
-        platform = [(x, y, z) for (x, z) in plan_pts for y in (under, 0.5)]
-    else:
-        platform = box(0.5, 0.39, 0, 1.0, 0.22, 1.0, 0.0)
+    platform = box(0.5, 0.39, 0, 1.0, 0.22, 1.0, 0.0)
     out = [cube, platform, box(0.5, (-0.5 + under) / 2, 0, 1.0, under + 0.5, 2 * w, 0.0)]
     for side in (-1, 1):
         if rounded:
