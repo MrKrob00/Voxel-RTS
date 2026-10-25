@@ -1,7 +1,7 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/tools/map_view.gd" id="1_view"]
-[ext_resource type="Script" path="res://scripts/world/voxel_world.gd" id="2_world"]
+[ext_resource type="PackedScene" path="res://maps/plains/map.tscn" id="2_map"]
 [ext_resource type="Script" path="res://scripts/camera/rts_camera.gd" id="3_camera"]
 [ext_resource type="Script" path="res://scripts/world/day_cycle.gd" id="4_day"]
 
@@ -28,8 +28,7 @@ world_environment = NodePath("../WorldEnvironment")
 time_of_day = 0.45
 day_seconds = 0.0
 
-[node name="World" type="Node3D" parent="."]
-script = ExtResource("2_world")
+[node name="BakedMap" parent="." instance=ExtResource("2_map")]
 
 [node name="Camera" type="Node3D" parent="."]
 script = ExtResource("3_camera")
