@@ -381,12 +381,12 @@ def squat():
 
 
 def cren_slab():
-    """The overhang (2 cells along x): a whole cube at -x and, in front of it (+x), a flat platform 15% of a block thick along the top.
+    """The overhang (2 cells along x): a whole cube at -x and, in front of it (+x), a flat platform 22.5% of a block thick along the top.
     Under the platform a slope runs from its underside at half the platform's length back down to the cube's face at 30% of the
     height from the bottom. Slope and platform have the width of the cube."""
     cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
-    platform = box(0.5, 0.425, 0, 1.0, 0.15, 1.0, 0.0)
-    brace = [(x, y, z) for (x, y) in ((0.0, 0.35), (0.5, 0.35), (0.0, -0.2)) for z in (-0.5, 0.5)]
+    platform = box(0.5, 0.3875, 0, 1.0, 0.225, 1.0, 0.0)
+    brace = [(x, y, z) for (x, y) in ((0.0, 0.275), (0.5, 0.275), (0.0, -0.2)) for z in (-0.5, 0.5)]
     return [cube, platform, brace]
 
 
