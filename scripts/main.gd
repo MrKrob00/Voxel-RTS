@@ -288,6 +288,8 @@ func _station_at(hit: Dictionary) -> Station:
 
 ## The round menu of a station: switch its production on or off.
 func _station_menu(st: Station) -> void:
+	if st.def().get("auto", true):
+		return   # a stump works by itself, it is the units' own logic: no menu
 	var d := st.def()
 	var cost := "%d %s -> %d %s" % [d.input.amount, Resources.label(d.input.kind).to_lower(), d.output.amount, Resources.label(d.output.kind).to_lower()]
 	var items := [

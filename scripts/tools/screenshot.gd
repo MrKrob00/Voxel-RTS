@@ -120,8 +120,13 @@ func _ready() -> void:
 			n += 1
 		main.rig.focus = Vector3(sp.x + 6, sp.y, sp.z + 6)
 		main.rig.distance = 22.0
-	if radial and not get_parent().economy.stations.is_empty():
-		get_parent()._station_menu(get_parent().economy.stations[0])
+	if radial:
+		var main = get_parent()
+		var sp: Vector3i = main.world.spawn_point()
+		var at := Vector3i(sp.x + 6, main.world.surface_y(sp.x + 6, sp.z + 6) + 1, sp.z + 6)
+		var rope = main.board.place_station(Station.Kind.ROPE_MACHINE, at, false)   # the one station that has a menu
+		if rope != null:
+			main._station_menu(rope)
 	if hud_node != null and palette:
 		hud_node._set_palette(true)
 		if blocks:
