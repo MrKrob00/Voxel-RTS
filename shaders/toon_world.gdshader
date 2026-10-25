@@ -1,0 +1,50 @@
+shader_type spatial;
+render_mode unshaded, cull_back, depth_draw_opaque;
+// The look of the ground, the water and the props: a cartoon in big pixels, lit by hand (no Godot lights, no shadows, nothing
+// per light: one normal, one dot product, a few bands). The sun and the sky come from DayCycle through global parameters, so
+// the time of day costs nothing per object.
+
+global uniform vec3 sun_direction;     // the way the light travels
+global uniform vec3 sun_color;
+global uniform vec3 sky_ambient;
+global uniform vec3 ground_ambient;
+
+uniform float pixel_size = 0.125;      // one "pixel" of texture, in blocks
+uniform float pixel_noise = 0.045;     // how much the pixels differ from each other
+uniform float steps = 3.0;             // bands of light
+uniform vec3 tint = vec3(1.0);        // multiplies the colour (lumps of ore are the grey rock, tinted)
+uniform float alpha = 1.0;
+uniform float sparkle = 0.0;           // water: pixels that flicker
+
+varying vec3 world_pos;
+varying vec3 world_normal;
+
+float hash13(vec3 p) {
+	p = fract(p * 0.1031);
+	p += dot(p, p.zyx + 31.32);
+	return fract((p.x + p.y) * p.z);
+}
+
+void vertex() {
+	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+
+void fragment() {
+	vec3 n = FRONT_FACING ? world_normal : -world_normal;
+	// the pixel this fragment is in (nudged a hair so a block edge does not flicker between two pixels)
+	vec3 cell = floor(world_pos / pixel_size + 0.002);
+	float r = hash13(cell);
+	vec3 albedo = COLOR.rgb * tint * (1.0 + (r - 0.5) * pixel_noise * 2.0);
+	// the light: bands of sun on top of a sky/ground ambient
+	float t = clamp(dot(n, -sun_direction) * 0.5 + 0.5, 0.0, 1.0);
+	float band = clamp(floor(t * steps + 0.5) / steps, 0.0, 1.0);
+	vec3 ambient = mix(ground_ambient, sky_ambient, n.y * 0.5 + 0.5);
+	vec3 col = albedo * (ambient + sun_color * band * 0.62);
+	if (sparkle > 0.0) {
+		float s = hash13(vec3(cell.xz, floor(TIME * 1.5)));
+		col += vec3(0.18) * step(0.93, s) * sparkle;
+	}
+	ALBEDO = col;
+	ALPHA = alpha * COLOR.a;
+}

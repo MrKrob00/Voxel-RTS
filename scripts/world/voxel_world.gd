@@ -65,19 +65,13 @@ var _commit_queue: Array = []       ## chunks whose initial mesh waits for the p
 var _modified := {}                 ## cpos -> true: chunks written to since the world was generated or last restored
 var _mesh_holds := 0                ## meshing waits while anything (the cliff pass, the prop scatter) is still painting the ground cover
 
-var _solid_material: StandardMaterial3D
-var _water_material: StandardMaterial3D
+var _solid_material: ShaderMaterial
+var _water_material: ShaderMaterial
 
 
 func _ready() -> void:
-	_solid_material = StandardMaterial3D.new()
-	_solid_material.vertex_color_use_as_albedo = true
-	_solid_material.roughness = 1.0
-	_water_material = StandardMaterial3D.new()
-	_water_material.vertex_color_use_as_albedo = true
-	_water_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_water_material.albedo_color = Color(1, 1, 1, 0.62)
-	_water_material.roughness = 0.3
+	_solid_material = DayCycle.world_material()
+	_water_material = DayCycle.world_material(false, true)
 	terrain = TerrainEdit.new(self)
 	cover = GroundCover.new(size_blocks().x, size_blocks().z)
 	start()

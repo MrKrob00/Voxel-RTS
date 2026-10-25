@@ -29,9 +29,9 @@ func detail() -> String:
 	return "%d %s -> %d %s" % [d.input.amount, Resources.label(d.input.kind).to_lower(), d.output.amount, Resources.label(d.output.kind).to_lower()]
 
 
-## A switched-off station has no card in the task ribbon.
+## A stump works by itself and has no card in the ribbon; a station that is switched on by hand (the rope machine) has one.
 func shown() -> bool:
-	return is_instance_valid(station) and station.enabled
+	return is_instance_valid(station) and station.enabled and not station.def().get("auto", true)
 
 
 func input_needed() -> Dictionary:

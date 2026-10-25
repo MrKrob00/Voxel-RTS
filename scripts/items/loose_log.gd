@@ -2,14 +2,15 @@ class_name LooseLog
 extends RigidBody3D
 ## A felled log lying on the ground: a real physics body, so it tumbles when the tree falls and settles where it lands.
 
-const LENGTH := 1.5
-const RADIUS := 0.17
+## Four logs fill a platform (2 x 2 blocks): two side by side, two across them.
+const LENGTH := 1.9
+const RADIUS := 0.42
 
 var claimed_by: Unit    ## the worker on the way to pick it up
 
 
 func _init() -> void:
-	mass = 2.0
+	mass = 6.0
 	collision_layer = 2
 	collision_mask = 1    # lands on the ground patches (GroundColliders), not on other logs
 	can_sleep = true

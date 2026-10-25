@@ -19,6 +19,7 @@ signal turn_pressed
 signal task_assign(task: WorkTask)
 signal task_select(task: WorkTask)
 signal task_cancel(task: WorkTask)
+signal task_radius(task: HarvestTask, delta: float)
 signal collect_toggled(task: DigTask, kind: int, on: bool)
 
 const MIN_TOUCH := 56
@@ -36,6 +37,7 @@ var _status: Label
 var _info: PanelContainer
 var _resources: VBoxContainer
 var _units_label: Label
+var _clock: Label
 var _palette: PanelContainer
 var _palette_open := false
 var _page := "tasks"                    # "tasks": the New Task panel; "blocks": what can be built
@@ -46,6 +48,7 @@ var _title_name: Label
 var _title_hint: Label
 var _actions: PanelContainer
 var _level_row: HBoxContainer
+var _picker: LevelPicker
 var _level_label: Label
 var _turn_button: Button
 var _dock: PanelContainer
@@ -112,6 +115,11 @@ func show_message(text: String) -> void:
 	_relayout_toast()
 
 
+## The time of day.
+func set_clock(text: String) -> void:
+	_clock.text = text
+
+
 func set_units(total: int, idle: int, selected: int) -> void:
 	_units_label.text = "Units %d   idle %d   selected %d" % [total, idle, selected]
 
@@ -152,7 +160,10 @@ func set_tool(mode: int) -> void:
 	_banner.visible = active
 	_title_hint.visible = active
 	_actions.visible = active
-	_level_row.visible = d.get("level", false)
+	_level_row.visible = false          # the level is chosen on the picker at the screen edge
+	_picker.visible = d.get("level", false)
+	_picker.caption = d.get("level_name", "level").capitalize()
+	_picker.levels = 3 if mode == Tools.Mode.WALL else 12
 	_level_name = d.get("level_name", "level")
 	_refresh_level()
 	_turn_button.visible = mode in [Tools.Mode.BRICK, Tools.Mode.STAIRS, Tools.Mode.STONE_BRICK, Tools.Mode.WOOD_BRICK]
@@ -226,7 +237,13 @@ func _build_side() -> void:
 	var head := Label.new()
 	head.text = "Player"
 	head.add_theme_color_override("font_color", ACCENT)
-	col.add_child(head)
+	var head_row := HBoxContainer.new()
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head_row.add_child(head)
+	_clock = Label.new()
+	_clock.add_theme_font_size_override("font_size", 15)
+	head_row.add_child(_clock)
+	col.add_child(head_row)
 	_units_label = Label.new()
 	_units_label.add_theme_font_size_override("font_size", 15)
 	col.add_child(_units_label)
@@ -408,6 +425,10 @@ func _build_bottom() -> void:
 	cancel.add_theme_color_override("font_color", Color(0.95, 0.3, 0.3))
 	cancel.pressed.connect(func() -> void: tool_chosen.emit(Tools.Mode.SELECT))
 	acts.add_child(cancel)
+	_picker = LevelPicker.new()
+	_picker.visible = false
+	_picker.chosen.connect(func(l: int) -> void: level_changed.emit(l))
+	_root.add_child(_picker)
 	_home = _button("Home", Vector2(MIN_TOUCH + 8, MIN_TOUCH))
 	_home.pressed.connect(func() -> void: home_pressed.emit())
 	_root.add_child(_home)
@@ -449,6 +470,20 @@ func _task_card(t: WorkTask) -> Control:
 			f.tooltip_text = "Bring %s home (off: break it and throw it away)" % Resources.label(kind).to_lower()
 			f.toggled.connect(func(on: bool) -> void: collect_toggled.emit(t, kind, on))
 			filters.add_child(f)
+	if t is HarvestTask and t.is_circle():
+		var rrow := HBoxContainer.new()
+		col.add_child(rrow)
+		var rl := Label.new()
+		rl.text = "Radius"
+		rl.add_theme_font_size_override("font_size", 13)
+		rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rrow.add_child(rl)
+		var rm := _button("-", Vector2(44, 44))
+		rm.pressed.connect(func() -> void: task_radius.emit(t, -1.0))
+		rrow.add_child(rm)
+		var rp := _button("+", Vector2(44, 44))
+		rp.pressed.connect(func() -> void: task_radius.emit(t, 1.0))
+		rrow.add_child(rp)
 	var row := HBoxContainer.new()
 	col.add_child(row)
 	if not t.persistent:
@@ -467,6 +502,7 @@ static func _short_title(t: WorkTask) -> String:
 
 
 func _refresh_level() -> void:
+	_picker.level = _level
 	_level_label.text = "%s %d" % [_level_name, _level]
 
 
@@ -534,6 +570,7 @@ func _relayout() -> void:
 	_actions.reset_size()
 	_actions.position = Vector2(size.x - ir - _actions.size.x - RIGHT_W, ribbon_y - _actions.size.y - 6.0)
 	_home.position = Vector2(size.x - ir - _home.custom_minimum_size.x, top)
+	_picker.position = Vector2(size.x - ir - _picker.size.x, minf(top + 76.0, size.y - _picker.size.y - ib - 90.0))
 	_cell_info.position = Vector2(il + (0.0 if _compact else side_w + 8.0), _dock.position.y - 22.0 if _compact else ribbon_y - 24.0)
 	_relayout_toast()
 

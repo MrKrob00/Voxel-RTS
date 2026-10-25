@@ -52,6 +52,7 @@ func run() -> void:
 	await _felling(logs_pile, crew, sp)
 	var planks_pile := await _stump(logs_pile, base)
 	await _grass_and_rope(grass_frame, planks_pile, crew, base, sp)
+	_circle(sp)
 	Engine.time_scale = 1.0
 	var waited := 0
 	while not _world.is_settled() and waited < 3000:
@@ -192,3 +193,25 @@ func _grass_and_rope(frame: Stockpile, planks_pile: Stockpile, crew: Array, base
 	for u in _units.units:
 		all_free = all_free and u.is_idle() and u.carried_amount() == 0
 	check(all_free, "all units are free again")
+
+
+## A standing harvest circle: it takes the trees in it, never ends by itself, and follows its radius.
+func _circle(sp: Vector3i) -> void:
+	var o := Vector3.ZERO
+	var best_d := INF
+	for t in _props.trees:
+		var d := Vector2(t.origin.x - sp.x, t.origin.z - sp.z).length()
+		if d < best_d and _props.tree_alive[_props.trees.find(t)] == 1:
+			best_d = d
+			o = t.origin
+	var task := _board.create_harvest_circle(HarvestTask.Kind.TREES, Vector2(o.x, o.z), 3.0)
+	check(task != null and task.persistent and task.is_circle(), "a circle over trees makes a standing task")
+	check(not task.targets.is_empty() and not task.is_finished(), "it holds the tree in the circle (%d targets) and does not end" % task.targets.size())
+	check(task.wants_workers(_board) == (not task.targets.is_empty()), "idle units are called to it when there is a tree to fell")
+	var n := task.targets.size()
+	task.set_radius(30.0, _board)
+	check(task.targets.size() >= n, "a bigger radius takes in more (%d -> %d)" % [n, task.targets.size()])
+	task.set_radius(2.0, _board)
+	check(task.radius == 2.0 and task.targets.size() <= n, "a smaller one lets go of what is outside")
+	_board.remove_task(task)
+	check(not _board.tasks.has(task), "closing it removes it")

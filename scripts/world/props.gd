@@ -14,13 +14,8 @@ const _ICO_F := [
 ]
 
 
-static func material(double_sided := false) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.vertex_color_use_as_albedo = true
-	m.roughness = 1.0
-	if double_sided:
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return m
+static func material(double_sided := false) -> Material:
+	return DayCycle.world_material(double_sided)
 
 
 static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, col: Color) -> void:

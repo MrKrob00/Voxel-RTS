@@ -264,13 +264,15 @@ func _show_logs() -> void:
 	for i in count:
 		var mi := MeshInstance3D.new()
 		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.17
-		cyl.bottom_radius = 0.17
-		cyl.height = SIZE - 0.25
+		cyl.top_radius = LooseLog.RADIUS
+		cyl.bottom_radius = LooseLog.RADIUS
+		cyl.height = LooseLog.LENGTH
 		mi.mesh = cyl
 		mi.material_override = m
-		mi.rotation = Vector3(0.0, 0.0, deg_to_rad(90.0))
-		mi.position = Vector3(SIZE * 0.5, PLATFORM_HEIGHT + 0.17 + (i / 2) * 0.33, 0.55 + (i % 2) * 0.9)
+		var up := i / 2          # the first two lie along x, the next two across them
+		mi.rotation = Vector3(0.0, 0.0, deg_to_rad(90.0)) if up == 0 else Vector3(deg_to_rad(90.0), 0.0, 0.0)
+		var side := 0.5 + (i % 2) * 1.0
+		mi.position = Vector3(SIZE * 0.5, PLATFORM_HEIGHT + LooseLog.RADIUS, side) if up == 0 else Vector3(side, PLATFORM_HEIGHT + LooseLog.RADIUS * 2.7, SIZE * 0.5)
 		_piles.add_child(mi)
 
 
@@ -325,9 +327,9 @@ static func _chunk_mesh() -> ArrayMesh:
 
 
 ## Stone keeps the grey of the rock model; every other kind tints it.
-static func _chunk_material(kind: int) -> StandardMaterial3D:
+static func _chunk_material(kind: int) -> Material:
 	var m := Props.material(false)
 	if kind != Resources.Kind.STONE:
 		var c: Color = Resources.COLORS.get(kind, Color.WHITE)
-		m.albedo_color = Color(minf(c.r * 1.9, 1.0), minf(c.g * 1.9, 1.0), minf(c.b * 1.9, 1.0))
+		m.set_shader_parameter("tint", Vector3(minf(c.r * 1.9, 1.0), minf(c.g * 1.9, 1.0), minf(c.b * 1.9, 1.0)))
 	return m

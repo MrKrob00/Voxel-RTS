@@ -168,6 +168,16 @@ func create_harvest(kind: int, rect: Rect2) -> HarvestTask:
 	return t
 
 
+## A standing harvest job over a circle (x, z in blocks): everything of the kind that is in it, until the player closes it.
+func create_harvest_circle(kind: int, center: Vector2, radius: float) -> HarvestTask:
+	if props == null or not props.is_built():
+		return null
+	var t := HarvestTask.new(kind, center, clampf(radius, HarvestTask.MIN_RADIUS, HarvestTask.MAX_RADIUS))
+	add_task(t)
+	t.scan(self)
+	return t
+
+
 ## Sets a station up (paying for it) and gives it its standing job.
 func place_station(kind: int, origin: Vector3i, pay := true) -> Station:
 	var st := economy.place_station(kind, origin, pay)

@@ -15,7 +15,9 @@ var loose: LooseItems
 var board: TaskBoard
 var _stock_ghost: MeshInstance3D
 var _dig_depth := 1
+var _aim: AimPreview
 var hud: Hud
+var day: DayCycle
 var mode: int = Tools.Mode.SELECT
 var brick_axis := 0
 var _ghost: MeshInstance3D
@@ -70,6 +72,9 @@ func _ready() -> void:
 	rig.box_changed.connect(func(r: Rect2) -> void: hud.selection_box.show_rect(r))
 	rig.box_cancelled.connect(func() -> void: hud.selection_box.hide_rect())
 	rig.box_finished.connect(_on_box)
+	rig.drag_changed.connect(_on_aim_changed)
+	rig.drag_finished.connect(_on_aim_finished)
+	rig.drag_cancelled.connect(func() -> void: _aim.clear())
 
 	units = UnitManager.new()
 	units.name = "Units"
@@ -146,9 +151,12 @@ func _setup_environment() -> void:
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-52, -35, 0)
-	sun.light_energy = 0.7
 	add_child(sun)
+	day = DayCycle.new()   # moves the sun, and the light of the ground, water and props by itself
+	day.sun = sun
+	day.environment = env
+	add_child(day)
+	day.clock_changed.connect(func(text: String) -> void: hud.set_clock(text))
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -173,6 +181,8 @@ func _brick_kind() -> int:
 
 
 func _setup_hover() -> void:
+	_aim = AimPreview.new()
+	add_child(_aim)
 	_ghost = MeshInstance3D.new()
 	var gbox := BoxMesh.new()
 	gbox.size = BrickWorld.SIZE * 1.02
@@ -218,6 +228,9 @@ func _setup_ui() -> void:
 		rig.focus = Vector3(sp.x, sp.y, sp.z))
 	hud.task_assign.connect(func(t: WorkTask) -> void: _assign_crew(t))
 	hud.task_cancel.connect(_cancel_task)
+	hud.task_radius.connect(func(t: HarvestTask, d: float) -> void:
+		t.set_radius(t.radius + d, board)
+		_refresh_tasks_panel())
 	hud.task_select.connect(func(t: WorkTask) -> void: units._set_selection(t.workers.duplicate()))
 	hud.collect_toggled.connect(func(t: DigTask, kind: int, on: bool) -> void: t.collect[kind] = on)
 	units.selection_changed.connect(func(_s: Array) -> void: _refresh_units_label())
@@ -228,6 +241,8 @@ func _setup_ui() -> void:
 
 func _choose_tool(m: int) -> void:
 	mode = m
+	rig.drag_mode = _is_aim_tool()
+	_aim.clear()
 	hud.set_tool(m)
 	_set_depth(_dig_depth)   # the limit of the level depends on the tool
 
@@ -351,16 +366,16 @@ func _on_primary(pos: Vector2) -> void:
 	match mode:
 		Tools.Mode.SELECT:
 			var st := _station_at(hit)
-			if st != null:
-				_station_menu(st)
+			if st != null and not st.def().get("auto", true):
+				_station_menu(st)   # a stump works by itself: only what is switched on by hand has a menu
 			else:
 				_command_move(hit)
 		Tools.Mode.MARK_DIG:
 			_mark_dig(hit.cell.x, hit.cell.z, hit.cell.x, hit.cell.z)
 		Tools.Mode.MARK_TREES:
-			_mark_harvest(HarvestTask.Kind.TREES, Rect2(hit.cell.x - 1.0, hit.cell.z - 1.0, 3.0, 3.0))
+			_mark_harvest(HarvestTask.Kind.TREES, Vector2(hit.cell.x + 0.5, hit.cell.z + 0.5), 4.0)
 		Tools.Mode.MARK_GRASS:
-			_mark_harvest(HarvestTask.Kind.GRASS, Rect2(hit.cell.x - 1.0, hit.cell.z - 1.0, 3.0, 3.0))
+			_mark_harvest(HarvestTask.Kind.GRASS, Vector2(hit.cell.x + 0.5, hit.cell.z + 0.5), 4.0)
 		Tools.Mode.STOCKPILE, Tools.Mode.FRAME:
 			_place_stockpile(hit)
 		Tools.Mode.STUMP, Tools.Mode.ROPE_MACHINE:
@@ -415,25 +430,50 @@ func _on_double(pos: Vector2) -> void:
 
 func _on_box(rect: Rect2) -> void:
 	hud.selection_box.hide_rect()
-	if mode == Tools.Mode.MARK_TREES or mode == Tools.Mode.MARK_GRASS:
-		var lo := Vector2(INF, INF)
-		var hi := Vector2(-INF, -INF)
-		for p in [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]:
-			var h := _pick(p)
-			if not h.is_empty():
-				lo = Vector2(minf(lo.x, h.cell.x), minf(lo.y, h.cell.z))
-				hi = Vector2(maxf(hi.x, h.cell.x + 1.0), maxf(hi.y, h.cell.z + 1.0))
-		if hi.x > lo.x:
-			_mark_harvest(HarvestTask.Kind.TREES if mode == Tools.Mode.MARK_TREES else HarvestTask.Kind.GRASS, Rect2(lo, hi - lo))
+	units.select_rect(rect, rig.camera, Input.is_key_pressed(KEY_SHIFT))
+
+
+## Tools that are aimed by dragging from one point on the ground to another (the camera is moved with two fingers meanwhile).
+func _is_aim_tool() -> bool:
+	return mode in [Tools.Mode.MARK_DIG, Tools.Mode.MARK_TREES, Tools.Mode.MARK_GRASS, Tools.Mode.WALL, Tools.Mode.BRICK, Tools.Mode.STAIRS]
+
+
+## The finger moves: what the order would be, drawn through the blocks.
+func _on_aim_changed(from: Vector2, to: Vector2) -> void:
+	var a := _pick(from)
+	var b := _pick(to)
+	if a.is_empty() or b.is_empty():
 		return
-	if mode == Tools.Mode.WALL or mode == Tools.Mode.BRICK or mode == Tools.Mode.STAIRS:
-		var a := _pick(rect.position)
-		var b := _pick(rect.end)
-		if a.is_empty() or b.is_empty():
-			return
-		if mode == Tools.Mode.WALL:
+	match mode:
+		Tools.Mode.MARK_DIG:
+			var n := _aim.show_dig(world, a.cell.x, a.cell.z, b.cell.x, b.cell.z, _dig_depth)
+			var w := absi(a.cell.x - b.cell.x) + 1
+			var d := absi(a.cell.z - b.cell.z) + 1
+			hud.show_message("%d x %d, %d deep: %d blocks" % [w, d, _dig_depth, n])
+		Tools.Mode.MARK_TREES, Tools.Mode.MARK_GRASS:
+			_aim.show_ring(world, Vector2(a.cell.x + 0.5, a.cell.z + 0.5), _aim_radius(a, b))
+
+
+func _aim_radius(a: Dictionary, b: Dictionary) -> float:
+	return clampf(Vector2(a.cell.x - b.cell.x, a.cell.z - b.cell.z).length(), HarvestTask.MIN_RADIUS, HarvestTask.MAX_RADIUS)
+
+
+func _on_aim_finished(from: Vector2, to: Vector2) -> void:
+	_aim.clear()
+	var a := _pick(from)
+	var b := _pick(to)
+	if a.is_empty() or b.is_empty():
+		return
+	match mode:
+		Tools.Mode.MARK_DIG:
+			_mark_dig(mini(a.cell.x, b.cell.x), mini(a.cell.z, b.cell.z), maxi(a.cell.x, b.cell.x), maxi(a.cell.z, b.cell.z))
+		Tools.Mode.MARK_TREES:
+			_mark_harvest(HarvestTask.Kind.TREES, Vector2(a.cell.x + 0.5, a.cell.z + 0.5), _aim_radius(a, b))
+		Tools.Mode.MARK_GRASS:
+			_mark_harvest(HarvestTask.Kind.GRASS, Vector2(a.cell.x + 0.5, a.cell.z + 0.5), _aim_radius(a, b))
+		Tools.Mode.WALL:
 			_plan_wall(a, b)
-		else:
+		Tools.Mode.BRICK, Tools.Mode.STAIRS:
 			# The way of the drag, along the longer side, says how the brick lies / which way the stairs rise.
 			var d := Vector2i(b.cell.x - a.cell.x, b.cell.z - a.cell.z)
 			var dir := (Vector2i(signi(d.x), 0) if absi(d.x) >= absi(d.y) else Vector2i(0, signi(d.y)))
@@ -443,32 +483,12 @@ func _on_box(rect: Rect2) -> void:
 				_plan_brick(a, dir)
 			else:
 				_plan_stairs(a, dir)
-		return
-	if mode == Tools.Mode.MARK_DIG:
-		# The corners of the box on the ground give the area to dig.
-		var lo := Vector2i(1 << 30, 1 << 30)
-		var hi := Vector2i(-(1 << 30), -(1 << 30))
-		for p in [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]:
-			var h := _pick(p)
-			if not h.is_empty():
-				lo = Vector2i(mini(lo.x, h.cell.x), mini(lo.y, h.cell.z))
-				hi = Vector2i(maxi(hi.x, h.cell.x), maxi(hi.y, h.cell.z))
-		if hi.x >= lo.x:
-			_mark_dig(lo.x, lo.y, hi.x, hi.y)
-		return
-	units.select_rect(rect, rig.camera, Input.is_key_pressed(KEY_SHIFT))
 
 
-## Marks ground to be dug and puts the selected units (or, with nothing selected, the idle ones) on it.
-## Marks trees or grass in a rectangle and puts the selected units (or the idle ones) on it.
-func _mark_harvest(kind: int, rect: Rect2) -> void:
-	var t := board.create_harvest(kind, rect)
-	if t == null:
-		hud.show_message("Nothing to harvest there")
-		return
-	var crew: Array = units.selection if not units.selection.is_empty() else units.units.filter(func(u: Unit) -> bool: return u.is_idle())
-	for u in crew:
-		board.assign(u, t)
+## A standing harvest job over a circle: idle units come to it by themselves, and it stays until it is closed.
+func _mark_harvest(kind: int, center: Vector2, radius: float) -> void:
+	if board.create_harvest_circle(kind, center, radius) == null:
+		hud.show_message("Nothing to harvest here yet")
 
 
 func _place_station(hit: Dictionary) -> void:

@@ -16,6 +16,12 @@ signal double_action(screen_pos: Vector2)
 signal box_changed(rect: Rect2)
 signal box_finished(rect: Rect2)
 signal box_cancelled
+## With `drag_mode` on (a tool that is aimed by dragging: dig, harvest, wall...): one finger or the left mouse button drags from
+## where it went down to where it is now, without moving the camera (two fingers still move it). The game turns the two points
+## into whatever the tool needs and shows it while the finger moves.
+signal drag_changed(from: Vector2, to: Vector2)
+signal drag_finished(from: Vector2, to: Vector2)
+signal drag_cancelled
 
 @export var min_distance := 8.0
 @export var max_distance := 260.0
@@ -41,6 +47,14 @@ var camera: Camera3D
 ## viewport's mouse position (on a touch screen that stays at the corner).
 var pointer := Vector2.ZERO
 
+var drag_mode := false:
+	set(v):
+		if drag_mode and not v and _aim_active:
+			_aim_active = false
+			drag_cancelled.emit()
+		drag_mode = v
+
+var _aim_active := false
 var _touches := {}
 var _tap_start := Vector2.ZERO
 var _tap_time := 0.0
@@ -127,14 +141,21 @@ func _unhandled_input(event: InputEvent) -> void:
 				MOUSE_BUTTON_RIGHT: secondary_action.emit(mb.position)
 		elif mb.button_index == MOUSE_BUTTON_LEFT and _mouse_down:
 			_mouse_down = false
-			if _box_active:
+			if _aim_active:
+				_aim_active = false
+				drag_finished.emit(_mouse_start, mb.position)
+			elif _box_active:
 				_finish_box(mb.position)
 			else:
 				_tapped(mb.position)
 	elif event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
 		pointer = mm.position
-		if _mouse_down and (_box_active or mm.position.distance_to(_mouse_start) > tap_max_move):
+		if _mouse_down and drag_mode:
+			if _aim_active or mm.position.distance_to(_mouse_start) > tap_max_move:
+				_aim_active = true
+				drag_changed.emit(_mouse_start, mm.position)
+		elif _mouse_down and (_box_active or mm.position.distance_to(_mouse_start) > tap_max_move):
 			_box_active = true
 			_box_start = _mouse_start
 			box_changed.emit(_rect_from(_box_start, mm.position))
@@ -159,11 +180,17 @@ func _on_touch(e: InputEventScreenTouch) -> void:
 		else:
 			_tap_valid = false
 			_cancel_box()
+			if _aim_active:
+				_aim_active = false
+				drag_cancelled.emit()
 			_reset_pinch()
 	else:
 		var was_single := _touches.size() == 1
 		_touches.erase(e.index)
-		if was_single and _box_active:
+		if was_single and _aim_active:
+			_aim_active = false
+			drag_finished.emit(_tap_start, e.position)
+		elif was_single and _box_active:
 			_finish_box(e.position)
 		elif was_single and _tap_valid and e.position.distance_to(_tap_start) <= tap_max_move:
 			if _long_press:
@@ -212,6 +239,11 @@ func _on_drag(e: InputEventScreenDrag) -> void:
 	pointer = e.position
 	_touches[e.index] = e.position
 	if _touches.size() == 1:
+		if drag_mode and _tap_valid:
+			if _aim_active or e.position.distance_to(_tap_start) > tap_max_move:
+				_aim_active = true
+				drag_changed.emit(_tap_start, e.position)
+			return
 		if _long_press and _tap_valid:
 			# After the long press the finger draws a selection box instead of panning the map.
 			if _box_active or e.position.distance_to(_tap_start) > tap_max_move:
