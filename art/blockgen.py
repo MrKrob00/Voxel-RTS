@@ -409,17 +409,39 @@ def cren_corner():
     return cren_bracket()
 
 
-def cren_roof():
-    """The roof block: the lower 45% is whole, set back 15% at the front; above it a slope (a right triangle with the right angle at the
-    back, the long side climbing from the front to the top of the back wall) whose front edge juts out over the set-back with a rounded
-    nose, and the back is the whole block again."""
-    lower = box(-0.075, -0.275, 0, 0.85, 0.45, 1.0, 0.0)           # x -0.5 .. 0.35, y -0.5 .. -0.05
-    r = 0.13                                                       # the nose is a round edge touching the front (x 0.5) and the underside (y -0.05)
-    cx, cy = 0.5 - r, -0.05 + r
-    nose = [(cx + r * math.cos(math.tau * i / 20), cy + r * math.sin(math.tau * i / 20)) for i in range(20)]
-    pts = [(-0.5, -0.05), (-0.5, 0.5)] + nose
-    upper = [(x, y, z) for (x, y) in pts for z in (-0.5, 0.5)]
+ROOF_BASE_TOP = -0.05    # the whole lower part of a roof block is 45% high
+ROOF_SETBACK = 0.15      # and set back this much at the front
+ROOF_NOSE = 0.13         # radius of the rounded edge that juts out over the set-back
+
+
+def roof_nose(extent):
+    """Points (front, y) of the rounded edge of the slope: a circle touching the front (at `extent`) and the underside of the slope."""
+    r = ROOF_NOSE
+    c = (extent - r, ROOF_BASE_TOP + r)
+    return [(c[0] + r * math.cos(math.tau * i / 20), c[1] + r * math.sin(math.tau * i / 20)) for i in range(20)]
+
+
+def cren_roof(length=1.0):
+    """The roof block, front towards +z, `length` cells along x: the lower 45% is whole and set back 15% at the front; above it a slope (a
+    right triangle with the right angle at the back; the long side climbs from the front to the top of the back wall) whose front edge
+    juts out over the set-back with a rounded nose, and the back is the whole block again."""
+    lower = box(0, -0.275, (-0.5 + 0.5 - ROOF_SETBACK) / 2 - 0.0, length, 0.45, 1.0 - ROOF_SETBACK, 0.0)
+    pts = [(-0.5, ROOF_BASE_TOP), (-0.5, 0.5)] + roof_nose(0.5)
+    upper = [(x, y, z) for (z, y) in pts for x in (-length / 2, length / 2)]
     return [lower, upper]
+
+
+def cren_roof_corner():
+    """The diagonal roof block that joins two roofs at a corner: the lower 45% is whole and set back 15% on both front sides (+z and
+    +x); above it two sloped triangles, one facing +z and one facing +x, climb to one point at the back left, the top corner
+    (-x, -z); their edges jut out with the same rounded nose."""
+    lower = box((-0.5 + 0.5 - ROOF_SETBACK) / 2, -0.275, (-0.5 + 0.5 - ROOF_SETBACK) / 2, 1.0 - ROOF_SETBACK, 0.45, 1.0 - ROOF_SETBACK, 0.0)
+    pts = [(-0.5, 0.5, -0.5), (-0.5, ROOF_BASE_TOP, -0.5), (-0.5, ROOF_BASE_TOP, 0.5), (0.5, ROOF_BASE_TOP, -0.5)]
+    for (f, y) in roof_nose(0.5):
+        for k in (-0.5, 0.5):
+            pts.append((k, y, f))   # the +z edge: the nose across the whole width
+            pts.append((f, y, k))   # the +x edge
+    return [lower, pts]
 
 
 def cren_slope(length=1.0, half=False):
@@ -505,9 +527,9 @@ BLOCKS = {
     "cren_slab":    cren_slab,
     "cren_bracket": cren_bracket,
     "cren_corner":  cren_corner,
-    "cren_slope":   cren_roof,
-    "cren_slope_corner": lambda: cren_slope(1.0, True),
-    "cren_slope_long": lambda: cren_slope(2.0),
+    "cren_slope":   lambda: cren_roof(1.0),
+    "cren_slope_corner": cren_roof_corner,
+    "cren_slope_long": lambda: cren_roof(2.0),
     "cren_hip":     cren_hip,
     "cren_corbel_long": lambda: cren_corbel(2.0, 0.1),
     "cren_corbel":  lambda: cren_corbel(2.0, -0.1),
