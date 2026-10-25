@@ -1,5 +1,5 @@
 extends SceneTree
-## Headless check: godot --headless --path . -s res://scripts/tools/brick_test.gd
+## Headless check: godot --headless --path . -s res://tests/brick_test.gd
 ## Support rules: stacked bricks drop together, a running bond survives losing a brick, no building in mid-air,
 ## and fallen bricks come to rest on the terrain instead of sinking through it.
 
@@ -27,9 +27,9 @@ func _init() -> void:
 	var z := spawn.z - 6
 	for dx in range(-1, 12):
 		for dz in range(-1, 14):
-			world.set_block(Vector3i(x + dx, spawn.y, z + dz), Blocks.STONE, false)
+			world.set_block(Vector3i(x + dx, spawn.y, z + dz), Blocks.STONE)
 			for dy in range(1, 8):
-				world.set_block(Vector3i(x + dx, spawn.y + dy, z + dz), Blocks.AIR, false)
+				world.set_block(Vector3i(x + dx, spawn.y + dy, z + dz), Blocks.AIR)
 	for i in 30:
 		await process_frame
 
@@ -71,6 +71,26 @@ func _init() -> void:
 	_check(lb != null and cb != null, "cube resting on the end of a long brick")
 	_check(bricks.remove(lb) == 1, "cube falls when its long brick is removed")
 
+	# 2c. Bricks stand on whole ground blocks only: not on a slope piece or a half-dug block, and they never change terrain.
+	var sx := x + 8
+	var sz := z + 2
+	world.set_block(Vector3i(sx, spawn.y, sz), Blocks.make(Blocks.STONE, Blocks.SHAPE_HALF, true))
+	world.set_block(Vector3i(sx + 1, spawn.y, sz), Blocks.make(Blocks.STONE, Blocks.shape_from_corners(0, 2, 2, 0)))
+	_check(not bricks.can_place(Vector3i(sx, y, sz), 0, 1), "no brick on a half-dug block")
+	_check(not bricks.can_place(Vector3i(sx + 1, y, sz), 0, 1), "no brick on a slope piece")
+	_check(not bricks.can_place(Vector3i(sx - 1, y, sz), 0, 2), "a long brick may not overhang a half-dug block either")
+	_check(bricks.can_place(Vector3i(sx - 3, y, sz), 0, 2), "a brick on whole blocks next to it is fine")
+	var level_before := world.terrain.level(sx - 3, sz)
+	var onfloor := bricks.place(Vector3i(sx - 3, y, sz), 0, BrickWorld.Kind.STONE, 2)
+	_check(onfloor != null and world.terrain.level(sx - 3, sz) == level_before, "placing a brick does not change the terrain level")
+
+	# 2d. Digging the ground out from under a brick drops it.
+	var before_debris := bricks.debris_count()
+	var stood := bricks.place(Vector3i(x + 9, y, z + 8), 0, BrickWorld.Kind.WOOD, 1)
+	_check(stood != null, "a cube brick on the pad")
+	world.terrain.dig_step(Vector3i(x + 9, spawn.y, z + 8))
+	_check(bricks.brick_at(Vector3i(x + 9, y, z + 8)) == null and bricks.debris_count() == before_debris + 1, "the brick fell when its ground was dug half away")
+
 	# 3. Debris settles on the terrain.
 	for i in 300:
 		await physics_frame
@@ -80,7 +100,7 @@ func _init() -> void:
 		if c is RigidBody3D:
 			bodies += 1
 			lowest = minf(lowest, (c as RigidBody3D).global_position.y)
-	_check(bodies >= 6, "debris bodies alive (%d)" % bodies)
+	_check(bodies >= 7, "debris bodies alive (%d)" % bodies)
 	_check(lowest > spawn.y + 0.2, "debris rests on the ground, not through it (lowest y=%.2f, ground top=%d)" % [lowest, spawn.y + 1])
 
 	quit(1 if _failed else 0)

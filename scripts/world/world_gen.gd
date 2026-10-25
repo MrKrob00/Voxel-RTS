@@ -401,12 +401,12 @@ func block_at(wx: int, wy: int, wz: int, top: int, bottom: int, style := -1) -> 
 	return Blocks.STONE
 
 
-## Shape of the cell right above a column's top (see Ramps for the rules).
-func ramp_shape(wx: int, wz: int, top: int) -> int:
-	var tops := {}
+## Shape id of the slope piece for the cell right above a column's top, or -1 for none (see Ramps for the rules).
+func skin_shape_at(wx: int, wz: int, top: int) -> int:
+	var around := {}
 	for off in Ramps.NEIGHBOURS:
-		tops[off] = column(wx + off.x, wz + off.y).x
-	return Ramps.shape_from(top, tops)
+		around[off] = Ramps.level_of_top(column(wx + off.x, wz + off.y).x)
+	return Ramps.skin_shape(Ramps.level_of_top(top), around)
 
 
 ## Heights of the 18 x 18 columns around chunk column (cx, cz): 16 inside plus a 1-column border for ramp neighbours.
@@ -456,7 +456,7 @@ func region(cx: int, cz: int) -> Array:
 
 
 ## Returns an empty array when the chunk is entirely open sky (nothing stored, nothing meshed).
-func generate_chunk(cpos: Vector3i) -> PackedByteArray:
+func generate_chunk(cpos: Vector3i) -> PackedInt32Array:
 	var cs := Blocks.CHUNK_SIZE
 	var ox := cpos.x * cs
 	var oy := cpos.y * cs
@@ -475,8 +475,8 @@ func generate_chunk(cpos: Vector3i) -> PackedByteArray:
 		if any:
 			break
 	if not any:
-		return PackedByteArray()
-	var data := PackedByteArray()
+		return PackedInt32Array()
+	var data := PackedInt32Array()
 	data.resize(Blocks.CHUNK_VOLUME)
 	for z in cs:
 		for x in cs:
@@ -487,12 +487,12 @@ func generate_chunk(cpos: Vector3i) -> PackedByteArray:
 			var bottom := bottoms[i]
 			for y in cs:
 				data[x + (z << 4) + (y << 8)] = block_at(ox + x, oy + y, oz + z, top, bottom, styles[i])
-			var ramp_y := top + 1 - oy
-			if ramp_y >= 0 and ramp_y < cs and top + 1 <= _max_y:
-				var nt := {}
+			var skin_y := top + 1 - oy
+			if skin_y >= 0 and skin_y < cs and top + 1 <= _max_y:
+				var around := {}
 				for off in Ramps.NEIGHBOURS:
-					nt[off] = tops[(x + 1 + off.x) + (z + 1 + off.y) * 18]
-				var shape := Ramps.shape_from(top, nt)
-				if shape != Blocks.SHAPE_CUBE:
-					data[x + (z << 4) + (ramp_y << 8)] = Blocks.make(block_at(ox + x, top, oz + z, top, bottom, styles[i]), shape)
+					around[off] = Ramps.level_of_top(tops[(x + 1 + off.x) + (z + 1 + off.y) * 18])
+				var shape := Ramps.skin_shape(Ramps.level_of_top(top), around)
+				if shape >= 0:
+					data[x + (z << 4) + (skin_y << 8)] = Blocks.make(block_at(ox + x, top, oz + z, top, bottom, styles[i]), shape)
 	return data

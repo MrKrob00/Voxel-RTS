@@ -6,7 +6,7 @@ var world: VoxelWorld
 var props: PropField
 var rig: RTSCamera
 enum Mode { DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
-const MODE_NAMES := ["dig", "voxel", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
+const MODE_NAMES := ["dig", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
 
 var bricks: BrickWorld
 var mode := Mode.DIG
@@ -26,17 +26,18 @@ func _ready() -> void:
 	world = VoxelWorld.new()
 	world.name = "World"
 	world.preset = preset
-	for arg in OS.get_cmdline_user_args():   # debug: --extras=0..4, --seed=N
+	for arg in OS.get_cmdline_user_args():   # debug: --extras=0..4, --seed=N, --noprops
 		if arg.begins_with("--extras="):
 			world.extra_islands = int(arg.substr(9))
 		elif arg.begins_with("--seed="):
 			world.world_seed = int(arg.substr(7))
 	add_child(world)
 
-	props = PropField.new()
-	props.name = "Props"
-	add_child(props)
-	props.setup(world)
+	if not OS.get_cmdline_user_args().has("--noprops"):   # debug: terrain only
+		props = PropField.new()
+		props.name = "Props"
+		add_child(props)
+		props.setup(world)
 
 	bricks = BrickWorld.new()
 	bricks.name = "Bricks"
@@ -182,9 +183,11 @@ func _on_primary(pos: Vector2) -> void:
 			if hit.brick:
 				bricks.remove(bricks.brick_at(hit.cell))
 			else:
-				world.dig_step(hit.cell)
+				world.terrain.dig_step(hit.cell)
 		Mode.VOXEL:
-			world.place_block(hit.cell + hit.normal, Blocks.STONE)
+			# Clicking a slope or a half-dug block fills that very cell up to a whole block; anything else builds next to it.
+			var target: Vector3i = hit.cell if not Blocks.is_whole(world.get_block(hit.cell)) else hit.cell + hit.normal
+			world.terrain.build(target, Blocks.STONE)
 		_:
 			bricks.place(hit.cell + hit.normal, brick_axis, _brick_kind(), _brick_length())
 
@@ -197,4 +200,4 @@ func _on_secondary(pos: Vector2) -> void:
 	if hit.brick:
 		bricks.remove(bricks.brick_at(hit.cell))
 	else:
-		world.dig_step(hit.cell)
+		world.terrain.dig_step(hit.cell)

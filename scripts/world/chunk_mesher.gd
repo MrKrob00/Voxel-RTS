@@ -41,7 +41,7 @@ class Buffers extends RefCounted:
 
 
 static func _voxel(snap: Array, x: int, y: int, z: int) -> int:
-	var arr: PackedByteArray = snap[((x >> 4) + 1) + ((z >> 4) + 1) * 3 + ((y >> 4) + 1) * 9]
+	var arr: PackedInt32Array = snap[((x >> 4) + 1) + ((z >> 4) + 1) * 3 + ((y >> 4) + 1) * 9]
 	if arr.is_empty():
 		return Blocks.AIR
 	return arr[(x & 15) + ((z & 15) << 4) + ((y & 15) << 8)]
@@ -49,27 +49,28 @@ static func _voxel(snap: Array, x: int, y: int, z: int) -> int:
 
 ## Returns [opaque_arrays, water_arrays]; an entry is null when that surface is empty.
 static func build(snap: Array, origin: Vector3i, preset: MapPreset) -> Array:
-	var center: PackedByteArray = snap[13]
+	var center: PackedInt32Array = snap[13]
 	var solid := Buffers.new()
 	var water := Buffers.new()
 	for y in 16:
 		for z in 16:
 			for x in 16:
 				var raw := center[x + (z << 4) + (y << 8)]
-				var id := raw & 15
+				var id := raw & Blocks.MAT_MASK
 				if id == Blocks.AIR:
 					continue
-				if raw >> 4 != Blocks.SHAPE_CUBE:
-					_emit_shape(solid, snap, x, y, z, id, raw >> 4, origin, preset)
+				var shape := Blocks.shape(raw)
+				if shape != Blocks.SHAPE_CUBE:
+					_emit_shape(solid, snap, x, y, z, id, shape, origin, preset)
 					continue
 				var is_water := id == Blocks.WATER
 				for f in 6:
 					var n := FACE_NORMALS[f]
-					var nid := _voxel(snap, x + n.x, y + n.y, z + n.z)
+					var nraw := _voxel(snap, x + n.x, y + n.y, z + n.z)
 					if is_water:
-						if nid != Blocks.AIR:
+						if nraw != Blocks.AIR:
 							continue
-					elif Blocks.is_opaque(nid):
+					elif Blocks.is_opaque(nraw):
 						continue
 					_emit_face(water if is_water else solid, snap, x, y, z, f, id, origin, is_water, preset)
 	var out := [null, null]
@@ -80,34 +81,38 @@ static func build(snap: Array, origin: Vector3i, preset: MapPreset) -> Array:
 	return out
 
 
-## Slabs (half height) and ramp wedges. Neighbours never hide them fully, so only faces against full cubes are skipped.
+## Any non-cube ground piece: slopes, corners and half-height slabs. The top surface is described by the heights of its
+## four corners (0, 0.5 or 1 block); the sides are trapezoids between neighbouring corners.
 static func _emit_shape(buf: Buffers, snap: Array, x: int, y: int, z: int, id: int, shape: int, origin: Vector3i, preset: MapPreset) -> void:
-	if shape == Blocks.SHAPE_SLAB:
-		for f in 6:
-			var n := FACE_NORMALS[f]
-			if f != 2 and Blocks.is_opaque(_voxel(snap, x + n.x, y + n.y, z + n.z)):
-				continue
-			_emit_face(buf, snap, x, y, z, f, id, origin, false, preset, 0.5)
-		return
-	# Any other ramp shape: described by the heights (0 or 1) of the four top corners.
-	var h: Array = Blocks.SHAPE_CORNERS[shape]
+	var h := Blocks.corner_heights(shape)   # half-blocks
 	var base := Vector3(x, y, z)
 	var cx := [0.0, 1.0, 1.0, 0.0]
 	var cz := [0.0, 0.0, 1.0, 1.0]
 	var top: Array[Vector3] = []
 	var floor_pts: Array[Vector3] = []
 	for k in 4:
-		top.append(base + Vector3(cx[k], h[k], cz[k]))
+		top.append(base + Vector3(cx[k], h[k] * 0.5, cz[k]))
 		floor_pts.append(base + Vector3(cx[k], 0.0, cz[k]))
-	# Split the top along the diagonal that makes a ridge (one corner up) or a valley (one corner down).
-	var up_count: int = h[0] + h[1] + h[2] + h[3]
+	# Split the top along the diagonal that makes a ridge (one corner highest) or a valley (one corner lowest).
 	var diag := 0   # 0: split 0-2, 1: split 1-3
-	if up_count == 1:
-		diag = 0 if (h[0] == 1 or h[2] == 1) else 1
-	elif up_count == 3:
-		diag = 0 if (h[0] == 0 or h[2] == 0) else 1
-	elif h[0] != h[2] or h[1] != h[3]:
-		diag = 0 if h[0] == h[2] else 1
+	var s02: int = h[0] + h[2]
+	var s13: int = h[1] + h[3]
+	if s02 != s13:
+		var hi: int = maxi(maxi(h[0], h[1]), maxi(h[2], h[3]))
+		var lo: int = mini(mini(h[0], h[1]), mini(h[2], h[3]))
+		var hi_idx: Array[int] = []
+		var lo_idx: Array[int] = []
+		for k in 4:
+			if h[k] == hi:
+				hi_idx.append(k)
+			if h[k] == lo:
+				lo_idx.append(k)
+		if hi_idx.size() == 1:
+			diag = 0 if hi_idx[0] % 2 == 0 else 1
+		elif lo_idx.size() == 1:
+			diag = 0 if lo_idx[0] % 2 == 0 else 1
+		else:
+			diag = 0 if s02 > s13 else 1
 	if diag == 0:
 		_shape_tri(buf, [top[0], top[1], top[2]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
 		_shape_tri(buf, [top[0], top[2], top[3]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
@@ -128,16 +133,16 @@ static func _emit_shape(buf: Buffers, snap: Array, x: int, y: int, z: int, id: i
 		if Blocks.is_opaque(_voxel(snap, x + out.x, y, z + out.z)):
 			continue
 		var n := Vector3(out)
-		if h[a] == 1 and h[b] == 1:
+		if h[a] > 0 and h[b] > 0:
 			_shape_tri(buf, [floor_pts[a], floor_pts[b], top[b]], n, id, Blocks.FACE_SIDE, origin, preset)
 			_shape_tri(buf, [floor_pts[a], top[b], top[a]], n, id, Blocks.FACE_SIDE, origin, preset)
-		elif h[a] == 1:
+		elif h[a] > 0:
 			_shape_tri(buf, [floor_pts[a], floor_pts[b], top[a]], n, id, Blocks.FACE_SIDE, origin, preset)
 		else:
 			_shape_tri(buf, [floor_pts[a], floor_pts[b], top[b]], n, id, Blocks.FACE_SIDE, origin, preset)
 
 
-## One triangle of a ramp shape, wound clockwise (Godot front face) as seen from the side `outward` points to.
+## One triangle of a ground piece, wound clockwise (Godot front face) as seen from the side `outward` points to.
 static func _shape_tri(buf: Buffers, pts: Array, outward: Vector3, id: int, face_kind: int, origin: Vector3i, preset: MapPreset) -> void:
 	var a: Vector3 = pts[0]
 	var b: Vector3 = pts[1]

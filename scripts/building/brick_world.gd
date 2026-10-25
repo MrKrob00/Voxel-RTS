@@ -46,6 +46,7 @@ var _shapes := {}       # length -> BoxShape3D
 var _debris: Array = [] # [RigidBody3D, spawn_time_msec]
 var _patches := {}      # Vector3i -> [StaticBody3D, last_touched_msec]
 var _patch_shape: BoxShape3D
+var _patch_shape_half: BoxShape3D
 
 
 func _ready() -> void:
@@ -58,6 +59,8 @@ func _ready() -> void:
 		_shapes[length] = shape
 	_patch_shape = BoxShape3D.new()
 	_patch_shape.size = Vector3.ONE
+	_patch_shape_half = BoxShape3D.new()
+	_patch_shape_half.size = Vector3(1, 0.5, 1)
 	for k in [Kind.STONE, Kind.WOOD]:
 		var m := StandardMaterial3D.new()
 		m.albedo_color = Color("9a9da2") if k == Kind.STONE else Color("a8763f")
@@ -104,29 +107,37 @@ func _cell_free(cell: Vector3i) -> bool:
 	return world.in_bounds(cell) and not Blocks.is_solid(world.get_block(cell)) and not _cells.has(cell)
 
 
-## What a set of cells rests on: {grounded: bool, supporters: Array[Brick]} (only cells directly below count).
+## What a set of cells rests on (only cells directly below count):
+##   grounded   - a whole terrain block is below one of the cells (bricks stand on flat ground only);
+##   blocked    - a slope piece or half-dug block is below one of them: that is not a flat voxel to build on;
+##   supporters - the standing bricks below.
 func _below(cells: Array[Vector3i], self_brick: Brick = null) -> Dictionary:
 	var grounded := false
+	var blocked := false
 	var supporters: Array[Brick] = []
 	for c in cells:
 		var b := c + Vector3i(0, -1, 0)
-		if Blocks.is_solid(world.get_block(b)):
+		var raw := world.get_block(b)
+		if Blocks.is_whole(raw):
 			grounded = true
+		elif Blocks.is_solid(raw):
+			blocked = true
 		else:
 			var other: Brick = _cells.get(b)
 			if other != null and other != self_brick and not supporters.has(other):
 				supporters.append(other)
-	return {"grounded": grounded, "supporters": supporters}
+	return {"grounded": grounded, "blocked": blocked, "supporters": supporters}
 
 
-## Free, inside the world, and resting on terrain or a standing brick (no building in mid-air).
+## Free, inside the world, resting on whole terrain blocks or standing bricks, and not over a slope (no building in
+## mid-air or on bevels).
 func can_place(origin: Vector3i, axis: int, length: int = 2) -> bool:
 	var cells := cells_for(origin, axis, length)
 	for c in cells:
 		if not _cell_free(c):
 			return false
 	var below := _below(cells)
-	return below.grounded or not below.supporters.is_empty()
+	return not below.blocked and (below.grounded or not below.supporters.is_empty())
 
 
 # --- building ---------------------------------------------------------------------------------------
@@ -293,19 +304,22 @@ func _build_patch(key: Vector3i, now: int) -> void:
 		for z in PATCH:
 			for x in PATCH:
 				var p := origin + Vector3i(x, y, z)
-				if not Blocks.is_solid(world.get_block(p)):
+				var raw := world.get_block(p)
+				if not Blocks.is_solid(raw):
 					continue
-				# Only voxels that touch open space can be hit.
-				var exposed := false
-				for n in ChunkMesher.FACE_NORMALS:
-					if not Blocks.is_solid(world.get_block(p + n)):
-						exposed = true
-						break
+				var half := Blocks.is_partial(raw) and Blocks.max_height(Blocks.shape(raw)) <= 1
+				# Only voxels that touch open space can be hit (a slope piece always does).
+				var exposed := Blocks.is_partial(raw)
+				if not exposed:
+					for n in ChunkMesher.FACE_NORMALS:
+						if not Blocks.is_opaque(world.get_block(p + n)):
+							exposed = true
+							break
 				if not exposed:
 					continue
 				var cs := CollisionShape3D.new()
-				cs.shape = _patch_shape
-				cs.position = Vector3(x, y, z) + Vector3.ONE * 0.5
+				cs.shape = _patch_shape_half if half else _patch_shape
+				cs.position = Vector3(x, y, z) + (Vector3(0.5, 0.25, 0.5) if half else Vector3.ONE * 0.5)
 				body.add_child(cs)
 				count += 1
 	body.position = Vector3(origin)
@@ -314,6 +328,10 @@ func _build_patch(key: Vector3i, now: int) -> void:
 
 
 func _on_block_changed(p: Vector3i) -> void:
+	# A brick standing on the voxel that changed may have lost its support (the ground was dug away).
+	if _cells.has(p + Vector3i(0, 1, 0)):
+		var freed: Array[Vector3i] = [p]
+		_settle(freed)
 	var key := Vector3i(floori(float(p.x) / PATCH), floori(float(p.y) / PATCH), floori(float(p.z) / PATCH))
 	if _patches.has(key):
 		(_patches[key][0] as StaticBody3D).queue_free()

@@ -1,5 +1,5 @@
 extends SceneTree
-## Headless: godot --headless --path . -s res://scripts/tools/island_seeds_test.gd
+## Headless: godot --headless --path . -s res://tests/island_seeds_test.gd
 ## Many seeds, 0-4 extra islands each: counts, bounds, and every bridge deck walkable end to end.
 
 var _failed := false

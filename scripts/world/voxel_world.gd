@@ -1,8 +1,14 @@
 class_name VoxelWorld
 extends Node3D
-## Finite voxel world split into 16^3 chunks. Generation and meshing run on WorkerThreadPool;
-## the main thread only commits finished meshes (budgeted per frame) and applies edits.
-## No physics colliders: picking and (later) unit pathfinding query voxel data directly.
+## Finite voxel world split into 16^3 chunks: storage, generation, meshing and picking. It knows nothing about game rules
+## (what digging or building means): those live in TerrainEdit, reachable as `terrain`, and in BrickWorld.
+##
+## Pipeline: generation and meshing run on WorkerThreadPool; the main thread commits finished meshes.
+##  - Initial meshes are committed with a per-frame budget (smooth start-up on tablets).
+##  - Every edit bumps the version of the chunks it touches. All chunks touched during one frame form an EDIT GROUP
+##    whose new meshes are committed together in a single frame, so a changed block and the slopes around it never
+##    show up one after the other.
+## No physics colliders: picking and unit pathfinding query voxel data directly.
 
 signal generation_finished
 signal chunk_meshed(cpos: Vector3i)
@@ -12,21 +18,26 @@ signal block_changed(pos: Vector3i)
 @export var world_seed := 1337
 ## -1 = random from the seed; 0-4 forces the number of extra islands (the map always has one main island).
 @export var extra_islands := -1
-## Meshes committed to the scene per frame. Lower is smoother on tablets.
+## Initial meshes committed to the scene per frame. Lower is smoother on tablets.
 @export var meshes_per_frame := 6
 @export var max_tasks_in_flight := 48
 
 var generator: WorldGen
 ## Set before the node enters the tree to pick another map type.
 var preset: MapPreset = MapPreset.plains()
+## What digging and building do to the ground (stages, slopes). Created in _ready.
+var terrain: TerrainEdit
 
 class Chunk extends RefCounted:
 	var cpos: Vector3i
-	var data := PackedByteArray()
+	var data := PackedInt32Array()   ## empty = nothing but open sky
 	var generated := false
-	var dirty := true
+	var version := 0                 ## bumped by every change of this chunk or of a voxel its mesh can see
+	var built := -1                  ## the version the displayed mesh was built from
 	var meshing := false
 	var instance: MeshInstance3D
+	var in_group := false            ## member of the open edit group
+	var pending: Variant = null      ## finished mesh arrays waiting for the rest of the group
 
 	func _init(p: Vector3i) -> void:
 		cpos = p
@@ -44,6 +55,10 @@ var _mutex := Mutex.new()
 var _gen_results: Array = []
 var _mesh_results: Array = []
 
+var _touched := {}                  ## chunks changed since the last frame: cpos -> Chunk
+var _group := {}                    ## the open edit group: Chunk -> true
+var _commit_queue: Array = []       ## chunks whose initial mesh waits for the per-frame budget (mesh in Chunk.pending)
+
 var _solid_material: StandardMaterial3D
 var _water_material: StandardMaterial3D
 
@@ -57,6 +72,7 @@ func _ready() -> void:
 	_water_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_water_material.albedo_color = Color(1, 1, 1, 0.62)
 	_water_material.roughness = 0.3
+	terrain = TerrainEdit.new(self)
 	start()
 
 
@@ -93,6 +109,7 @@ func in_bounds(p: Vector3i) -> bool:
 	return p.x >= 0 and p.y >= 0 and p.z >= 0 and p.x < s.x and p.y < s.y and p.z < s.z
 
 
+## The voxel at a position (see Blocks for the format); AIR outside the world and in chunks not generated yet.
 func get_block(p: Vector3i) -> int:
 	if not in_bounds(p):
 		return Blocks.AIR
@@ -102,8 +119,9 @@ func get_block(p: Vector3i) -> int:
 	return c.data[(p.x & 15) + ((p.z & 15) << 4) + ((p.y & 15) << 8)]
 
 
-## `smooth` re-evaluates the ramp pieces around the edit (turn it off for the smoothing pass itself).
-func set_block(p: Vector3i, id: int, smooth := true) -> bool:
+## Writes one voxel and schedules the remesh of every chunk that can see it. Pure storage: the rules of digging and
+## building, and the slopes that depend on neighbours, are TerrainEdit's job.
+func set_block(p: Vector3i, raw: int) -> bool:
 	if not in_bounds(p):
 		return false
 	var cpos := Vector3i(p.x >> 4, p.y >> 4, p.z >> 4)
@@ -111,16 +129,16 @@ func set_block(p: Vector3i, id: int, smooth := true) -> bool:
 	if c == null or not c.generated:
 		return false
 	if c.data.is_empty():
-		if id == Blocks.AIR:
+		if raw == Blocks.AIR:
 			return false
 		c.data.resize(Blocks.CHUNK_VOLUME)
 		c.data.fill(Blocks.AIR)
 	var idx := (p.x & 15) + ((p.z & 15) << 4) + ((p.y & 15) << 8)
-	if c.data[idx] == id:
+	if c.data[idx] == raw:
 		return false
-	c.data[idx] = id
+	c.data[idx] = raw
 	block_changed.emit(p)
-	# The chunk and any neighbour whose faces or ambient occlusion can see this voxel need a remesh.
+	# The chunk and any neighbour whose faces or ambient occlusion can see this voxel need a new mesh.
 	var lx := p.x & 15
 	var ly := p.y & 15
 	var lz := p.z & 15
@@ -129,88 +147,10 @@ func set_block(p: Vector3i, id: int, smooth := true) -> bool:
 			for dx in _edge_offsets(lx):
 				var n: Chunk = _chunks.get(cpos + Vector3i(dx, dy, dz))
 				if n != null:
-					n.dirty = true
-					_try_mesh(n)
-	if smooth:
-		_resmooth_around(p)
+					n.version += 1
+					n.pending = null
+					_touched[n.cpos] = n
 	return true
-
-
-## Highest full cube of a column (ramps and slabs sit on top of it), or -1.
-func cube_top(x: int, z: int) -> int:
-	for y in range(size_blocks().y - 1, -1, -1):
-		var raw := get_block(Vector3i(x, y, z))
-		if Blocks.is_solid(raw) and Blocks.shape(raw) == Blocks.SHAPE_CUBE:
-			return y
-	return -1
-
-
-func _top_cached(cache: Dictionary, x: int, z: int) -> int:
-	var key := Vector2i(x, z)
-	if not cache.has(key):
-		cache[key] = cube_top(x, z) if in_bounds(Vector3i(x, 0, z)) else -1
-	return cache[key]
-
-
-## After an edit: the ramp wedges and corners of the 3x3 columns around it are recomputed from the actual heights,
-## the same rules the generator uses. The edited cell itself is left alone, so a ramp that was just dug stays dug.
-func _resmooth_around(p: Vector3i) -> void:
-	var cache := {}
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
-			var x := p.x + dx
-			var z := p.z + dz
-			var top := _top_cached(cache, x, z)
-			if top < 0:
-				continue
-			var cell := Vector3i(x, top + 1, z)
-			if cell == p or not in_bounds(cell):
-				continue
-			var raw := get_block(cell)
-			if raw != Blocks.AIR and not Ramps.is_managed(raw):
-				continue
-			var tops := {}
-			for off in Ramps.NEIGHBOURS:
-				tops[off] = _top_cached(cache, x + off.x, z + off.y)
-			var shape := Ramps.shape_from(top, tops)
-			var want := Blocks.AIR
-			if shape != Blocks.SHAPE_CUBE:
-				want = Blocks.make(Blocks.mat(get_block(Vector3i(x, top, z))), shape)
-			if want != raw:
-				set_block(cell, want, false)
-
-
-## One stage of digging: a full cube is cut down to a half-height slab, anything else is removed.
-## A worker repeats this while the task runs, so pits take shape gradually instead of vanishing block by block.
-func dig_step(p: Vector3i) -> bool:
-	var raw := get_block(p)
-	if not Blocks.is_diggable(raw):
-		return false
-	if Blocks.shape(raw) == Blocks.SHAPE_CUBE:
-		return set_block(p, Blocks.make(Blocks.mat(raw), Blocks.SHAPE_SLAB))
-	return set_block(p, Blocks.AIR)
-
-
-## A block may only be placed into free space that touches an existing solid block (no building in mid-air).
-func can_place(p: Vector3i) -> bool:
-	var existing := get_block(p) if in_bounds(p) else Blocks.STONE
-	# Ramp pieces and slabs are only a thin skin of ground: building replaces them.
-	if not in_bounds(p) or (Blocks.is_solid(existing) and Blocks.shape(existing) == Blocks.SHAPE_CUBE):
-		return false
-	for n in ChunkMesher.FACE_NORMALS:
-		if Blocks.is_solid(get_block(p + n)):
-			return true
-	return false
-
-
-func place_block(p: Vector3i, id: int) -> bool:
-	return can_place(p) and set_block(p, id)
-
-
-## A spot on the start island with the y of the top block, for the camera and the first units.
-func spawn_point() -> Vector3i:
-	var xz := generator.spawn_column()
-	return Vector3i(xz.x, generator.column(xz.x, xz.y).x, xz.y)
 
 
 static func _edge_offsets(local: int) -> Array[int]:
@@ -219,6 +159,12 @@ static func _edge_offsets(local: int) -> Array[int]:
 	if local == 15:
 		return [0, 1]
 	return [0]
+
+
+## A spot on the start island with the y of the top block, for the camera and the first units.
+func spawn_point() -> Vector3i:
+	var xz := generator.spawn_column()
+	return Vector3i(xz.x, generator.column(xz.x, xz.y).x, xz.y)
 
 
 ## Top solid voxel y of a column, or -1 if the column is not generated / empty.
@@ -231,7 +177,7 @@ func surface_y(x: int, z: int) -> int:
 	return -1
 
 
-## Voxel DDA ray. Returns {} on a miss, else {cell, normal, id, distance}.
+## Voxel DDA ray. Returns {} on a miss, else {cell, normal, id, brick, distance}.
 ## `extra_solid(cell) -> bool` lets other systems (bricks) take part in the same ray; such a hit has "brick": true.
 func raycast(origin: Vector3, dir: Vector3, max_dist := 200.0, extra_solid := Callable()) -> Dictionary:
 	dir = dir.normalized()
@@ -247,10 +193,10 @@ func raycast(origin: Vector3, dir: Vector3, max_dist := 200.0, extra_solid := Ca
 	var normal := Vector3i.ZERO
 	var dist := 0.0
 	while dist <= max_dist:
-		var id := get_block(cell)
+		var raw := get_block(cell)
 		var is_brick: bool = extra_solid.is_valid() and extra_solid.call(cell)
-		if is_brick or Blocks.is_solid(id):
-			return {"cell": cell, "normal": normal, "id": Blocks.AIR if is_brick else id, "brick": is_brick, "distance": dist}
+		if is_brick or Blocks.is_solid(raw):
+			return {"cell": cell, "normal": normal, "id": Blocks.AIR if is_brick else raw, "brick": is_brick, "distance": dist}
 		var axis := 0
 		if t_max.y < t_max.x:
 			axis = 1
@@ -268,11 +214,17 @@ func stats() -> String:
 	return "chunks %d/%d gen, tasks %d" % [_gen_done_count, _gen_total, _gen_in_flight + _mesh_in_flight]
 
 
+## True when no chunk is waiting for, or building, a newer mesh (edits have fully shown up).
+func is_settled() -> bool:
+	return _touched.is_empty() and _group.is_empty() and _mesh_in_flight == 0 and _commit_queue.is_empty()
+
+
 # --- pipeline -----------------------------------------------------------------------------------
 
 func _process(_delta: float) -> void:
 	_drain_generated()
 	_feed_generation()
+	_open_edit_group()
 	_drain_meshed()
 
 
@@ -312,11 +264,30 @@ func _drain_generated() -> void:
 		generation_finished.emit()
 
 
-func _try_mesh(c: Chunk) -> void:
-	if c.meshing or not c.dirty or not c.generated:
+## Everything edited since the last frame joins the open edit group and gets rebuilt.
+func _open_edit_group() -> void:
+	if _touched.is_empty():
 		return
+	for key in _touched:
+		var c: Chunk = _touched[key]
+		c.in_group = true
+		_group[c] = true
+	_touched = {}
+	for c in _group.keys():
+		_try_mesh(c)
+	_check_group()
+
+
+func _try_mesh(c: Chunk) -> void:
+	if c.meshing or not c.generated or c.built == c.version:
+		return
+	if c.pending != null:
+		return   # already built for this version, waiting for the rest of its group
 	if c.data.is_empty():
-		c.dirty = false
+		if c.in_group:
+			c.pending = [null, null]   # nothing to draw, but the group still waits for every member
+		else:
+			c.built = c.version
 		return
 	# Wait for every neighbour so border faces are not drawn against ungenerated (empty) space.
 	var snap := []
@@ -328,39 +299,66 @@ func _try_mesh(c: Chunk) -> void:
 				var slot := (dx + 1) + (dz + 1) * 3 + (dy + 1) * 9
 				var n: Chunk = _chunks.get(np)
 				if n == null:
-					snap[slot] = PackedByteArray()  # outside the world is open sky
+					snap[slot] = PackedInt32Array()  # outside the world is open sky
 				elif not n.generated:
 					return
 				else:
 					snap[slot] = n.data
-	c.dirty = false
 	c.meshing = true
 	_mesh_in_flight += 1
-	WorkerThreadPool.add_task(_mesh_task.bind(c, snap))
+	WorkerThreadPool.add_task(_mesh_task.bind(c, snap, c.version))
 
 
-func _mesh_task(c: Chunk, snap: Array) -> void:
+func _mesh_task(c: Chunk, snap: Array, version: int) -> void:
 	var out := ChunkMesher.build(snap, c.cpos * Blocks.CHUNK_SIZE, preset)
 	_mutex.lock()
-	_mesh_results.append([c, out])
+	_mesh_results.append([c, out, version])
 	_mutex.unlock()
 
 
 func _drain_meshed() -> void:
 	_mutex.lock()
-	var take := mini(meshes_per_frame, _mesh_results.size())
-	var results := _mesh_results.slice(0, take)
-	_mesh_results = _mesh_results.slice(take)
+	var results := _mesh_results
+	_mesh_results = []
 	_mutex.unlock()
 	for r in results:
 		var c: Chunk = r[0]
-		var out: Array = r[1]
 		c.meshing = false
 		_mesh_in_flight -= 1
-		_commit_mesh(c, out)
+		if r[2] != c.version:
+			_try_mesh(c)   # edited while it was being built: that mesh is stale
+			continue
+		c.pending = r[1]
+		if not c.in_group:
+			_commit_queue.append(c)
+	_check_group()
+	# Initial meshes, a few per frame.
+	var budget := meshes_per_frame
+	while budget > 0 and not _commit_queue.is_empty():
+		var c: Chunk = _commit_queue.pop_front()
+		if c.pending == null or c.in_group:
+			continue   # edited meanwhile: its group will commit it
+		_commit_mesh(c, c.pending)
+		c.built = c.version
+		c.pending = null
 		chunk_meshed.emit(c.cpos)
-		if c.dirty:
-			_try_mesh(c)
+		budget -= 1
+
+
+## Commits the open edit group once every member has its up-to-date mesh, all in the same frame.
+func _check_group() -> void:
+	if _group.is_empty():
+		return
+	for c in _group:
+		if c.pending == null:
+			return
+	for c in _group:
+		_commit_mesh(c, c.pending)
+		c.built = c.version
+		c.pending = null
+		c.in_group = false
+		chunk_meshed.emit(c.cpos)
+	_group = {}
 
 
 func _commit_mesh(c: Chunk, out: Array) -> void:

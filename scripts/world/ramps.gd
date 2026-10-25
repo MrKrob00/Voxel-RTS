@@ -1,55 +1,66 @@
 class_name Ramps
 extends RefCounted
-## Which ramp shape fills the cell above a column, given the surface heights around it.
-## Used by the generator (heights from noise) and by the world after edits (heights read from the voxels),
-## so freshly generated and freshly dug ground follow the same rules.
+## The one set of rules for slope pieces ("skin") and for pit filling. Used by the generator (levels from noise) and by
+## TerrainEdit (levels read from the voxels), so freshly generated and freshly edited ground always agree.
+##
+## A column's surface LEVEL is measured in half-blocks: 2 * (y of its highest whole cube + 1), plus 1 when the block on
+## top of that cube is half dug. A slope piece fills the cell above a column that is lower than a neighbour.
 
 const NEIGHBOURS: Array[Vector2i] = [
 	Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
 	Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1),
 ]
 
+## Largest height difference (half-blocks) that a slope piece bridges; more than that is a cliff wall.
+const MAX_RISE := 2
 
-## `tops` maps each of the 8 neighbour offsets to that column's top height (or -1 for "no ground").
-## A neighbour exactly one block higher raises the matching corners of the cell: wedge, inner corner, outer corner.
-## A neighbour 2+ higher is a cliff wall: it raises nothing, but it does not cancel ramps that other, 1-higher
-## neighbours ask for (a corner where a 1-block step meets a 2-block wall still gets its ramp).
-## A 1-wide dip or trench (higher on opposite sides, or on 3+ sides) is half filled with a slab.
-static func shape_from(top: int, tops: Dictionary) -> int:
-	var hi := {}
+
+static func level_of_top(top: int) -> int:
+	return 2 * (top + 1) if top >= 0 else -1
+
+
+## Shape id of the slope piece for a column at `level` (even, in half-blocks), or -1 for none.
+## `around` maps each of the 8 neighbour offsets to that neighbour's level (-1 for no ground).
+## A neighbour higher by 1 or 2 half-blocks raises the matching corners of the piece to that height: wedge, inner
+## corner or outer corner, full or half height. A corner follows the two side neighbours that touch it; the diagonal
+## neighbour only counts when neither side neighbour is higher (an outer corner). A neighbour higher by more is a
+## cliff wall: it raises nothing but does not cancel what the other neighbours ask for. Pits and trenches get no
+## piece: a hole stays a hole.
+static func skin_shape(level: int, around: Dictionary) -> int:
+	var rise := {}
+	var any := false
 	for off in NEIGHBOURS:
-		var t: int = tops.get(off, -1)
-		if t == top + 1:
-			hi[off] = true
-	if hi.is_empty():
-		return Blocks.SHAPE_CUBE
-	var px: bool = hi.has(Vector2i(1, 0))
-	var nx: bool = hi.has(Vector2i(-1, 0))
-	var pz: bool = hi.has(Vector2i(0, 1))
-	var nz: bool = hi.has(Vector2i(0, -1))
-	var sides := int(px) + int(nx) + int(pz) + int(nz)
-	if sides >= 3 or (px and nx) or (pz and nz):
-		return Blocks.SHAPE_SLAB
-	var c0: bool = nx or nz or hi.has(Vector2i(-1, -1))    # corner (0,0)
-	var c1: bool = px or nz or hi.has(Vector2i(1, -1))     # (1,0)
-	var c2: bool = px or pz or hi.has(Vector2i(1, 1))      # (1,1)
-	var c3: bool = nx or pz or hi.has(Vector2i(-1, 1))     # (0,1)
-	var key := [int(c0), int(c1), int(c2), int(c3)]
-	for shape in Blocks.SHAPE_CORNERS:
-		if Blocks.SHAPE_CORNERS[shape] == key:
-			return shape
-	return Blocks.SHAPE_CUBE   # saddle or fully raised: leave it
+		var n: int = around.get(off, -1)
+		var d := n - level
+		var r := d if (n >= 0 and d >= 1 and d <= MAX_RISE) else 0
+		rise[off] = r
+		any = any or r > 0
+	if not any:
+		return -1
+	var px: int = rise[Vector2i(1, 0)]
+	var nx: int = rise[Vector2i(-1, 0)]
+	var pz: int = rise[Vector2i(0, 1)]
+	var nz: int = rise[Vector2i(0, -1)]
+	var c0 := _corner(nx, nz, rise[Vector2i(-1, -1)])    # corner (0,0)
+	var c1 := _corner(px, nz, rise[Vector2i(1, -1)])     # (1,0)
+	var c2 := _corner(px, pz, rise[Vector2i(1, 1)])      # (1,1)
+	var c3 := _corner(nx, pz, rise[Vector2i(-1, 1)])     # (0,1)
+	# Two opposite corners raised and the other two not (a saddle): leave it.
+	if (c0 > 0 and c2 > 0 and c1 == 0 and c3 == 0) or (c1 > 0 and c3 > 0 and c0 == 0 and c2 == 0):
+		return -1
+	var shape := Blocks.shape_from_corners(c0, c1, c2, c3)
+	return -1 if shape == Blocks.SHAPE_CUBE else shape   # fully raised on all corners: nothing to add
 
 
-## True for the shapes the smoothing pass owns (not the slab: that one is also what digging leaves behind).
-static func is_managed(raw: int) -> bool:
-	var s := Blocks.shape(raw)
-	return s != Blocks.SHAPE_CUBE and s != Blocks.SHAPE_SLAB
+static func _corner(side_a: int, side_b: int, diagonal: int) -> int:
+	var sides := maxi(side_a, side_b)
+	return sides if sides > 0 else diagonal
 
 
-## Removes 1-block pits and 1-wide trenches from the height field: a column lower than all four neighbours, or
-## lower than both neighbours on one axis, is raised to the lower of those neighbours (only when that is 1-2 blocks).
+## Removes 1-block pits and 1-wide trenches from the generated height field: a column lower than all four neighbours,
+## or lower than both neighbours on one axis, is raised to the lower of those neighbours (only when that is 1-2 blocks).
 ## `px`, `nx`, `pz`, `nz` are the neighbouring tops (+x, -x, +z, -z), -1 where there is no ground.
+## Generation only: players are allowed to dig pits.
 static func despeckle(top: int, px: int, nx: int, pz: int, nz: int) -> int:
 	if px > top and nx > top and pz > top and nz > top:
 		var lo := mini(mini(px, nx), mini(pz, nz))
