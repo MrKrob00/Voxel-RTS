@@ -1,0 +1,431 @@
+#!/usr/bin/env python3
+"""Generates the building blocks of the "Blocks" panel: one low-poly mesh each (assets/blocks/<id>.obj).
+
+Every piece of a block is the convex hull of a short list of points (boxes and cylinders with chamfered edges, wedges, pyramids,
+extruded profiles); a block is a few such pieces (steps of a stair, the flanks of a plug...). The meshes have flat normals on the
+faces and smoothed ones round the curved parts.
+
+Space of a block: x along its length (a 2-cell block is x -1..1, a 1-cell block x -0.5..0.5), y up (-0.5..0.5), z across (-0.5..0.5).
+The game turns it about y. Run:  python3 art/blockgen.py   (then godot --import, then tools/bake_block_icons.gd for the icons).
+No dependencies beyond the standard library.
+"""
+
+import itertools
+import math
+import os
+
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "blocks")
+EPS = 1e-5
+BEVEL = 0.035
+SMOOTH_DEG = 40.0
+
+
+# ---- convex hull of a small point set --------------------------------------------------------------------------------------
+
+def sub(a, b): return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+def dot(a, b): return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+def cross(a, b): return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+def norm(a):
+    l = math.sqrt(dot(a, a))
+    return (a[0] / l, a[1] / l, a[2] / l) if l > 0 else a
+
+
+def hull(points):
+    """Faces of the convex hull: a list of (normal, [points CCW seen from outside])."""
+    pts = []
+    for p in points:
+        q = (round(p[0], 5), round(p[1], 5), round(p[2], 5))
+        if q not in pts:
+            pts.append(q)
+    seen = set()
+    faces = []
+    n = len(pts)
+    for i, j, k in itertools.combinations(range(n), 3):
+        nn = cross(sub(pts[j], pts[i]), sub(pts[k], pts[i]))
+        if dot(nn, nn) < 1e-12:
+            continue
+        nn = norm(nn)
+        d = dot(nn, pts[i])
+        side = [dot(nn, p) - d for p in pts]
+        if all(s <= EPS for s in side):
+            pass
+        elif all(s >= -EPS for s in side):
+            nn = (-nn[0], -nn[1], -nn[2])
+            d = -d
+        else:
+            continue
+        on = tuple(m for m in range(n) if abs(dot(nn, pts[m]) - d) < EPS)
+        if on in seen:
+            continue
+        seen.add(on)
+        poly = [pts[m] for m in on]
+        c = (sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly), sum(p[2] for p in poly) / len(poly))
+        u = norm(sub(poly[0], c)) if dot(sub(poly[0], c), sub(poly[0], c)) > 0 else (1, 0, 0)
+        v = cross(nn, u)
+        poly.sort(key=lambda p: math.atan2(dot(sub(p, c), v), dot(sub(p, c), u)))
+        faces.append((nn, poly))
+    return faces
+
+
+# ---- pieces ----------------------------------------------------------------------------------------------------------------
+
+def box(cx, cy, cz, sx, sy, sz, b=BEVEL):
+    hx, hy, hz = sx / 2, sy / 2, sz / 2
+    b = min(b, hx * 0.9, hy * 0.9, hz * 0.9)
+    pts = []
+    for x in (-1, 1):
+        for y in (-1, 1):
+            for z in (-1, 1):
+                pts += [(cx + x * hx, cy + y * (hy - b), cz + z * (hz - b)),
+                        (cx + x * (hx - b), cy + y * hy, cz + z * (hz - b)),
+                        (cx + x * (hx - b), cy + y * (hy - b), cz + z * hz)]
+    return pts
+
+
+def ring(cy, r, seg, axis, c):
+    out = []
+    for i in range(seg):
+        a = math.tau * i / seg
+        u, w = math.cos(a) * r, math.sin(a) * r
+        out.append(((c[0] + cy, c[1] + u, c[2] + w) if axis == "x" else (c[0] + u, c[1] + cy, c[2] + w)))
+    return out
+
+
+def cyl(cx, cy, cz, r0, r1, h, axis="y", seg=16, b=0.02):
+    """A cylinder or frustum (r0 at the low end, r1 at the high end) along y (or x), edges chamfered by b."""
+    c = (cx, cy, cz)
+    lo, hi = -h / 2, h / 2
+    return (ring(lo, max(r0 - b, 0.01), seg, axis, c) + ring(lo + b, r0, seg, axis, c)
+            + ring(hi - b, r1, seg, axis, c) + ring(hi, max(r1 - b, 0.01), seg, axis, c))
+
+
+def prism(profile, x0, x1, b=0.0):
+    """A profile in (y, z) pushed along x from x0 to x1."""
+    pts = []
+    for (y, z) in profile:
+        pts.append((x0, y, z))
+        pts.append((x1, y, z))
+    return pts
+
+
+def plan(profile, y0, y1):
+    """A profile in (x, z) pushed along y from y0 to y1."""
+    pts = []
+    for (x, z) in profile:
+        pts.append((x, y0, z))
+        pts.append((x, y1, z))
+    return pts
+
+
+def pts_of(*rows):
+    return [tuple(r) for r in rows]
+
+
+# ---- the blocks ------------------------------------------------------------------------------------------------------------
+
+def stairs(length, steps, start=None):
+    """Steps rising towards +x over `length`, the low end at x = start (default: the block's low end)."""
+    out = []
+    w = length / steps
+    x0 = -length / 2 if start is None else start
+    for i in range(steps):
+        top = -0.5 + (i + 1) / steps
+        out.append(box(x0 + w * (i + 0.5), (top - 0.5) / 2, 0, w, top + 0.5, 1))
+    return out
+
+
+def corner_out(length, steps, flip):
+    out = []
+    for k in range(steps):
+        x0 = -length / 2 + length / 2 * k / steps * 1.0
+        z0 = -0.5 + 0.5 * k / steps if not flip else 0.5 - 0.5 * k / steps
+        y0 = -0.5 + k / steps
+        sx = length / 2 - x0
+        sz = 0.5 - (z0 if not flip else -z0) + 0.0
+        zc = (z0 + 0.5) / 2 if not flip else (z0 - 0.5) / 2
+        sz = abs(0.5 - z0) if not flip else abs(z0 + 0.5)
+        out.append(box(x0 + sx / 2, y0 + 0.5 / steps, zc, sx, 1.0 / steps, sz))
+    return out
+
+
+def corner_in(length, steps, flip):
+    out = []
+    half = length / 2
+    for k in range(steps):
+        cut = (steps - 1 - k)
+        nx = half * 2 * cut / steps * 0.75 if steps > 1 else 0
+        nx = length * 0.75 * cut / (steps - 1) if steps > 1 else 0
+        nz = 0.75 * cut / (steps - 1) if steps > 1 else 0
+        y0 = -0.5 + k / steps
+        h = 1.0 / steps
+        # A: the part beyond the cut in x (full width); B: the strip before it, beyond the cut in z
+        ax0 = -half + nx
+        out.append(box((ax0 + half) / 2, y0 + h / 2, 0, half - ax0, h, 1.0))
+        if nx > 0.01:
+            zb0, zb1 = (-0.5 + nz, 0.5) if not flip else (-0.5, 0.5 - nz)
+            out.append(box(-half + nx / 2, y0 + h / 2, (zb0 + zb1) / 2, nx, h, zb1 - zb0))
+    return out
+
+
+def pyramid():
+    out = []
+    y = -0.5
+    for s, h in ((1.0, 0.2), (0.74, 0.2), (0.48, 0.2)):
+        out.append(box(0, y + h / 2, 0, s, h, s, 0.03))
+        y += h
+    out.append(cyl(0, y + 0.15, 0, 0.17, 0.12, 0.3))
+    out.append(cyl(0, y + 0.34, 0, 0.08, 0.08, 0.1, b=0.01))
+    return out
+
+
+def tower(base_h, flare_h, r_low, r_top, top_h, lip=0.0):
+    out = [box(0, -0.5 + base_h / 2, 0, 1.0, base_h, 1.0, 0.04)]
+    y = -0.5 + base_h
+    out.append(cyl(0, y + flare_h / 2, 0, r_low, r_top, flare_h))
+    y += flare_h
+    out.append(cyl(0, y + top_h / 2, 0, r_top, r_top, top_h))
+    if lip > 0:
+        out.append(cyl(0, y + top_h - 0.04, 0, r_top + lip, r_top + lip, 0.08))
+    return out
+
+
+def column():
+    return [box(0, -0.42, 0, 1.0, 0.16, 1.0, 0.04), cyl(0, -0.29, 0, 0.4, 0.4, 0.1), cyl(0, 0.03, 0, 0.3, 0.3, 0.54, b=0.01),
+            cyl(0, 0.38, 0, 0.36, 0.36, 0.12)]
+
+
+def plug_slab(slots, y0, y1, half, d, w):
+    """One layer of a plug: a square of side 2*half with U-shaped channels (width w, depth d from the edge) in the given sides."""
+    yc, hy = (y0 + y1) / 2, y1 - y0
+    out = [box(0, yc, 0, 2 * (half - d), hy, 2 * (half - d), 0.0)]    # the core
+    def band_z(sign, slotted):
+        zc = sign * (half - d / 2)
+        if not slotted:
+            out.append(box(0, yc, zc, 2 * half, hy, d, 0.0))
+        else:
+            fw = (2 * half - w) / 2
+            out.append(box(-(w / 2 + fw / 2), yc, zc, fw, hy, d, 0.0))
+            out.append(box((w / 2 + fw / 2), yc, zc, fw, hy, d, 0.0))
+    def band_x(sign, slotted):
+        xc = sign * (half - d / 2)
+        span = 2 * half - 2 * d
+        if not slotted:
+            out.append(box(xc, yc, 0, d, hy, span, 0.0))
+        else:
+            fw = (span - w) / 2
+            out.append(box(xc, yc, -(w / 2 + fw / 2), d, hy, fw, 0.0))
+            out.append(box(xc, yc, (w / 2 + fw / 2), d, hy, fw, 0.0))
+    band_z(1, "F" in slots)
+    band_z(-1, "B" in slots)
+    band_x(-1, "L" in slots)
+    band_x(1, "R" in slots)
+    return out
+
+
+def plug(slots):
+    """A solid platform below; above it a cube with U-shaped channels from the sides reaching nearly to the middle, and a smaller
+    platform on top with the same channels: F +z, B -z, L -x, R +x."""
+    out = [box(0, -0.41, 0, 1.0, 0.18, 1.0, 0.03)]
+    out += plug_slab(slots, -0.32, 0.30, 0.5, 0.34, 0.34)
+    out += plug_slab(slots, 0.30, 0.5, 0.44, 0.34, 0.34)
+    return out
+
+
+def quarter(cx, cz, sx, sz, r=1.0, seg=12):
+    """Plan points of a quarter disc of radius r centred on the corner (cx, cz), bulging away from it towards (sx, sz)."""
+    pts = [(cx, cz)]
+    for i in range(0, seg + 1):
+        a = math.pi / 2 * i / seg
+        pts.append((cx + sx * math.cos(a) * r, cz + sz * math.sin(a) * r))
+    return pts
+
+
+def round_brick(kind):
+    """The round bricks are built of a rounded corner (a quarter disc, one cell) and a cube.
+    a: rounded corner + cube; b: cube + rounded corner; c: two rounded corners; d: one rounded corner."""
+    if kind == "a":     # left cell rounded (bulging towards -x, +z), right cell a cube
+        pts = quarter(0.0, -0.5, -1.0, 1.0) + [(1.0, -0.5), (1.0, 0.5)]
+    elif kind == "b":
+        pts = quarter(0.0, -0.5, 1.0, 1.0) + [(-1.0, -0.5), (-1.0, 0.5)]
+    elif kind == "c":   # both: a half disc 2 wide
+        pts = quarter(0.0, -0.5, -1.0, 1.0) + quarter(0.0, -0.5, 1.0, 1.0)
+    else:               # d: one cell
+        pts = quarter(0.5, -0.5, -1.0, 1.0)
+    return [plan(pts, -0.5, 0.5)]
+
+
+def squircle(y, half, seg=20, n=4.0):
+    pts = []
+    for i in range(seg):
+        a = math.tau * i / seg
+        c, s_ = math.cos(a), math.sin(a)
+        pts.append((half * math.copysign(abs(c) ** (2 / n), c), y, half * math.copysign(abs(s_) ** (2 / n), s_)))
+    return pts
+
+
+def squat():
+    return [box(0, -0.43, 0, 1.0, 0.14, 1.0, 0.03), squircle(-0.36, 0.5) + squircle(0.5, 0.4) + squircle(0.44, 0.43)]
+
+
+def cren_slab(length=2.0):
+    h = length / 2
+    return [box(0, 0.35, 0, length, 0.3, 1.0, 0.04), box(h / 2, -0.15, 0.1, h, 0.7, 0.8, 0.03)]
+
+
+def cren_bracket():
+    top = box(0, 0.4, 0, 1.0, 0.2, 1.0, 0.03)
+    body = pts_of((-0.3, 0.3, 0.5), (0.3, 0.3, 0.5), (-0.3, -0.5, 0.5), (0.3, -0.5, 0.5), (-0.3, 0.3, -0.35), (0.3, 0.3, -0.35))
+    return [top, body]
+
+
+def cren_corner():
+    tri = [(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5)]
+    top = plan(tri, 0.3, 0.5)
+    body = [(-0.5, 0.3, -0.5), (0.5, 0.3, -0.5), (0.5, 0.3, 0.5), (0.5, -0.5, -0.5), (0.5, -0.5, 0.5)]
+    return [top, body]
+
+
+def cren_slope(length=1.0, half=False):
+    hl = length / 2
+    lower = box(0, -0.25, 0, length, 0.5, 1.0, 0.03)
+    roof = pts_of((-hl, 0.0, 0.5), (hl, 0.0, 0.5), (-hl, 0.5, 0.5), (hl, 0.5, 0.5), (-hl, 0.08, -0.5), (hl, 0.08, -0.5), (-hl, 0.0, -0.5), (hl, 0.0, -0.5))
+    if half:
+        roof = pts_of((-hl, 0.0, -0.5), (hl, 0.0, -0.5), (hl, 0.0, 0.5), (hl, 0.5, 0.5), (hl, 0.08, -0.5))
+        lower = plan([(-hl, -0.5), (hl, -0.5), (hl, 0.5)], -0.5, 0.0)
+    return [lower, roof]
+
+
+def cren_hip():
+    return [box(0, -0.25, 0, 1.0, 0.5, 1.0, 0.03),
+            pts_of((-0.5, 0.0, -0.5), (0.5, 0.0, -0.5), (0.5, 0.0, 0.5), (-0.5, 0.0, 0.5), (0.0, 0.5, 0.0))]
+
+
+def cren_corbel(length, shift):
+    hl = length / 2
+    top = box(0, 0.32, 0, length, 0.36, 1.0, 0.04)
+    body = box(shift, -0.18, 0.1, length * 0.7, 0.64, 0.8, 0.04)
+    nose = box(shift - length * 0.2, -0.38, 0.25, length * 0.35, 0.24, 0.5, 0.04)
+    return [top, body, nose]
+
+
+def wood_log():
+    return [cyl(0, 0, 0, 0.4, 0.4, 2.0, axis="x", seg=14, b=0.03)]
+
+
+def wood_beam():
+    return [box(0, -0.2, 0, 2.0, 0.3, 0.4, 0.03)]
+
+
+def wood_post():
+    return [box(0, 0, 0, 0.4, 1.0, 0.4, 0.03)]
+
+
+def wood_brace():
+    p = [(-0.5, -0.5), (-0.15, -0.5), (0.5, 0.5), (0.15, 0.5)]
+    return [[(x, y, z) for (x, y) in p for z in (-0.12, 0.12)]]
+
+
+def board(length, width):
+    return [box(0, -0.44, 0, length, 0.12, width, 0.02)]
+
+
+BLOCKS = {
+    # --- Stone Blocks
+    "brick":        lambda: [box(0, 0, 0, 2.0, 1.0, 1.0)],
+    "cube":         lambda: [box(0, 0, 0, 1.0, 1.0, 1.0)],
+    "stairs":       lambda: stairs(1.0, 4, -1.0) + [box(0.5, 0, 0, 1.0, 1.0, 1.0)],   # one cell of steps and one cell of block
+    "stairs_small": lambda: stairs(1.0, 4),
+    "corner_out_l": lambda: corner_out(2.0, 4, False),
+    "corner_out_r": lambda: corner_out(2.0, 4, True),
+    "corner_in_l":  lambda: corner_in(2.0, 4, False),
+    "corner_in_r":  lambda: corner_in(2.0, 4, True),
+    "corner_cube":  lambda: corner_out(1.0, 4, False),
+    "pyramid":      pyramid,
+    "tower_a":      lambda: tower(0.18, 0.42, 0.46, 0.3, 0.4, 0.03),
+    "tower_b":      lambda: tower(0.14, 0.3, 0.44, 0.34, 0.56, 0.02),
+    "tower_squat":  squat,
+    "column":       column,
+    "tower_flared": lambda: tower(0.16, 0.5, 0.5, 0.3, 0.34),
+    # --- Plugs
+    "plug_1":       lambda: plug("F"),
+    "plug_2":       lambda: plug("FB"),
+    "plug_3":       lambda: plug("FL"),
+    "plug_4":       lambda: plug("FLR"),
+    "plug_5":       lambda: plug("FBLR"),
+    # --- Round Bricks
+    "round_a":      lambda: round_brick("a"),
+    "round_b":      lambda: round_brick("b"),
+    "round_c":      lambda: round_brick("c"),
+    "round_corner": lambda: round_brick("d"),
+    # --- Crenelations
+    "cren_slab":    lambda: cren_slab(2.0),
+    "cren_bracket": cren_bracket,
+    "cren_corner":  cren_corner,
+    "cren_slope":   lambda: cren_slope(1.0),
+    "cren_slope_corner": lambda: cren_slope(1.0, True),
+    "cren_slope_long": lambda: cren_slope(2.0),
+    "cren_hip":     cren_hip,
+    "cren_corbel_long": lambda: cren_corbel(2.0, 0.1),
+    "cren_corbel":  lambda: cren_corbel(2.0, -0.1),
+    "cren_corbel_small": lambda: cren_corbel(1.0, 0.0),
+    # --- Wood Blocks
+    "log":          wood_log,
+    "beam":         wood_beam,
+    "post":         wood_post,
+    "brace":        wood_brace,
+    "board":        lambda: board(2.0, 1.0),
+    "plank":        lambda: board(2.0, 0.5),
+    "plank_small":  lambda: board(1.0, 0.5),
+}
+
+
+def mesh_of(pieces):
+    """Triangles with per-vertex normals: flat on the faces, smoothed where neighbouring faces differ by less than SMOOTH_DEG."""
+    tris = []
+    cos_limit = math.cos(math.radians(SMOOTH_DEG))
+    for piece in pieces:
+        faces = hull(piece)
+        by_pos = {}
+        for fi, (nn, poly) in enumerate(faces):
+            for p in poly:
+                by_pos.setdefault(p, []).append(fi)
+        for fi, (nn, poly) in enumerate(faces):
+            vn = []
+            for p in poly:
+                s = (0.0, 0.0, 0.0)
+                for fj in by_pos[p]:
+                    if dot(faces[fj][0], nn) > cos_limit:
+                        s = (s[0] + faces[fj][0][0], s[1] + faces[fj][0][1], s[2] + faces[fj][0][2])
+                vn.append(norm(s))
+            for t in range(1, len(poly) - 1):
+                a, b, c = poly[0], poly[t], poly[t + 1]
+                if dot(cross(sub(b, a), sub(c, a)), cross(sub(b, a), sub(c, a))) < 1e-10:
+                    continue
+                tris.append(((a, vn[0]), (b, vn[t]), (c, vn[t + 1])))
+    return tris
+
+
+def write_obj(name, tris):
+    lines = ["# generated by art/blockgen.py", "o %s" % name]
+    n = 0
+    for tri in tris:
+        for p, _ in tri:
+            lines.append("v %.4f %.4f %.4f" % p)
+        for _, v in tri:
+            lines.append("vn %.4f %.4f %.4f" % v)
+    for i in range(len(tris)):
+        b = i * 3 + 1
+        lines.append("f %d//%d %d//%d %d//%d" % (b, b, b + 1, b + 1, b + 2, b + 2))
+    with open(os.path.join(OUT, name + ".obj"), "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+if __name__ == "__main__":
+    os.makedirs(OUT, exist_ok=True)
+    for name, make in BLOCKS.items():
+        tris = mesh_of(make())
+        write_obj(name, tris)
+        xs = [p[0] for t in tris for p, _ in t]
+        ys = [p[1] for t in tris for p, _ in t]
+        zs = [p[2] for t in tris for p, _ in t]
+        print("%-18s %4d triangles  x %.2f..%.2f  y %.2f..%.2f  z %.2f..%.2f" % (name, len(tris), min(xs), max(xs), min(ys), max(ys), min(zs), max(zs)))

@@ -137,7 +137,7 @@ func build(first_cell: Vector3i, axis: int, length: int, height: int, prepared: 
 		var g := MeshInstance3D.new()
 		if s.shape != "":
 			g.mesh = BlockCatalog.mesh(s.shape)
-			g.basis = Basis(Vector3.UP, -s.facing * PI * 0.5)
+			g.basis = Basis(Vector3.UP, -s.facing * PI * 0.5) * 0.98
 		else:
 			var box := BoxMesh.new()
 			box.size = (Vector3(2, 1, 1) if s.axis == 0 else Vector3(1, 1, 2)) * 0.96 if s.length == 2 else Vector3.ONE * 0.96

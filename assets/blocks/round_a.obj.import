@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dejni85pi1crh"
+path="res://.godot/imported/round_a.obj-dcbc9295ec5e950d6f80cc4cd78557de.mesh"
+
+[deps]
+
+files=["res://.godot/imported/round_a.obj-dcbc9295ec5e950d6f80cc4cd78557de.mesh"]
+
+source_file="res://assets/blocks/round_a.obj"
+dest_files=["res://.godot/imported/round_a.obj-dcbc9295ec5e950d6f80cc4cd78557de.mesh", "res://.godot/imported/round_a.obj-dcbc9295ec5e950d6f80cc4cd78557de.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

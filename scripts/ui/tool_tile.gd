@@ -19,13 +19,24 @@ func setup(tool_mode: int, text: String) -> ToolTile:
 	custom_minimum_size = Vector2(68, 76)
 	focus_mode = Control.FOCUS_NONE
 	tooltip_text = text
+	if Tools.is_block(tool_mode):
+		# a block is shown by its photograph (assets/blocks/icons, made from the block's own mesh)
+		var pic := TextureRect.new()
+		pic.texture = BlockCatalog.icon(Tools.block_of(tool_mode))
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		pic.offset_bottom = -14.0
+		add_child(pic)
 	return self
 
 
 func _draw() -> void:
 	var c := Vector2(size.x * 0.5, size.y * 0.4)
 	var u := minf(size.x, size.y) / 76.0
-	_emblem(c, u)
+	if not Tools.is_block(mode):
+		_emblem(c, u)
 	var font := get_theme_default_font()
 	var w := font.get_string_size(caption, HORIZONTAL_ALIGNMENT_CENTER, size.x - 4.0, 11).x
 	draw_string(font, Vector2((size.x - minf(w, size.x - 4.0)) * 0.5, size.y - 8.0), caption, HORIZONTAL_ALIGNMENT_LEFT, size.x - 4.0, 11, WARM if button_pressed else INK)
@@ -72,41 +83,4 @@ func _emblem(c: Vector2, u: float) -> void:
 			_rect(c, u, -22, -8, 44, 18, WOOD if mode == Tools.Mode.WOOD_BRICK else STONE)
 			draw_line(c + Vector2(0, -8) * u, c + Vector2(0, 10) * u, Color(0, 0, 0, 0.35), 2.0 * u)
 		_:
-			if Tools.is_block(mode):
-				_block_icon(c, u, Tools.block_of(mode))
-			else:
-				draw_circle(c, 10.0 * u, INK)
-
-
-## A block seen from the side: its parts as flat shapes.
-func _block_icon(c: Vector2, u: float, id: String) -> void:
-	var d := BlockCatalog.get_def(id)
-	var col := WOOD if d.material == BlockCatalog.WOOD else STONE
-	var k := 22.0 * u * (1.0 if d.length == 2 else 1.5)   # pixels per block unit: a brick is 44 wide
-	if d.parts.is_empty():   # stairs (steps of ground and a cube)
-		for i in 4:
-			_rect(c, 1.0, (-22 + i * 11) * u, (10 - i * 7) * u, 11.0 * u, (7 + i * 7) * u, col)
-		return
-	var shade := 0.0
-	for part in d.parts:
-		var p: Vector3 = part.p
-		match part.t:
-			"box":
-				var s: Vector3 = part.s
-				draw_rect(Rect2(c + Vector2(p.x - s.x * 0.5, -p.y - s.y * 0.5) * k * 0.9, Vector2(s.x, s.y) * k * 0.9), col.darkened(shade))
-			"wedge":
-				var s: Vector3 = part.s
-				var x0 := (p.x - s.x * 0.5) * k * 0.9
-				var x1 := (p.x + s.x * 0.5) * k * 0.9
-				var y0 := -(p.y - s.y * 0.5) * k * 0.9
-				var y1 := -(p.y + s.y * 0.5) * k * 0.9
-				draw_colored_polygon([c + Vector2(x0, y0), c + Vector2(x1, y0), c + Vector2(x1, y1)], col.darkened(shade))
-			"cyl":
-				var half: float = part.h * 0.5
-				var rb: float = part.r
-				var rt: float = part.r_top
-				if part.axis == "y":
-					draw_colored_polygon([c + Vector2(p.x - rb, -(p.y - half)) * k * 0.9, c + Vector2(p.x + rb, -(p.y - half)) * k * 0.9, c + Vector2(p.x + rt, -(p.y + half)) * k * 0.9, c + Vector2(p.x - rt, -(p.y + half)) * k * 0.9], col.darkened(shade))
-				else:
-					draw_rect(Rect2(c + Vector2(p.x - half, -p.y - rb) * k * 0.9, Vector2(part.h, rb * 2.0) * k * 0.9), col.darkened(shade))
-		shade += 0.08
+			draw_circle(c, 10.0 * u, INK)

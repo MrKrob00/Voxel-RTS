@@ -188,8 +188,6 @@ func place_block(id: String, at: Vector3i, dir: Vector2i) -> WallPlan:
 	if d.is_empty():
 		last_error = "no such block"
 		return null
-	if d.get("special", "") == "stairs":
-		return place_stairs(at, dir)
 	if d.material == BlockCatalog.WOOD:
 		last_error = "wooden blocks are not built yet"
 		return null

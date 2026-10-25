@@ -155,13 +155,13 @@ func _step(n: int) -> void:
 ## The shapes of the catalog: every one has a mesh; some are planned, built and stand where they were put, each for one block of stone.
 func _catalog_blocks(base: Vector3i, crew: Array) -> void:
 	for d in BlockCatalog.all():
-		if d.parts.size() > 0:
-			var m := BlockCatalog.mesh(d.id)
-			check(m.get_surface_count() == 1 and m.surface_get_array_len(0) >= 24, "the %s has a mesh (%d vertices)" % [d.id, m.surface_get_array_len(0)])
+		var m := BlockCatalog.mesh(d.id)
+		check(m != null and m.get_surface_count() == 1 and m.get_aabb().size.x > d.length * 0.35 and m.get_aabb().size.x < d.length + 0.1, "the %s has its mesh, %d cell(s) long" % [d.id, d.length])
+		check(BlockCatalog.icon(d.id) != null, "...and its photograph")
 	for i in 2:
 		var st := _economy.place_stockpile(base + Vector3i(2 + i * 3, 0, 17), Stockpile.Style.STACK)
 		st.add(Resources.Kind.BRICK, 8)
-	var ids := ["ramp", "pillar", "plug_side", "round_brick", "merlon", "pyramid"]
+	var ids := ["stairs", "column", "plug_1", "round_a", "cren_slab", "pyramid"]
 	var plans: Array[WallPlan] = []
 	for i in ids.size():
 		var plan := _board.place_block(ids[i], base + Vector3i(2 + i * 3, 0, 14), Vector2i(1, 0))
@@ -175,7 +175,7 @@ func _catalog_blocks(base: Vector3i, crew: Array) -> void:
 		_step(1)
 		ticks += 1
 	check(plans.all(func(p: WallPlan) -> bool: return p.is_done()), "all of them are built (%.0f s)" % (ticks * DT))
-	var ramp := _bricks.brick_at(base + Vector3i(2, 0, 14))
-	check(ramp != null and ramp.shape == "ramp" and ramp.length == 2, "the ramp stands, two cells long, with its own shape")
-	var pillar := _bricks.brick_at(base + Vector3i(5, 0, 14))
-	check(pillar != null and pillar.shape == "pillar" and pillar.length == 1, "the pillar stands, one cell")
+	var stairs := _bricks.brick_at(base + Vector3i(2, 0, 14))
+	check(stairs != null and stairs.shape == "stairs" and stairs.length == 2, "the stairs stand, two cells long, with their own shape")
+	var column := _bricks.brick_at(base + Vector3i(5, 0, 14))
+	check(column != null and column.shape == "column" and column.length == 1, "the column stands, one cell")

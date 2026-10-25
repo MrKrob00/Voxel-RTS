@@ -107,8 +107,6 @@ func _ready() -> void:
 		var sp: Vector3i = main.world.spawn_point()
 		var n := 0
 		for d in BlockCatalog.all():
-			if d.parts.is_empty():
-				continue
 			var at := Vector3i(sp.x - 6 + (n % 8) * 3, sp.y + 1, sp.z + 3 + (n / 8) * 3)
 			for dz in 2:
 				for dx in 3:
