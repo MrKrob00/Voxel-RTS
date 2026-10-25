@@ -454,19 +454,38 @@ def cren_roof_inner():
     return [lower, slope_z, slope_x]
 
 
-def cren_corbel_long():
-    """The long corbel (2 cells along x): a whole cube at -x; in front of it a flat platform 22% of a block thick along the top; under
-    the platform, from the cube to its end, a block 30% as wide as the cell. Two slopes join that block to the rest:
+def corbel_slab(rounded):
+    """A corbel of 2 cells along x: a whole cube at -x; in front of it a flat platform 22% of a block thick along the top; under the
+    platform, from the cube to its end, a block 30% as wide as the cell. Two slopes join that block to the rest:
       - from the side edges of the platform, down to half the height of the straight part of the block;
-      - from the side edges of the cube's face, about 10% of a block out along the block, up to the platform's slope."""
+      - from the side edges of the cube's face, about 10% of a block out along the block, up to the platform's slope.
+    `rounded`: the slopes are curves (quarter ellipses, hollow) and the front corners of the platform are round."""
     cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
-    platform = box(0.5, 0.39, 0, 1.0, 0.22, 1.0, 0.0)
     w, under, rise = 0.15, 0.28, 0.1            # half the width of the narrow block, the underside of the platform, the slope at the cube
     low = under - 0.5 * (under + 0.5)             # half way down the straight part
+    if rounded:
+        r, n = 0.14, 6
+        plan_pts = [(0.0, -0.5), (0.0, 0.5)]
+        for sign in (1, -1):
+            for i in range(n + 1):
+                a = math.pi / 2 * i / n
+                plan_pts.append((1.0 - r + r * math.sin(a), sign * (0.5 - r + r * math.cos(a))))
+        platform = [(x, y, z) for (x, z) in plan_pts for y in (under, 0.5)]
+    else:
+        platform = box(0.5, 0.39, 0, 1.0, 0.22, 1.0, 0.0)
     out = [cube, platform, box(0.5, (-0.5 + under) / 2, 0, 1.0, under + 0.5, 2 * w, 0.0)]
     for side in (-1, 1):
-        out.append([(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((under, w), (under, 0.5), (low, w))])
-        out.append([(x, y, side * z) for y in (-0.5, under) for (x, z) in ((0.0, w), (0.0, 0.5), (rise, w))])
+        if rounded:
+            k = 8
+            arc = [(0.5 - (0.5 - w) * math.cos(math.pi / 2 * i / k), low + (under - low) * math.sin(math.pi / 2 * i / k)) for i in range(k + 1)]   # (z, y)
+            for (z0, y0), (z1, y1) in zip(arc, arc[1:]):
+                out.append([(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((y0, w), (y0, z0), (y1, z1), (y1, w))])
+            arc = [(rise - rise * math.cos(math.pi / 2 * i / k), 0.5 - (0.5 - w) * math.sin(math.pi / 2 * i / k)) for i in range(k + 1)]   # (x, z)
+            for (x0, z0), (x1, z1) in zip(arc, arc[1:]):
+                out.append([(x, y, side * z) for y in (-0.5, under) for (x, z) in ((x0, w), (x0, z0), (x1, z1), (x1, w))])
+        else:
+            out.append([(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((under, w), (under, 0.5), (low, w))])
+            out.append([(x, y, side * z) for y in (-0.5, under) for (x, z) in ((0.0, w), (0.0, 0.5), (rise, w))])
     return out
 
 
@@ -557,8 +576,8 @@ BLOCKS = {
     "cren_slope_corner": cren_roof_corner,
     "cren_slope_long": lambda: cren_roof(2.0),
     "cren_hip":     cren_roof_inner,
-    "cren_corbel_long": cren_corbel_long,
-    "cren_corbel":  lambda: cren_corbel(2.0, -0.1),
+    "cren_corbel_long": lambda: corbel_slab(True),
+    "cren_corbel":  lambda: corbel_slab(False),
     "cren_corbel_small": lambda: cren_corbel(1.0, 0.0),
     # --- Wood Blocks
     "log":          wood_log,
