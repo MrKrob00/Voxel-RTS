@@ -79,7 +79,7 @@ static func _build() -> void:
 	_d("cren_hip", s, "Hip", 1, m)
 	_d("cren_corbel_long", s, "Corbel", 2, m, "J")
 	_d("cren_corbel", s, "Corbel 2", 2, m)
-	_d("cren_corbel_small", s, "Corbel 1", 1, m)
+	_d("cren_corbel_small", s, "Corbel 1", 2, m)
 	s = "Wood Blocks"
 	m = WOOD
 	_d("log", s, "Log", 2, m)
