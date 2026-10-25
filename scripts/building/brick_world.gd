@@ -87,6 +87,27 @@ func brick_count() -> int:
 	return _bricks.size()
 
 
+## Shapes whose low cell is a straight flight of steps, and how many steps a cell holds. The stair block (a flight and a cube) and the
+## single flight rise towards `facing`; the flight is the cell on the low side. A unit walks IN such a cell, up the steps.
+const FLIGHTS := {"stairs": 3, "stairs_small": 3}
+const RISE: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)]
+
+
+## The flight of steps in a cell, as {"rise": Vector2i (the way it climbs), "steps": int}, or {} when the cell holds no flight.
+func steps_at(cell: Vector3i) -> Dictionary:
+	var b: Brick = _cells.get(cell)
+	if b == null or not FLIGHTS.has(b.shape):
+		return {}
+	var rise := RISE[b.facing & 3]
+	if b.length == 2:
+		var cs := b.cells()
+		var a: int = cs[0].x * rise.x + cs[0].z * rise.y
+		var o: int = cs[1].x * rise.x + cs[1].z * rise.y
+		if cell != (cs[0] if a < o else cs[1]):
+			return {}   # the cube end of the block
+	return {"rise": rise, "steps": FLIGHTS[b.shape]}
+
+
 func debris_count() -> int:
 	return _debris.size()
 

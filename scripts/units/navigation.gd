@@ -5,7 +5,7 @@ extends RefCounted
 ## A NODE is the cell the unit's feet are in. A cell can be stood in when
 ##   - it is open air, or a ground piece (slope / half-dug block, which the unit stands IN), never a whole block, a brick or water;
 ##   - the cell above it is free (the unit is one block tall plus a hat);
-##   - in open air there is a whole block or a brick under it (a ground piece carries itself).
+##   - in open air there is a whole block or a brick under it (a ground piece or a flight of brick steps carries itself).
 ## Moves go to the 8 neighbouring columns and change height by at most MAX_STEP_UP up (a hop onto a block) or MAX_DROP down.
 ## A diagonal needs both of the cells beside it to be free, so nobody cuts a corner through a wall.
 ## When there is no way to walk in a straight direction, a unit may JUMP over a gap of one cell (a hole, a missing block, a one-cell
@@ -46,6 +46,19 @@ func _brick(c: Vector3i) -> bool:
 	return (bricks != null and bricks.occupied(c)) or (obstacle.is_valid() and obstacle.call(c))
 
 
+## The flight of steps in a cell ({} if none): the unit stands IN that cell and walks up the steps.
+func _flight(c: Vector3i) -> Dictionary:
+	return bricks.steps_at(c) if bricks != null else {}
+
+
+## A brick or other thing that carries the feet of someone standing on top of it. A flight of steps does not: its top is only reached
+## by walking up it.
+func _floor_brick(c: Vector3i) -> bool:
+	if obstacle.is_valid() and obstacle.call(c):
+		return true
+	return bricks != null and bricks.occupied(c) and bricks.steps_at(c).is_empty()
+
+
 ## Blocks a body: any solid ground, whole or partial, a brick, or water.
 func blocked(c: Vector3i) -> bool:
 	if _brick(c):
@@ -56,7 +69,9 @@ func blocked(c: Vector3i) -> bool:
 
 ## A ground piece (slope or half-dug block) is a floor the unit stands in: free for feet, not for a head.
 func _feet_free(c: Vector3i) -> bool:
-	if _brick(c):
+	if obstacle.is_valid() and obstacle.call(c):
+		return false
+	if bricks != null and bricks.occupied(c) and bricks.steps_at(c).is_empty():
 		return false
 	var raw := world.get_block(c)
 	if Blocks.mat(raw) == Blocks.WATER:
@@ -72,14 +87,22 @@ func standable(c: Vector3i) -> bool:
 	if blocked(c + Vector3i(0, 1, 0)):
 		return false
 	var raw := world.get_block(c)
-	if Blocks.is_partial(raw):
+	if Blocks.is_partial(raw) or not _flight(c).is_empty():
 		return true
 	var below := c + Vector3i(0, -1, 0)
-	return Blocks.is_whole(world.get_block(below)) or _brick(below)
+	return Blocks.is_whole(world.get_block(below)) or _floor_brick(below)
 
 
 ## y of the unit's feet in world units, at a point (wx, wz) inside the cell.
 func feet_height(c: Vector3i, wx: float, wz: float) -> float:
+	var flight := _flight(c)
+	if not flight.is_empty():
+		var rise: Vector2i = flight.rise
+		var u := (wx - c.x) if rise.x != 0 else (wz - c.z)
+		if rise.x + rise.y < 0:
+			u = 1.0 - u
+		var n: int = flight.steps
+		return c.y + minf(1.0, (floorf(clampf(u, 0.0, 0.9999) * n) + 1.0) / n)
 	var raw := world.get_block(c)
 	if Blocks.is_partial(raw):
 		return c.y + Blocks.surface_height(Blocks.shape(raw), clampf(wx - c.x, 0.0, 1.0), clampf(wz - c.z, 0.0, 1.0), Blocks.is_stairs(raw))

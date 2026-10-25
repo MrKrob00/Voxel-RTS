@@ -7,8 +7,8 @@
 # ERROR line), not from the exit code: Godot headless sometimes aborts while shutting down after a world was generated.
 cd "$(dirname "$0")/.." || exit 1
 LOG=$(mktemp -d)
-declare -A SCRIPT=( [smoke]="res://tests/world_smoke_test.gd" [shared]="res://tests/run_suites.gd" [islands]="res://tests/island_seeds_test.gd" [cover]="res://tests/ground_cover_test.gd" [ramps]="res://tests/ramps_rule_test.gd" )
-ALL="smoke shared islands cover ramps"   # slowest first
+declare -A SCRIPT=( [smoke]="res://tests/world_smoke_test.gd" [shared]="res://tests/run_suites.gd" [islands]="res://tests/island_seeds_test.gd" [cover]="res://tests/ground_cover_test.gd" [ramps]="res://tests/ramps_rule_test.gd" [stairs]="res://tests/stairs_walk_test.gd" )
+ALL="smoke shared islands cover ramps stairs"   # slowest first
 WANT=""
 if [ $# -eq 0 ]; then WANT="$ALL"; else
   for g in $ALL; do for w in "$@"; do [[ "$g" == *"$w"* ]] && WANT="$WANT $g" && break; done; done
