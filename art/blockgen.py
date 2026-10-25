@@ -405,11 +405,8 @@ def cren_bracket():
 
 
 def cren_corner():
-    """A corner corbel: a triangular top plate on a body that narrows to a point under the middle of it."""
-    tri = [(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5)]
-    top = plan(tri, 0.3, 0.5)
-    body = [(-0.5, 0.3, -0.5), (0.5, 0.3, -0.5), (0.5, 0.3, 0.5), (0.17, -0.5, -0.17)]
-    return [top, body]
+    """The corner bracket is, for now, the same as the bracket."""
+    return cren_bracket()
 
 
 def cren_slope(length=1.0, half=False):
