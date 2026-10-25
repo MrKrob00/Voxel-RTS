@@ -9,6 +9,13 @@ var cells := {}          ## Vector3i -> Unit that claimed it (or null)
 var workers: Array[Unit] = []
 var blocked := {}        ## Vector3i -> time until which nobody tries it again (unreachable just now)
 var overlay: MeshInstance3D
+## Which of the things this task digs up are brought home. The rest (and all earth) is broken and thrown away: a quarry can be
+## told to bring iron only, and the stone it breaks on the way just disappears.
+var collect := {Resources.Kind.STONE: true, Resources.Kind.COAL: true, Resources.Kind.IRON: true, Resources.Kind.AMBER: true}
+
+
+func collects(kind: int) -> bool:
+	return collect.get(kind, false)
 
 
 func cell_count() -> int:

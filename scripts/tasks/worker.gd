@@ -124,7 +124,8 @@ func _on_arrived() -> void:
 		State.GO_STOCK:
 			state = State.PUT
 			_timer = PUT_TIME
-			unit.face(Vector3(stockpile.origin.x + 1.0, 0.0, stockpile.origin.z + 1.0))
+			if _stock_ok():
+				unit.face(Vector3(stockpile.origin.x + 1.0, 0.0, stockpile.origin.z + 1.0))
 
 
 func _on_failed() -> void:
@@ -173,6 +174,8 @@ func _dig(delta: float) -> void:
 	unit.progress = -1.0
 	var raw := board.world.get_block(target)
 	var kind := Resources.from_block(Blocks.mat(raw))
+	if kind != Resources.Kind.NONE and not task.collects(kind):
+		kind = Resources.Kind.NONE   # not wanted: broken and thrown away, like earth
 	board.world.terrain.dig_step(target)
 	var gone := not board.world.terrain.can_dig(target)
 	if gone:
@@ -187,17 +190,18 @@ func _dig(delta: float) -> void:
 
 
 func _find_stockpile() -> void:
-	stockpile = board.economy.find_space(unit.cell)
+	var kind := unit.carried_kind()
+	stockpile = board.economy.find_space(unit.cell, kind)
 	if stockpile == null:
 		state = State.WAIT
 		_timer = 1.0
-		unit.status = "No free stockpile"
+		unit.status = "No free stockpile for %s" % Resources.label(kind).to_lower()
 		return
 	unit.status = ""
 	var spots := stockpile.access_cells(board.nav)
 	spots.sort_custom(func(a: Vector3i, b: Vector3i) -> bool:
 		return Vector2(a.x - unit.cell.x, a.z - unit.cell.z).length() < Vector2(b.x - unit.cell.x, b.z - unit.cell.z).length())
-	board.economy.reserve(stockpile)
+	board.economy.reserve(stockpile, kind)
 	for s in spots.slice(0, 3):
 		if s == unit.cell:
 			state = State.PUT
@@ -214,11 +218,21 @@ func _find_stockpile() -> void:
 	unit.status = "Can't reach a stockpile"
 
 
+func _stock_ok() -> bool:
+	return stockpile != null and board.economy.stockpiles.has(stockpile)
+
+
 func _put() -> void:
 	var kind := unit.carried_kind()
-	if stockpile != null:
-		board.economy.deposit(stockpile, kind, unit.carried_amount())
+	if not _stock_ok():
 		stockpile = null
+		_find_stockpile()   # it was taken away (a full frame turned into bricks) while we walked
+		return
+	var put := board.economy.deposit(stockpile, kind, unit.carried_amount())
+	stockpile = null
+	if put == 0:
+		_find_stockpile()   # no room after all: keep the bag, look for another place
+		return
 	unit.carry(Resources.Kind.NONE, 0)
 	# Back to the same block if there is still something of it left, else to the next one.
 	if target.x >= 0 and task.cells.has(target):

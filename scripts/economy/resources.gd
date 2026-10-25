@@ -14,12 +14,11 @@ const COLORS := {
 }
 
 
-## What a unit gets from digging a block of this material (a bag of it), Kind.NONE for things that give nothing.
+## What a unit gets from digging a block of this material: a bag of it. Earth (grass, dirt, sand, snow) gives nothing:
+## workers just break it and it is gone. Kind.NONE means "nothing to carry".
 static func from_block(material: int) -> int:
 	match material:
-		Blocks.GRASS, Blocks.DIRT:
-			return Kind.DIRT
-		Blocks.STONE, Blocks.SNOW:
+		Blocks.STONE:
 			return Kind.STONE
 		Blocks.COAL:
 			return Kind.COAL
@@ -27,11 +26,13 @@ static func from_block(material: int) -> int:
 			return Kind.IRON
 		Blocks.ORANGE_ORE:
 			return Kind.AMBER
-		Blocks.SAND:
-			return Kind.SAND
 		Blocks.PLANK:
 			return Kind.WOOD
 	return Kind.NONE
+
+
+## The things a quarry brings by default; the player can switch kinds off per task (those are broken and thrown away).
+const DIGGABLE := [Kind.STONE, Kind.COAL, Kind.IRON, Kind.AMBER]
 
 
 static func label(kind: int) -> String:

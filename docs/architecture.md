@@ -97,12 +97,20 @@ picture is final; later stamps rebuild only the chunks they touch (`stamp_cover_
 - **Dig task**: the player marks columns (tap one, or drag/long-press-drag a box in "mark dig area" mode); the surface block of
   every column is marked. Units are assigned from the task list (the selection, or all idle units if none is selected).
 - A **Worker** is a small state machine (SEEK -> GO_DIG -> DIG -> GO_STOCK -> PUT, WAIT when there is no room). One dig stage
-  (1.3 s) gives **one bag** of what the block is made of (`Resources.from_block`: grass and dirt give earth, ore gives ore); the worker
-  carries it to the nearest stockpile with room (reserved while it is on its way), puts it down and comes back to the same block
-  for its next stage. A block takes two stages (whole -> half dug -> gone), a slope piece one.
-- A **stockpile** is a 2x2 wooden platform that needs four whole ground blocks at one height with two free cells above
-  (`Stockpile.can_place`: not on slopes or half-dug blocks, not over bricks or another stockpile). It holds 24 bags in total.
-  Without any stockpile with room the worker keeps its bag and says "No free stockpile".
+  (1.3 s) gives **one bag** (half a block) of what the block is made of (`Resources.from_block`: stone, coal, iron, amber). **Earth
+  (grass, dirt, sand, snow) gives nothing**: workers just break it. The worker carries the bag to the nearest stockpile that takes
+  it and has room (reserved while it is on its way), puts it down and comes back to the same block for its next stage. A block
+  takes two stages (whole -> half dug -> gone), a slope piece one.
+- **Task filter**: a dig task brings home only the kinds that are switched on (stone, coal, iron, amber, buttons on the task row);
+  the rest is broken and thrown away, so a quarry can be set to carry iron only.
+- Two **stockpile** styles, both 2x2 on four whole ground blocks at one height with two free cells above (`Stockpile.can_place`: not
+  on slopes or half-dug blocks, not over bricks or another stockpile):
+  - the **plank platform** (24 bags; wood and ores);
+  - the **frame**, four low walls round the pile (16 bags; stone and plants). Stone shows as a heap of gravel that grows with every
+    bag. When the frame is filled with stone to the brim it disappears and **4 stone bricks of 2x1x1** (two layers of two, the 2x2x2
+    volume) stand in its place as ordinary `BrickWorld` bricks.
+  A stockpile holds one kind at a time and takes another once it is empty. With no stockpile that takes the kind, the worker
+  keeps its bag and says "No free stockpile for stone".
 - Not done yet: wood and plant harvesting, building tasks, a task bar like the original (Harvest / Mining / Construction groups),
   and the *mining stair* state of the ground (one 2x1x1 piece, half whole block and half steps, which only units make).
 

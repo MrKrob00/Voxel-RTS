@@ -10,7 +10,7 @@ func _ready() -> void:
 	var pitch := -1.0
 	var yaw := -1000.0
 	var select_all := false
-	var stockpile := Vector2(-1, -1)      # --stockpile=x,z: put a stockpile on the ground there
+	var stockpiles: Array[Vector3i] = []  # --stockpile=x,z[,bags]: put a stockpile there (--frame: a frame, filled with `bags` of stone)
 	var task_rect: Array[int] = []        # --task=x0,z0,x1,z1: mark an area to dig and put every unit on it
 	var wait_frames := 400                # --wait=N: frames to wait before the shot (let units work)
 	var move_to := Vector2(-1, -1)   # --move=x,z: select every unit and send it there, then wait for it to walk a bit
@@ -29,7 +29,7 @@ func _ready() -> void:
 			yaw = float(a.substr(6))
 		elif a.begins_with("--stockpile="):
 			var sp := a.substr(12).split(",")
-			stockpile = Vector2(float(sp[0]), float(sp[1]))
+			stockpiles.append(Vector3i(int(sp[0]), int(sp[1]), int(sp[2]) if sp.size() > 2 else 0))
 		elif a.begins_with("--task="):
 			for part in a.substr(7).split(","):
 				task_rect.append(int(part))
@@ -59,10 +59,15 @@ func _ready() -> void:
 		if gc.x >= 0:
 			units.command_move(gc)
 	var economy: Economy = get_parent().get("economy")
-	if stockpile.x >= 0.0 and economy != null:
-		var top := world.surface_y(int(stockpile.x), int(stockpile.y))
-		var made := economy.place_stockpile(Vector3i(int(stockpile.x), top + 1, int(stockpile.y)))
+	for sp in stockpiles:
+		if economy == null:
+			break
+		var top := world.surface_y(sp.x, sp.y)
+		var framed := OS.get_cmdline_user_args().has("--frame")
+		var made := economy.place_stockpile(Vector3i(sp.x, top + 1, sp.y), Stockpile.Style.FRAME if framed else Stockpile.Style.PLATFORM)
 		print("stockpile: ", "placed" if made != null else economy.last_error)
+		if made != null and sp.z > 0:
+			made.add(Resources.Kind.STONE if framed else Resources.Kind.IRON, sp.z)
 	var board: TaskBoard = get_parent().get("board")
 	if task_rect.size() == 4 and board != null:
 		var t := board.create_dig(task_rect[0], task_rect[1], task_rect[2], task_rect[3])

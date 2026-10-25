@@ -5,8 +5,8 @@ var preset := MapPreset.plains()
 var world: VoxelWorld
 var props: PropField
 var rig: RTSCamera
-enum Mode { SELECT, MARK_DIG, STOCKPILE, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
-const MODE_NAMES := ["select / move", "mark dig area", "place stockpile 2x2", "dig (instant)", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
+enum Mode { SELECT, MARK_DIG, STOCKPILE, FRAME, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
+const MODE_NAMES := ["select / move", "mark dig area", "stockpile: plank platform (wood, ore)", "stockpile: frame (stone, plants)", "dig (instant)", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
 const START_UNITS := 5
 
 var bricks: BrickWorld
@@ -236,7 +236,7 @@ func _update_hover() -> void:
 	_ghost.visible = false
 	_stock_ghost.visible = false
 	_cell_info.text = "" if hit.is_empty() else _describe_cell(hit.cell, hit.brick)
-	if mode == Mode.STOCKPILE and not hit.is_empty() and not hit.brick:
+	if (mode == Mode.STOCKPILE or mode == Mode.FRAME) and not hit.is_empty() and not hit.brick:
 		var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
 		var why := Stockpile.can_place(world, bricks, origin, economy.stockpiles)
 		_stock_ghost.visible = true
@@ -289,7 +289,7 @@ func _on_primary(pos: Vector2) -> void:
 			_command_move(hit)
 		Mode.MARK_DIG:
 			_mark_dig(hit.cell.x, hit.cell.z, hit.cell.x, hit.cell.z)
-		Mode.STOCKPILE:
+		Mode.STOCKPILE, Mode.FRAME:
 			_place_stockpile(hit)
 		Mode.DIG:
 			if hit.brick:
@@ -360,7 +360,8 @@ func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
 
 func _place_stockpile(hit: Dictionary) -> void:
 	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
-	if not hit.brick and economy.place_stockpile(origin) == null:
+	var style := Stockpile.Style.FRAME if mode == Mode.FRAME else Stockpile.Style.PLATFORM
+	if not hit.brick and economy.place_stockpile(origin, style) == null:
 		_cell_info.text = "Cannot place a stockpile here: " + economy.last_error
 
 
@@ -369,6 +370,15 @@ func _refresh_tasks_panel() -> void:
 		c.queue_free()
 	for t in board.tasks:
 		var row := HBoxContainer.new()
+		for kind in Resources.DIGGABLE:
+			var f := Button.new()
+			f.toggle_mode = true
+			f.button_pressed = t.collects(kind)
+			f.text = Resources.label(kind)
+			f.tooltip_text = "Bring %s home (off: break it and throw it away)" % Resources.label(kind).to_lower()
+			f.custom_minimum_size = Vector2(0, 48)
+			f.toggled.connect(func(on: bool) -> void: t.collect[kind] = on)
+			row.add_child(f)
 		var b := Button.new()
 		b.text = "Dig #%d: %d blocks, %d/%d workers  (assign selected)" % [t.id, t.cell_count(), t.workers.size(), t.max_workers]
 		b.custom_minimum_size = Vector2(0, 48)
@@ -389,5 +399,7 @@ func _refresh_stock_label() -> void:
 	var lines := PackedStringArray(["Stockpiles: %d" % economy.stockpiles.size()])
 	var tot := economy.totals()
 	for k in tot:
-		lines.append("%s: %d" % [Resources.label(k), tot[k]])
+		lines.append("%s: %d bags" % [Resources.label(k), tot[k]])
+	if economy.packed_bricks > 0:
+		lines.append("Stone bricks stacked: %d" % economy.packed_bricks)
 	_stock_label.text = "\n".join(lines)
