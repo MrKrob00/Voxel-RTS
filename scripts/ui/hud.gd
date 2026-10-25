@@ -16,11 +16,8 @@ signal select_all_pressed
 signal select_idle_pressed
 signal home_pressed
 signal turn_pressed
-signal task_assign(task: WorkTask)
 signal task_select(task: WorkTask)
 signal task_cancel(task: WorkTask)
-signal task_radius(task: HarvestTask, delta: float)
-signal collect_toggled(task: DigTask, kind: int, on: bool)
 
 const MIN_TOUCH := 56
 const ACCENT := Color("ffc933")
@@ -48,9 +45,7 @@ var _banner: PanelContainer
 var _title_name: Label
 var _title_hint: Label
 var _actions: PanelContainer
-var _level_row: HBoxContainer
 var _picker: LevelPicker
-var _level_label: Label
 var _turn_button: Button
 var _dock: PanelContainer
 var _plus: Button
@@ -161,7 +156,6 @@ func set_tool(mode: int) -> void:
 	_banner.visible = active
 	_title_hint.visible = active
 	_actions.visible = active
-	_level_row.visible = false          # the level is chosen on the picker at the screen edge
 	_picker.visible = d.get("level", false)
 	_picker.caption = d.get("level_name", "level").capitalize()
 	_picker.levels = 12
@@ -418,19 +412,6 @@ func _build_bottom() -> void:
 	var arow := HBoxContainer.new()
 	arow.add_theme_constant_override("separation", 14)
 	_actions.add_child(arow)
-	_level_row = HBoxContainer.new()
-	arow.add_child(_group("Priority" , _level_row))
-	var minus := _button("-")
-	minus.pressed.connect(func() -> void: level_changed.emit(_level - 1))
-	_level_row.add_child(minus)
-	_level_label = Label.new()
-	_level_label.custom_minimum_size = Vector2(96, MIN_TOUCH)
-	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_level_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_level_row.add_child(_level_label)
-	var plus := _button("+")
-	plus.pressed.connect(func() -> void: level_changed.emit(_level + 1))
-	_level_row.add_child(plus)
 	var acts := HBoxContainer.new()
 	arow.add_child(_group("Actions", acts))
 	_turn_button = _button("Turn", Vector2(80, MIN_TOUCH))
@@ -455,64 +436,47 @@ func _build_bottom() -> void:
 
 ## One card of the ribbon, like the original's: the kind of task, its workers as dots, and what can be done with it.
 func _task_card(t: WorkTask) -> Control:
-	var card := PanelContainer.new()
-	card.custom_minimum_size.x = 132
+	# The whole card is one button (it selects the task: its workers, its ring in the world); the only other thing on it is the cross
+	# that closes the task.
+	var card := Button.new()
+	card.custom_minimum_size = Vector2(132, 96)
+	card.focus_mode = Control.FOCUS_NONE
+	card.pressed.connect(func() -> void: task_select.emit(t))
 	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 8.0
+	col.offset_top = 4.0
+	col.offset_right = -34.0
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(col)
-	var head := Button.new()
-	head.flat = true
+	var head := Label.new()
 	head.text = _short_title(t)
-	head.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	head.focus_mode = Control.FOCUS_NONE
-	head.custom_minimum_size.y = 40
 	head.add_theme_color_override("font_color", ACCENT)
-	head.pressed.connect(func() -> void: task_select.emit(t))   # tap the card: its workers are selected
+	head.add_theme_font_size_override("font_size", 15)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(head)
 	var dots := Label.new()
 	var n := t.workers.size()
 	dots.text = "●".repeat(n) + "○".repeat(maxi(mini(t.max_workers, 6) - n, 0)) + ("  +%d" % (n - 6) if n > 6 else "")
 	dots.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	dots.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(dots)
 	var detail := Label.new()
 	detail.text = t.detail()
-	detail.add_theme_font_size_override("font_size", 13)
+	detail.add_theme_font_size_override("font_size", 12)
 	detail.modulate = Color(1, 1, 1, 0.8)
+	detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(detail)
-	if t is DigTask:
-		var filters := HBoxContainer.new()
-		col.add_child(filters)
-		for kind in Resources.DIGGABLE:
-			var f := _button(Resources.label(kind).substr(0, 4), Vector2(0, 44))
-			f.toggle_mode = true
-			f.button_pressed = t.collects(kind)
-			f.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			f.tooltip_text = "Bring %s home (off: break it and throw it away)" % Resources.label(kind).to_lower()
-			f.toggled.connect(func(on: bool) -> void: collect_toggled.emit(t, kind, on))
-			filters.add_child(f)
-	if t is HarvestTask and t.is_circle():
-		var rrow := HBoxContainer.new()
-		col.add_child(rrow)
-		var rl := Label.new()
-		rl.text = "Radius"
-		rl.add_theme_font_size_override("font_size", 13)
-		rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		rrow.add_child(rl)
-		var rm := _button("-", Vector2(44, 44))
-		rm.pressed.connect(func() -> void: task_radius.emit(t, -1.0))
-		rrow.add_child(rm)
-		var rp := _button("+", Vector2(44, 44))
-		rp.pressed.connect(func() -> void: task_radius.emit(t, 1.0))
-		rrow.add_child(rp)
-	var row := HBoxContainer.new()
-	col.add_child(row)
-	if not t.persistent:
-		var assign := _button("+ Selected", Vector2(0, 44))
-		assign.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		assign.pressed.connect(func() -> void: task_assign.emit(t))
-		row.add_child(assign)
-	var cancel := _button("x", Vector2(44, 44))
-	cancel.pressed.connect(func() -> void: task_cancel.emit(t))
-	row.add_child(cancel)
+	var close := Button.new()
+	close.text = "x"
+	close.flat = true
+	close.focus_mode = Control.FOCUS_NONE
+	close.custom_minimum_size = Vector2(32, 32)
+	close.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	close.offset_left = -34.0
+	close.offset_bottom = 32.0
+	close.pressed.connect(func() -> void: task_cancel.emit(t))
+	card.add_child(close)
 	return card
 
 
@@ -522,7 +486,6 @@ static func _short_title(t: WorkTask) -> String:
 
 func _refresh_level() -> void:
 	_picker.level = _level
-	_level_label.text = "%s %d" % [_level_name, _level]
 
 
 # --- layout for the screen it is on -----------------------------------------------------------------------------

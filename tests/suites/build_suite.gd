@@ -77,6 +77,20 @@ func run() -> void:
 	_board.cancel_blueprint(third)
 	check(_economy.blueprints.is_empty() and _board.tasks.size() == tasks_before - 1, "a cancelled plan goes with its job")
 
+	# The only stockpile holds logs (no room for planks) and a second one is only planned: the stump makes planks of a log and they
+	# go straight to the blueprint, nobody waits for a stockpile that does not exist yet.
+	_economy.remove_stockpile(bank)
+	_economy.remove_stockpile(_economy.stockpiles[1])
+	var logs_only := _economy.stockpiles[0]
+	logs_only.add(Resources.Kind.LOG, 2)
+	var second := _board.place_blueprint("stockpile", 0, base + Vector3i(10, 0, 2))
+	check(second != null and _economy.stockpiles.size() == 1, "one stockpile, full of logs, and a second one planned")
+	_until(func() -> bool: return _economy.stockpiles.size() == 2, 6000)
+	check(_economy.stockpiles.size() == 2 and logs_only.count == 1, "the stump made three planks of a log and they built the second stockpile (%d logs left)" % logs_only.count)
+	_step(300)
+	for u in crew:
+		check(u.carried_amount() == 0, "nobody is left holding planks")
+
 
 func _step(n: int) -> void:
 	for i in n:

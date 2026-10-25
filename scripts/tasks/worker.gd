@@ -304,6 +304,8 @@ func _find_stockpile() -> void:
 		return
 	stockpile = board.economy.find_space(unit.cell, kind, n)
 	if stockpile == null:
+		if board.divert_to_build(unit):
+			return
 		state = State.WAIT_STOCK
 		_timer = 1.0
 		unit.status = "No free stockpile for %s" % Resources.label(kind).to_lower()

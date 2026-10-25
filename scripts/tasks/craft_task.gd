@@ -42,8 +42,10 @@ func wants_workers(board: TaskBoard) -> bool:
 	if not is_instance_valid(station) or not station.enabled or workers.size() >= max_workers:
 		return false
 	var d := station.def()
+	# Something to make it of, and somewhere to take what is made: a stockpile with room, or a building that is waiting for it
+	# (the planks of a stump go to the stockpile that is being built when there is no other).
 	return board.economy.find_stock(Vector3i(station.origin), d.input.kind, d.input.amount) != null \
-		and board.economy.find_space(Vector3i(station.origin), d.output.kind, d.output.amount) != null
+		and (board.economy.find_space(Vector3i(station.origin), d.output.kind, d.output.amount) != null or board.build_task_needing(d.output.kind) != null)
 
 
 func claim(unit: Unit, _from: Vector3i, _now: float) -> Variant:

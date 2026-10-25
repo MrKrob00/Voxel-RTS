@@ -18,9 +18,11 @@ const SIZE := 2
 const PLATFORM_HEIGHT := 0.18
 const WALL_HEIGHT := 2.0
 const BAGS_PER_BRICK := 4
+## A plank is a 2 x 1 x 1 block cut into three slabs: 2 long, a third of a block thick, 1 wide. A log makes three of them.
+const PLANK_SIZE := Vector3(2.0, 1.0 / 3.0, 1.0)
 ## How many of a kind it holds when full; what is not in the list it does not take.
 const CAPACITY := {
-	Resources.Kind.LOG: 4, Resources.Kind.PLANK: 24, Resources.Kind.ROPE: 20,
+	Resources.Kind.LOG: 4, Resources.Kind.PLANK: 12, Resources.Kind.ROPE: 20,
 	Resources.Kind.IRON: 24, Resources.Kind.COAL: 24, Resources.Kind.AMBER: 24,
 	Resources.Kind.STONE: 16, Resources.Kind.PLANT: 16,
 	Resources.Kind.BRICK: 8,   # 4 bricks of 2x1x1 = 8 halves, two layers of two (made of a full crate of stone)
@@ -287,19 +289,19 @@ func _show_logs() -> void:
 		_piles.add_child(mi)
 
 
-## Planks lie in four stacks, one slab per plank.
+## Planks lie in layers of two side by side, the next layer across the one below: 12 of them fill the 2 x 2 x 2 (a log makes three).
 func _show_planks() -> void:
 	var m := _mat(Resources.COLORS[Resources.Kind.PLANK])
 	for i in count:
-		var stack := i % 4
-		var level := i / 4
+		var layer := i / 2
+		var side := 0.5 + (i % 2) * 1.0
+		var along_x := layer % 2 == 0
 		var mi := MeshInstance3D.new()
 		var bm := BoxMesh.new()
-		bm.size = Vector3(0.82, 0.07, 0.82)
+		bm.size = Vector3(PLANK_SIZE.x - 0.06, PLANK_SIZE.y - 0.02, PLANK_SIZE.z - 0.04) if along_x else Vector3(PLANK_SIZE.z - 0.04, PLANK_SIZE.y - 0.02, PLANK_SIZE.x - 0.06)
 		mi.mesh = bm
 		mi.material_override = m
-		mi.position = Vector3(0.5 + (stack % 2) * 1.0, PLATFORM_HEIGHT + 0.04 + level * 0.075, 0.5 + (stack / 2) * 1.0)
-		mi.rotation.y = (level % 3 - 1) * 0.06
+		mi.position = Vector3(1.0, PLATFORM_HEIGHT + (layer + 0.5) * PLANK_SIZE.y, side) if along_x else Vector3(side, PLATFORM_HEIGHT + (layer + 0.5) * PLANK_SIZE.y, 1.0)
 		_piles.add_child(mi)
 
 

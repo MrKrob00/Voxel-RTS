@@ -32,9 +32,12 @@ func is_complete() -> bool:
 	return remaining().is_empty()
 
 
-func deliver(k: int, n: int) -> void:
-	delivered[k] = delivered.get(k, 0) + n
+## Takes what is still missing of `k` (at most `n`); returns how many it took.
+func deliver(k: int, n: int) -> int:
+	var took := clampi(cost.get(k, 0) - delivered.get(k, 0), 0, n)
+	delivered[k] = delivered.get(k, 0) + took
 	_refresh()
+	return took
 
 
 func needs_text() -> String:

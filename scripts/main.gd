@@ -19,6 +19,7 @@ const START_UNITS := 5
 
 var _stock_ghost: MeshInstance3D
 var _dig_depth := 1
+var _editing: HarvestTask       # a standing harvest whose ring is being redrawn by dragging
 var mode: int = Tools.Mode.SELECT
 var brick_axis := 0
 var _ghost: MeshInstance3D
@@ -182,13 +183,8 @@ func _setup_ui() -> void:
 	hud.home_pressed.connect(func() -> void:
 		var sp := world.spawn_point()
 		rig.focus = Vector3(sp.x, sp.y, sp.z))
-	hud.task_assign.connect(func(t: WorkTask) -> void: _assign_crew(t))
 	hud.task_cancel.connect(_cancel_task)
-	hud.task_radius.connect(func(t: HarvestTask, d: float) -> void:
-		t.set_radius(t.radius + d, board)
-		_refresh_tasks_panel())
-	hud.task_select.connect(func(t: WorkTask) -> void: units._set_selection(t.workers.duplicate()))
-	hud.collect_toggled.connect(func(t: DigTask, kind: int, on: bool) -> void: t.collect[kind] = on)
+	hud.task_select.connect(_select_task)
 	units.selection_changed.connect(func(_s: Array) -> void: _refresh_units_label())
 	_set_depth(1)
 	_refresh_units_label()
@@ -197,6 +193,7 @@ func _setup_ui() -> void:
 
 func _choose_tool(m: int) -> void:
 	mode = m
+	_editing = null
 	rig.drag_mode = _is_aim_tool()
 	_aim.clear()
 	hud.set_tool(m)
@@ -391,6 +388,11 @@ func _is_aim_tool() -> bool:
 
 ## The finger moves: what the order would be, drawn through the blocks.
 func _on_aim_changed(from: Vector2, to: Vector2) -> void:
+	if _editing != null:
+		var e := _pick(to)
+		if not e.is_empty() and board.tasks.has(_editing):
+			_aim.show_ring(world, _editing.center, _edit_radius(e))
+		return
 	var a := _pick(from)
 	var b := _pick(to)
 	if a.is_empty() or b.is_empty():
@@ -405,12 +407,36 @@ func _on_aim_changed(from: Vector2, to: Vector2) -> void:
 			_aim.show_ring(world, Vector2(a.cell.x + 0.5, a.cell.z + 0.5), _aim_radius(a, b))
 
 
+## A tap on a task's card selects its workers; for a standing harvest it also lets the player drag a new radius for its ring.
+func _select_task(t: WorkTask) -> void:
+	units._set_selection(t.workers.duplicate())
+	if t is HarvestTask and t.is_circle():
+		_editing = t
+		rig.drag_mode = true
+		hud.show_message("Drag on the ground to change the radius")
+	else:
+		_editing = null
+		rig.drag_mode = _is_aim_tool()
+
+
+func _edit_radius(hit: Dictionary) -> float:
+	return clampf(Vector2(hit.cell.x + 0.5, hit.cell.z + 0.5).distance_to(_editing.center), HarvestTask.MIN_RADIUS, HarvestTask.MAX_RADIUS)
+
+
 func _aim_radius(a: Dictionary, b: Dictionary) -> float:
 	return clampf(Vector2(a.cell.x - b.cell.x, a.cell.z - b.cell.z).length(), HarvestTask.MIN_RADIUS, HarvestTask.MAX_RADIUS)
 
 
 func _on_aim_finished(from: Vector2, to: Vector2) -> void:
 	_aim.clear()
+	if _editing != null:
+		var e := _pick(to)
+		if not e.is_empty() and board.tasks.has(_editing):
+			_editing.set_radius(_edit_radius(e), board)   # the ring is changed the way it was made: by dragging
+			_refresh_tasks_panel()
+		_editing = null
+		rig.drag_mode = _is_aim_tool()
+		return
 	var a := _pick(from)
 	var b := _pick(to)
 	if a.is_empty() or b.is_empty():

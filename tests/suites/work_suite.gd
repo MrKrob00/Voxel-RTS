@@ -100,7 +100,7 @@ func _stockpile_rules(bricks: BrickWorld, base: Vector3i) -> void:
 	_economy.remove_stockpile(crate)
 	var plat := _economy.place_stockpile(at)
 	check(not plat.blocks(at), "a platform can be walked over")
-	check(plat.capacity_for(Resources.Kind.LOG) == 4 and plat.capacity_for(Resources.Kind.ROPE) == 20 and plat.capacity_for(Resources.Kind.PLANK) == 24, "a platform holds 4 logs, 24 planks or 20 ropes")
+	check(plat.capacity_for(Resources.Kind.LOG) == 4 and plat.capacity_for(Resources.Kind.ROPE) == 20 and plat.capacity_for(Resources.Kind.PLANK) == 12, "a platform holds 4 logs, 12 planks or 20 ropes")
 	check(plat.add(Resources.Kind.LOG, 9) == 4 and not plat.accepts(Resources.Kind.LOG), "the fifth log does not fit")
 	plat.take(Resources.Kind.LOG, 4)
 	check(plat.add(Resources.Kind.ROPE, 30) == 20, "twenty ropes fit: a quarter of the area and a fifth of the height each")

@@ -326,13 +326,38 @@ func supplies_coming(t: WorkTask, kind: int, amount: int, except: Unit = null) -
 	return n
 
 
+## A building job that still needs `kind` and has room for another worker, or null.
+func build_task_needing(kind: int) -> BuildTask:
+	for t in tasks:
+		var bt := t as BuildTask
+		if bt != null and not bt.is_finished() and bt.workers.size() < bt.max_workers and bt.blueprint.remaining().has(kind):
+			return bt
+	return null
+
+
+## A worker with goods in its hands that no stockpile can take brings them to a blueprint that needs them (planks from a stump to
+## the stockpile that is being built); afterwards it goes back to what it was doing.
+func divert_to_build(u: Unit) -> bool:
+	var bt := build_task_needing(u.carried_kind())
+	if bt == null:
+		return false
+	var back := task_of(u)
+	unassign(u)
+	if not assign(u, bt):
+		if back != null and tasks.has(back):
+			assign(u, back)
+		return false
+	_return_to[u] = back
+	return true
+
+
 ## A stump that is free to take a log right now and has room to put the planks: its task, or null.
 func free_stump() -> CraftTask:
 	for t in tasks:
 		var ct := t as CraftTask
 		if ct != null and is_instance_valid(ct.station) and ct.station.kind == Station.Kind.STUMP and ct.workers.size() < ct.max_workers and ct.claimed_by == null:
 			var d: Dictionary = ct.station.def()
-			if economy.find_space(Vector3i(ct.station.origin), d.output.kind, d.output.amount) != null:
+			if economy.find_space(Vector3i(ct.station.origin), d.output.kind, d.output.amount) != null or build_task_needing(d.output.kind) != null:
 				return ct
 	return null
 

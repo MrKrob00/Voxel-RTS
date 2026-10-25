@@ -76,8 +76,9 @@ func work_time(_target: Variant) -> float:
 ## Puts what the unit carries into the blueprint; when it is all there, the building stands.
 func perform(_target: Variant, brd: TaskBoard, unit: Unit = null) -> Dictionary:
 	if unit != null and unit.carried_amount() > 0:
-		blueprint.deliver(unit.carried_kind(), unit.carried_amount())
+		var kind := unit.carried_kind()
+		var left := unit.carried_amount() - blueprint.deliver(kind, unit.carried_amount())
+		unit.carry(kind if left > 0 else Resources.Kind.NONE, left)   # what the blueprint did not need stays in the hands
 	if blueprint.is_complete():
 		brd.finish_blueprint(blueprint)
-		return {"consumed": true, "done": true}
-	return {"consumed": true, "done": false}
+	return {"done": true}

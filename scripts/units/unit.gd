@@ -88,10 +88,10 @@ func _rebuild_carry() -> void:
 	var col: Color = Resources.COLORS.get(kind, Color("8a5a2b"))
 	match kind:
 		Resources.Kind.LOG:
-			_carry_part(_cylinder(0.14, 1.1), Vector3(0.0, 0.1, 0.0), Vector3(0.0, 0.0, deg_to_rad(90.0)), col)
+			_carry_part(_cylinder(LooseLog.RADIUS, LooseLog.LENGTH), Vector3(0.0, 0.2, 0.0), Vector3(0.0, 0.0, deg_to_rad(90.0)), col)   # the real log
 		Resources.Kind.PLANK:
 			for i in n:
-				_carry_part(_box(Vector3(0.9, 0.06, 0.28)), Vector3(0.0, 0.0 + i * 0.075, 0.0), Vector3(0.0, (i - 1) * 0.05, 0.0), col)
+				_carry_part(_box(Stockpile.PLANK_SIZE - Vector3(0.0, 0.02, 0.04)), Vector3(0.0, 0.1 + i * Stockpile.PLANK_SIZE.y, 0.0), Vector3(0.0, 0.0, 0.0), col)   # the real planks, a stack of up to three
 		Resources.Kind.ROPE:
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.1
