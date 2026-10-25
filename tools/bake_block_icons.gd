@@ -8,6 +8,9 @@ const PX := 128
 const IDS_FROM := "res://assets/blocks"
 const STONE := Color(0.62, 0.62, 0.62)
 const WOOD := Color(0.72, 0.50, 0.27)
+## The way a block is turned for its picture (degrees about y): the original shows a stair with its steps at the near, left-hand
+## end (towards +z in the block's own space), and the left-hand variants likewise; the right-hand ones have them at +x.
+const ICON_TURN := {"stairs": 90.0, "stairs_small": 90.0, "corner_out_l": 90.0, "corner_in_l": 90.0}
 
 
 func _initialize() -> void:
@@ -60,6 +63,7 @@ func _run() -> void:
 		m.roughness = 0.9
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
 		mi.material_override = m
+		mi.rotation_degrees.y = ICON_TURN.get(id, 0.0)
 		sv.add_child(mi)
 		# The same view and the same scale for every block, as the original's panel has: a little from the right of the front, about
 		# 28 degrees above the ground, the middle of the block in the middle of the picture.
