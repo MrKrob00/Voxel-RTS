@@ -214,7 +214,8 @@ func place_wall(from: Vector3i, to: Vector3i, height: int) -> WallPlan:
 	var plan := economy.place_wall(from, to, height)
 	if plan == null:
 		return null
-	add_task(WallTask.new(plan), false)
+	_building_task().add_plan(plan)
+	changed.emit()
 	return plan
 
 
@@ -223,7 +224,8 @@ func place_stairs(at: Vector3i, rise: Vector2i) -> WallPlan:
 	var plan := economy.place_stairs(at, rise)
 	if plan == null:
 		return null
-	add_task(WallTask.new(plan), false)
+	_building_task().add_plan(plan)
+	changed.emit()
 	return plan
 
 
@@ -232,14 +234,27 @@ func place_block(id: String, at: Vector3i, dir: Vector2i) -> WallPlan:
 	var plan := economy.place_block(id, at, dir)
 	if plan == null:
 		return null
-	add_task(WallTask.new(plan), false)
+	_building_task().add_plan(plan)
+	changed.emit()
 	return plan
+
+
+## The one job that lays blocks: made when the first block is planned, gone when the last one is laid.
+func _building_task() -> WallTask:
+	for t in tasks:
+		if t is WallTask:
+			return t
+	var made := WallTask.new()
+	add_task(made, false)
+	return made
 
 
 func cancel_wall(plan: WallPlan) -> void:
 	for t in tasks.duplicate():
-		if t is WallTask and t.plan == plan:
-			remove_task(t)
+		if t is WallTask:
+			t.remove_plan(plan)
+			if t.plans.is_empty():
+				remove_task(t)
 	economy.cancel_wall(plan)
 
 
@@ -259,8 +274,10 @@ func remove_station(st: Station) -> void:
 func remove_task(t: WorkTask) -> void:
 	for u in t.workers.duplicate():
 		unassign(u)
-	if t is WallTask and is_instance_valid(t.plan):
-		economy.cancel_wall(t.plan)   # the plan goes with its job
+	if t is WallTask:
+		for p in t.plans.duplicate():
+			if is_instance_valid(p):
+				economy.cancel_wall(p)   # the plans go with their job
 	tasks.erase(t)
 	if t.overlay != null:
 		t.overlay.queue_free()

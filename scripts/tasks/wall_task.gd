@@ -5,28 +5,51 @@ extends WorkTask
 ## stand next to the place (on the course below, for the upper ones) and lay it. A cube takes one half and the other half is kept for the
 ## next cube, or taken back to the stack. Only slots whose support exists are open: the wall grows in stages.
 
-var plan: WallPlan
+## ONE standing job lays every planned block (as the original has one "Build" task): the plans are added to it as the player makes them.
+var plans: Array[WallPlan] = []
 
 
-func _init(p: WallPlan) -> void:
-	plan = p
-	title = "Build a wall"
+func _init() -> void:
+	title = "Build"
 	persistent = true
-	max_workers = 4
+	max_workers = 6
+
+
+func add_plan(p: WallPlan) -> void:
+	plans.append(p)
+
+
+func remove_plan(p: WallPlan) -> void:
+	plans.erase(p)
+
+
+## Every slot of every plan.
+func _slots() -> Array:
+	var out := []
+	for p in plans:
+		if is_instance_valid(p):
+			out.append_array(p.slots)
+	return out
+
+
+func _undone() -> int:
+	var n := 0
+	for s: WallPlan.Slot in _slots():
+		if not s.done:
+			n += 1
+	return n
 
 
 func is_finished() -> bool:
-	return plan == null or not is_instance_valid(plan) or plan.is_done()
+	return _undone() == 0
 
 
 func summary() -> String:
-	if is_finished():
-		return "Wall: done"
-	return "Wall #%d: %d of %d halves of stone still to lay, %d working" % [id, plan.remaining_halves(), plan.total_halves(), workers.size()]
+	return "Build #%d: %d blocks still to lay, %d working" % [id, _undone(), workers.size()]
 
 
 func detail() -> String:
-	return "%d of %d halves left" % [plan.remaining_halves(), plan.total_halves()] if not is_finished() else "done"
+	return "%d blocks left" % _undone() if not is_finished() else "done"
 
 
 ## A brick (two halves) is fetched; one half is enough to start (a cube).
@@ -38,10 +61,7 @@ func input_needed() -> Dictionary:
 
 ## Nobody fetches more stone than the slots still to lay need (a leftover block would have nowhere to go once the stack is empty).
 func fetch_wanted(unit: Unit) -> bool:
-	var undone := 0
-	for s in plan.slots:
-		if not s.done:
-			undone += 1
+	var undone := _undone()
 	return board == null or board.supplies_coming(self, Resources.Kind.BRICK, 2, unit) < undone
 
 
@@ -65,15 +85,7 @@ func _open(s: WallPlan.Slot, now := 0.0) -> bool:
 
 ## The width of a step of the staircase in the current pass: 2, then 1, then 0 (the wall is closed).
 func _run() -> int:
-	if plan.courses <= WallPlan.REACH_COURSES:
-		return 0   # laid from the ground: no staircase is needed
-	var run := WallPlan.STAIR_RUN
-	while run > 0:
-		for s in plan.slots:
-			if not s.done and s.col >= s.course * run:
-				return run   # something of this pass is still to lay
-		run -= 1
-	return 0
+	return 0   # laid from the ground: the staircase of a tall wall is off (see WallPlan)
 
 
 func _body_done() -> bool:
@@ -84,11 +96,11 @@ func wants_workers(brd: TaskBoard) -> bool:
 	if is_finished() or workers.size() >= max_workers:
 		return false
 	var any_open := false
-	for s in plan.slots:
+	for s: WallPlan.Slot in _slots():
 		if _open(s):
 			any_open = true
 			break
-	return any_open and brd.economy.find_stock(Vector3i(plan.first), Resources.Kind.BRICK, 1) != null
+	return any_open and brd.economy.find_stock(Vector3i(plans[0].first) if not plans.is_empty() else Vector3i.ZERO, Resources.Kind.BRICK, 1) != null
 
 
 ## The nearest open slot that the load in the unit's hands can pay for.
@@ -96,7 +108,7 @@ func claim(unit: Unit, from: Vector3i, _now: float) -> Variant:
 	var have := unit.carried_amount() if unit.carried_kind() == Resources.Kind.BRICK else 0
 	var best: WallPlan.Slot = null
 	var best_d := INF
-	for s in plan.slots:
+	for s: WallPlan.Slot in _slots():
 		if not _open(s, board.now) or s.halves() > have:
 			continue
 		# Low courses first; in the closing phase from the far end of the wall back to the start.
@@ -132,7 +144,7 @@ func holds(target: Variant) -> bool:
 
 func valid(target: Variant, _brd: TaskBoard) -> bool:
 	var s: WallPlan.Slot = target
-	return s != null and not s.done and is_instance_valid(plan)
+	return s != null and not s.done and is_instance_valid(s.plan)
 
 
 ## Beside the place: in a neighbouring column, with the feet up to one block above or two blocks below the place (it is laid at arm's
@@ -172,7 +184,7 @@ func perform(target: Variant, brd: TaskBoard, unit: Unit = null) -> Dictionary:
 		if brd.economy.bricks.place(cube, s.axis, BrickWorld.Kind.STONE, 1) == null:
 			brd.world.set_block(s.origin, Blocks.AIR)   # the cube could not stand: take the steps back
 			return {"done": false}
-		plan.mark_done(s)
+		s.plan.mark_done(s)
 		var rest := unit.carried_amount() - s.halves()
 		unit.carry(Resources.Kind.BRICK if rest > 0 else Resources.Kind.NONE, rest)
 		return {"done": true}
@@ -180,7 +192,7 @@ func perform(target: Variant, brd: TaskBoard, unit: Unit = null) -> Dictionary:
 	var placed := brd.economy.bricks.place(s.origin, s.axis, BrickWorld.Kind.WOOD if wood else BrickWorld.Kind.STONE, s.length, s.shape, s.facing)
 	if placed == null:
 		return {"done": false}
-	plan.mark_done(s)
+	s.plan.mark_done(s)
 	var left := unit.carried_amount() - s.halves()
 	unit.carry(Resources.Kind.BRICK if left > 0 else Resources.Kind.NONE, left)
 	return {"done": true}

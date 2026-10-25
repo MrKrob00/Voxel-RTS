@@ -16,6 +16,7 @@ class Slot extends RefCounted:
 	var course: int
 	var col := 0           # how many cells from the start of the wall (the entry end) its first cell is
 	var done := false
+	var plan: WallPlan        # the plan this slot belongs to
 	var claimed: Unit
 	var blocked_until := 0.0   ## nobody could get to it: not tried again before this time
 	var ghost: MeshInstance3D
@@ -128,6 +129,8 @@ func build(first_cell: Vector3i, axis: int, length: int, height: int, prepared: 
 	run_length = length
 	courses = height
 	slots = prepared if not prepared.is_empty() else layout(first_cell, axis, length, height)
+	for s in slots:
+		s.plan = self
 	name = "Wall_%d_%d" % [first_cell.x, first_cell.z]
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
