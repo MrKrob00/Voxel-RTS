@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://btn6j7tpytp3k"
-path="res://.godot/imported/pyramid.png-c2fb5cffc85e1fd6c45c48a75093c889.ctex"
+uid="uid://d1ajw35jh578t"
+path="res://.godot/imported/corner_out_cell.png-163e6b59e5349c8b27739da71b451026.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/blocks/icons/pyramid.png"
-dest_files=["res://.godot/imported/pyramid.png-c2fb5cffc85e1fd6c45c48a75093c889.ctex"]
+source_file="res://assets/blocks/icons/corner_out_cell.png"
+dest_files=["res://.godot/imported/corner_out_cell.png-163e6b59e5349c8b27739da71b451026.ctex"]
 
 [params]
 

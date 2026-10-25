@@ -161,7 +161,7 @@ func _catalog_blocks(base: Vector3i, crew: Array) -> void:
 	for i in 2:
 		var st := _economy.place_stockpile(base + Vector3i(2 + i * 3, 0, 17), Stockpile.Style.STACK)
 		st.add(Resources.Kind.BRICK, 8)
-	var ids := ["stairs", "column", "plug_1", "round_a", "cren_slab", "pyramid"]
+	var ids := ["stairs", "column", "plug_1", "round_a", "cren_slab", "corner_out_cell"]
 	var plans: Array[WallPlan] = []
 	for i in ids.size():
 		var plan := _board.place_block(ids[i], base + Vector3i(2 + i * 3, 0, 14), Vector2i(1, 0))

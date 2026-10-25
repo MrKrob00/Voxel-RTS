@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dj3xh6mde7wq8"
+path="res://.godot/imported/corner_in_cell.obj-aa7070900ea7e8ff1686c32f4292ebfd.mesh"
+
+[deps]
+
+files=["res://.godot/imported/corner_in_cell.obj-aa7070900ea7e8ff1686c32f4292ebfd.mesh"]
+
+source_file="res://assets/blocks/corner_in_cell.obj"
+dest_files=["res://.godot/imported/corner_in_cell.obj-aa7070900ea7e8ff1686c32f4292ebfd.mesh", "res://.godot/imported/corner_in_cell.obj-aa7070900ea7e8ff1686c32f4292ebfd.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

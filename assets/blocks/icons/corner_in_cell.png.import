@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cg1rq36porvli"
-path="res://.godot/imported/corner_cube.png-2eac0a0614120ffb3629246d009c9c1a.ctex"
+uid="uid://rwy0dcfr1jan"
+path="res://.godot/imported/corner_in_cell.png-11321b5b8fc8c6482412dd6408b4d258.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/blocks/icons/corner_cube.png"
-dest_files=["res://.godot/imported/corner_cube.png-2eac0a0614120ffb3629246d009c9c1a.ctex"]
+source_file="res://assets/blocks/icons/corner_in_cell.png"
+dest_files=["res://.godot/imported/corner_in_cell.png-11321b5b8fc8c6482412dd6408b4d258.ctex"]
 
 [params]
 

@@ -130,7 +130,7 @@ def stairs(length, steps, start=None):
     x0 = -length / 2 if start is None else start
     for i in range(steps):
         top = -0.5 + (i + 1) / steps
-        out.append(box(x0 + w * (i + 0.5), (top - 0.5) / 2, 0, w, top + 0.5, 1))
+        out.append(box(x0 + w * (i + 0.5), (top - 0.5) / 2, 0, w, top + 0.5, 1, 0.015))
     return out
 
 
@@ -139,40 +139,38 @@ def moved(pieces, dx=0.0, mirror_x=False):
     return [[((-x if mirror_x else x) + dx, y, z) for (x, y, z) in piece] for piece in pieces]
 
 
-def corner_cell(inner, steps=4):
-    """A one-cell corner stair: layers of a quarter of a block each. Outer: the layers shrink towards the (+x, +z) corner, so steps
-    go down on the -x and -z sides. Inner: the steps are carved into the (-x, -z) corner, so they go up from it."""
+def corner_cell(steps=4):
+    """A one-cell corner stair (outer corner): L-shaped layers that shrink towards the (+x, -z) corner, so steps go down on the -x
+    and +z sides."""
     out = []
     h = 1.0 / steps
     for k in range(steps):
+        cut = k / steps
+        sx = 1.0 - cut
+        out.append(box(0.5 - sx / 2, -0.5 + h * (k + 0.5), -0.5 + sx / 2, sx, h, sx, 0.015))
+    return out
+
+
+def corner_cell_in(steps=4):
+    """A one-cell inner corner stair: two stair runs meeting at a right angle, lowest in the (-x, +z) corner. Each layer is the cell
+    without a square notch in that corner; the notch grows with the layer."""
+    out = []
+    h = 1.0 / steps
+    for k in range(steps):
+        cut = k / steps
         y = -0.5 + h * (k + 0.5)
-        cut = 1.0 / steps * k if not inner else 1.0 / steps * (steps - 1 - k)
-        if not inner:
-            out.append(box(0.5 - (1.0 - cut) / 2, y, 0.5 - (1.0 - cut) / 2, 1.0 - cut, h, 1.0 - cut))
+        if cut <= 0.001:
+            out.append(box(0, y, 0, 1.0, h, 1.0, 0.015))
         else:
-            if cut <= 0.001:
-                out.append(box(0, y, 0, 1.0, h, 1.0))
-            else:
-                out.append(box(0.5 - (1.0 - cut) / 2, y, 0, 1.0 - cut, h, 1.0))           # beyond the carved part in x
-                out.append(box(-0.5 + cut / 2, y, 0.5 - (1.0 - cut) / 2, cut, h, 1.0 - cut))   # the strip before it, beyond it in z
+            out.append(box(0.5 - (1.0 - cut) / 2, y, 0, 1.0 - cut, h, 1.0, 0.015))                  # beyond the notch in x
+            out.append(box(-0.5 + cut / 2, y, -0.5 + (1.0 - cut) / 2, cut, h, 1.0 - cut, 0.015))    # the strip before it, away from the corner in z
     return out
 
 
-def corner_stairs(inner, right):
-    """A 2 x 1 x 1 block: a corner stair cell and a cube. `right`: the stairs are in the right-hand cell (and turned the other way)."""
+def with_cube(cell, right):
+    """A 2 x 1 x 1 block: a one-cell piece and a cube. `right`: the piece is the right-hand cell (and mirrored)."""
     cube = [box(0.5 if not right else -0.5, 0, 0, 1.0, 1.0, 1.0)]
-    cell = moved(corner_cell(inner), -0.5 if not right else 0.5, mirror_x=right)
-    return cell + cube
-
-
-def ridge(steps=4):
-    """A one-cell pyramid of steps going up from both sides (left and right) to a ridge in the middle."""
-    out = []
-    h = 1.0 / steps
-    for k in range(steps):
-        w = 1.0 - 2 * k * (0.5 / steps)
-        out.append(box(0, -0.5 + h * (k + 0.5), 0, w, h, 1.0))
-    return out
+    return moved(cell, -0.5 if not right else 0.5, mirror_x=right) + cube
 
 
 def tower(base_h, flare_h, r_low, r_top, top_h, lip=0.0):
@@ -261,7 +259,7 @@ def squircle(y, half, seg=20, n=4.0):
 
 
 def squat():
-    return [box(0, -0.43, 0, 1.0, 0.14, 1.0, 0.03), squircle(-0.36, 0.5) + squircle(0.5, 0.4) + squircle(0.44, 0.43)]
+    return [box(0, -0.43, 0, 1.0, 0.14, 1.0, 0.03), squircle(-0.36, 0.5) + squircle(0.28, 0.4) + squircle(0.24, 0.43)]
 
 
 def cren_slab(length=2.0):
@@ -330,14 +328,14 @@ BLOCKS = {
     # --- Stone Blocks
     "brick":        lambda: [box(0, 0, 0, 2.0, 1.0, 1.0)],
     "cube":         lambda: [box(0, 0, 0, 1.0, 1.0, 1.0)],
-    "stairs":       lambda: stairs(1.0, 4, -1.0) + [box(0.5, 0, 0, 1.0, 1.0, 1.0)],   # one cell of steps and one cell of block
-    "stairs_small": lambda: stairs(1.0, 4),
-    "corner_out_l": lambda: corner_stairs(False, False),
-    "corner_out_r": lambda: corner_stairs(False, True),
-    "corner_in_l":  lambda: corner_stairs(True, False),
-    "corner_in_r":  lambda: corner_stairs(True, True),
-    "corner_cube":  lambda: corner_cell(False),
-    "pyramid":      ridge,
+    "stairs":       lambda: stairs(1.0, 3, -1.0) + [box(0.5, 0, 0, 1.0, 1.0, 1.0)],   # one cell of steps and one cell of block
+    "stairs_small": lambda: stairs(1.0, 3),
+    "corner_out_l": lambda: with_cube(corner_cell(), False),
+    "corner_out_r": lambda: with_cube(corner_cell(), True),
+    "corner_in_l":  lambda: with_cube(corner_cell_in(), False),
+    "corner_in_r":  lambda: with_cube(corner_cell_in(), True),
+    "corner_in_cell": lambda: moved(corner_cell_in(), 0.0, mirror_x=True),    # the notch in the near corner: chevrons point at the viewer
+    "corner_out_cell": lambda: moved(corner_cell(), 0.0, mirror_x=True),      # the high corner is the far one: it reads as a stepped pyramid
     "tower_a":      lambda: tower(0.18, 0.42, 0.46, 0.3, 0.4, 0.03),
     "tower_b":      lambda: tower(0.14, 0.3, 0.44, 0.34, 0.56, 0.02),
     "tower_squat":  squat,
