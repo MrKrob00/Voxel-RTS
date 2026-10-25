@@ -106,26 +106,7 @@ static func _emit_shape(buf: Buffers, snap: Array, x: int, y: int, z: int, id: i
 	for k in 4:
 		top.append(base + Vector3(cx[k], h[k] * q, cz[k]))
 		floor_pts.append(base + Vector3(cx[k], 0.0, cz[k]))
-	# Split the top along the diagonal that makes a ridge (one corner highest) or a valley (one corner lowest).
-	var diag := 0   # 0: split 0-2, 1: split 1-3
-	var s02: int = h[0] + h[2]
-	var s13: int = h[1] + h[3]
-	if s02 != s13:
-		var hi: int = maxi(maxi(h[0], h[1]), maxi(h[2], h[3]))
-		var lo: int = mini(mini(h[0], h[1]), mini(h[2], h[3]))
-		var hi_idx: Array[int] = []
-		var lo_idx: Array[int] = []
-		for k in 4:
-			if h[k] == hi:
-				hi_idx.append(k)
-			if h[k] == lo:
-				lo_idx.append(k)
-		if hi_idx.size() == 1:
-			diag = 0 if hi_idx[0] % 2 == 0 else 1
-		elif lo_idx.size() == 1:
-			diag = 0 if lo_idx[0] % 2 == 0 else 1
-		else:
-			diag = 0 if s02 > s13 else 1
+	var diag := Blocks.top_diagonal(h)   # 0: split 0-2, 1: split 1-3
 	if diag == 0:
 		_shape_tri(buf, [top[0], top[1], top[2]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
 		_shape_tri(buf, [top[0], top[2], top[3]], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)

@@ -130,6 +130,57 @@ static func dug_bottom_material(material: int) -> int:
 			return material
 
 
+## Which diagonal splits the top of a slope piece into two triangles: 0 joins corners 0-2, 1 joins corners 1-3. A ridge (one
+## corner highest) or a valley (one corner lowest) is split through that corner, so the surface does not fold the wrong way.
+## The mesher and surface_height agree on it.
+static func top_diagonal(h: Array[int]) -> int:
+	var s02: int = h[0] + h[2]
+	var s13: int = h[1] + h[3]
+	if s02 == s13:
+		return 0
+	var hi: int = maxi(maxi(h[0], h[1]), maxi(h[2], h[3]))
+	var lo: int = mini(mini(h[0], h[1]), mini(h[2], h[3]))
+	var hi_idx: Array[int] = []
+	var lo_idx: Array[int] = []
+	for k in 4:
+		if h[k] == hi:
+			hi_idx.append(k)
+		if h[k] == lo:
+			lo_idx.append(k)
+	if hi_idx.size() == 1:
+		return 0 if hi_idx[0] % 2 == 0 else 1
+	if lo_idx.size() == 1:
+		return 0 if lo_idx[0] % 2 == 0 else 1
+	return 0 if s02 > s13 else 1
+
+
+## Height of the top surface of a piece at (u, v) inside its cell (both 0..1, x and z), in blocks (0..1): what a unit
+## standing there has under its feet. Follows the same triangles as the mesh, and for a half-dug block its flat floor.
+static func surface_height(shape_id: int, u: float, v: float) -> float:
+	if shape_id == SHAPE_CUBE:
+		return 1.0
+	var h := corner_heights(shape_id)
+	var q := 1.0 / UNIT
+	if shape_id >= DUG_SHAPE_BASE:
+		# Flat floor in the middle, slopes out to the rim: blend from the floor height to the bilinear rim height.
+		var edge := maxf(absf(u - 0.5), absf(v - 0.5))
+		var t := clampf((edge - 0.25) / 0.25, 0.0, 1.0)
+		var bil: float = lerpf(lerpf(h[0], h[1], u), lerpf(h[3], h[2], u), v)
+		return lerpf(float(DUG_HEIGHT), minf(bil, float(UNIT)), t) * q
+	var hh: float
+	if top_diagonal(h) == 0:
+		if u >= v:
+			hh = h[0] + (h[1] - h[0]) * u + (h[2] - h[1]) * v
+		else:
+			hh = h[0] + (h[2] - h[3]) * u + (h[3] - h[0]) * v
+	else:
+		if u + v <= 1.0:
+			hh = h[0] + (h[1] - h[0]) * u + (h[3] - h[0]) * v
+		else:
+			hh = h[2] + (h[3] - h[2]) * (1.0 - u) + (h[1] - h[2]) * (1.0 - v)
+	return hh * q
+
+
 ## Highest corner of a shape, in quarter-blocks (UNIT for a cube).
 static func max_height(shape_id: int) -> int:
 	var h := corner_heights(shape_id)

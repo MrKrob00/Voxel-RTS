@@ -9,6 +9,8 @@ func _ready() -> void:
 	var digs: Array[Vector3i] = []   # (x, z, stages): dig the top block of that column before the shot
 	var pitch := -1.0
 	var yaw := -1000.0
+	var select_all := false
+	var move_to := Vector2(-1, -1)   # --move=x,z: select every unit and send it there, then wait for it to walk a bit
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shot="):
 			path = a.substr(7)
@@ -22,6 +24,12 @@ func _ready() -> void:
 			pitch = float(a.substr(8))
 		elif a.begins_with("--yaw="):
 			yaw = float(a.substr(6))
+		elif a == "--select-all":
+			select_all = true
+		elif a.begins_with("--move="):
+			var m := a.substr(7).split(",")
+			move_to = Vector2(float(m[0]), float(m[1]))
+			select_all = true
 		elif a.begins_with("--zoom="):
 			zoom = float(a.substr(7))
 	if path == "":
@@ -32,6 +40,13 @@ func _ready() -> void:
 		await get_tree().process_frame
 	for _i in 10:
 		await get_tree().process_frame
+	var units: UnitManager = get_parent().get("units")
+	if select_all and units != null:
+		units.select_all()
+	if move_to.x >= 0.0 and units != null:
+		var gc := units.nav.nearest_standable(Vector3i(int(move_to.x), world.surface_y(int(move_to.x), int(move_to.y)) + 1, int(move_to.y)), 5)
+		if gc.x >= 0:
+			units.command_move(gc)
 	for d in digs:
 		var terrain: TerrainEdit = world.terrain
 		var lv0 := terrain.level(d.x, d.y)

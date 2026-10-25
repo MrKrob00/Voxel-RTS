@@ -46,6 +46,18 @@ func level(x: int, z: int, cache: Dictionary = {}) -> int:
 	return result
 
 
+## The highest piece of ground in a column: a slope piece or half-dug block on top, else the highest whole block. This is what
+## a worker digs next. (-1,-1,-1) when the column has no ground.
+func surface_target(x: int, z: int) -> Vector3i:
+	var lv := level(x, z)
+	if lv < 0:
+		return Vector3i(-1, -1, -1)
+	var y := surface_cell_y(lv)
+	if Blocks.is_partial(world.get_block(Vector3i(x, y, z))):
+		return Vector3i(x, y, z)
+	return Vector3i(x, y - 1, z)
+
+
 ## The y of the cell just above a column's highest whole block: where its slope piece or its half-dug block is.
 static func surface_cell_y(level_value: int) -> int:
 	return level_value / Blocks.UNIT

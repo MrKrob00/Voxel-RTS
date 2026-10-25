@@ -5,11 +5,13 @@ var preset := MapPreset.plains()
 var world: VoxelWorld
 var props: PropField
 var rig: RTSCamera
-enum Mode { DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
-const MODE_NAMES := ["dig", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
+enum Mode { SELECT, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
+const MODE_NAMES := ["select / move", "dig", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
+const START_UNITS := 5
 
 var bricks: BrickWorld
-var mode := Mode.DIG
+var units: UnitManager
+var mode := Mode.SELECT
 var brick_axis := 0
 var _ghost: MeshInstance3D
 var _ghost_mat: StandardMaterial3D
@@ -19,6 +21,7 @@ var _hover: MeshInstance3D
 var _info: Label
 var _cell_info: Label
 var _mode_button: Button
+var _selection_box: SelectionBox
 
 
 func _ready() -> void:
@@ -55,6 +58,16 @@ func _ready() -> void:
 	add_child(rig)
 	rig.primary_action.connect(_on_primary)
 	rig.secondary_action.connect(_on_secondary)
+	rig.double_action.connect(_on_double)
+	rig.box_changed.connect(func(r: Rect2) -> void: _selection_box.show_rect(r))
+	rig.box_cancelled.connect(func() -> void: _selection_box.hide_rect())
+	rig.box_finished.connect(_on_box)
+
+	units = UnitManager.new()
+	units.name = "Units"
+	add_child(units)
+	units.setup(world, bricks)
+	world.generation_finished.connect(_spawn_units, CONNECT_ONE_SHOT)
 
 	_setup_hover()
 	_setup_ui()
@@ -62,8 +75,15 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	_info.text = "%d fps | %s | %s | bricks %d, debris %d" % [Engine.get_frames_per_second(), world.stats(), MODE_NAMES[mode], bricks.brick_count(), bricks.debris_count()]
+	_info.text = "%d fps | %s | %s | units %d (selected %d) | bricks %d" % [Engine.get_frames_per_second(), world.stats(), MODE_NAMES[mode], units.units.size(), units.selection.size(), bricks.brick_count()]
 	_update_hover()
+
+
+func _spawn_units() -> void:
+	var sp := world.spawn_point()
+	var start := units.nav.nearest_standable(Vector3i(sp.x, sp.y + 1, sp.z), 4)
+	if start.x >= 0:
+		units.spawn_squad(start, START_UNITS, 2)
 
 
 func _setup_environment() -> void:
@@ -138,8 +158,22 @@ func _setup_ui() -> void:
 	_cell_info.position = Vector2(12, 172)
 	_cell_info.add_theme_font_size_override("font_size", 14)
 	layer.add_child(_cell_info)
+	_selection_box = SelectionBox.new()
+	layer.add_child(_selection_box)
+	var all_button := Button.new()
+	all_button.text = "All units"
+	all_button.custom_minimum_size = Vector2(190, 56)
+	all_button.position = Vector2(12, 232)
+	all_button.pressed.connect(func() -> void: units.select_all())
+	layer.add_child(all_button)
+	var idle_button := Button.new()
+	idle_button.text = "Idle units"
+	idle_button.custom_minimum_size = Vector2(190, 56)
+	idle_button.position = Vector2(12, 296)
+	idle_button.pressed.connect(func() -> void: units.select_idle())
+	layer.add_child(idle_button)
 	_mode_button = Button.new()
-	_mode_button.text = "Mode: dig"
+	_mode_button.text = "Mode: select / move"
 	_mode_button.custom_minimum_size = Vector2(190, 56)
 	_mode_button.position = Vector2(12, 40)
 	_mode_button.pressed.connect(func() -> void:
@@ -194,10 +228,20 @@ func _describe_cell(cell: Vector3i, brick: bool) -> String:
 
 
 func _on_primary(pos: Vector2) -> void:
+	var u := units.unit_at(pos, rig.camera) if mode == Mode.SELECT else null
+	if u != null:
+		# Tapping the only selected unit again puts it away; any other tap picks that unit.
+		if units.selection.size() == 1 and units.selection[0] == u:
+			units.clear_selection()
+		else:
+			units.select_only(u)
+		return
 	var hit := _pick(pos)
 	if hit.is_empty():
 		return
 	match mode:
+		Mode.SELECT:
+			_command_move(hit)
 		Mode.DIG:
 			if hit.brick:
 				bricks.remove(bricks.brick_at(hit.cell))
@@ -211,12 +255,33 @@ func _on_primary(pos: Vector2) -> void:
 			bricks.place(hit.cell + hit.normal, brick_axis, _brick_kind(), _brick_length())
 
 
+## Long press / right click: the command. Move the selection there; with nothing selected, in any tool mode, remove what is there.
 func _on_secondary(pos: Vector2) -> void:
-	# Right click always removes what is under the cursor (a brick or a voxel), dig mode or not.
 	var hit := _pick(pos)
 	if hit.is_empty():
 		return
-	if hit.brick:
-		bricks.remove(bricks.brick_at(hit.cell))
-	else:
-		world.terrain.dig_step(hit.cell)
+	if not units.selection.is_empty():
+		_command_move(hit)
+	elif mode != Mode.SELECT:
+		if hit.brick:
+			bricks.remove(bricks.brick_at(hit.cell))
+		else:
+			world.terrain.dig_step(hit.cell)
+
+
+func _command_move(hit: Dictionary) -> void:
+	if units.selection.is_empty() or hit.brick:
+		return
+	var goal := units.nav.standing_for_hit(hit)
+	if goal.x >= 0:
+		units.command_move(goal)
+
+
+func _on_double(pos: Vector2) -> void:
+	if mode == Mode.SELECT and units.unit_at(pos, rig.camera) != null:
+		units.select_all()   # double tap on a unit: every unit (there is only one kind so far)
+
+
+func _on_box(rect: Rect2) -> void:
+	_selection_box.hide_rect()
+	units.select_rect(rect, rig.camera, Input.is_key_pressed(KEY_SHIFT))
