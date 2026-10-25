@@ -443,6 +443,7 @@ def board(length, width):
     return [box(0, -0.44, 0, length, 0.12, width, 0.02)]
 
 
+ROUND_STONE = ["tower_a", "tower_b", "tower_squat", "column"]   # the stone blocks with curved parts: only these get smoothed normals
 STONE_BLOCKS = ["brick", "cube", "stairs", "stairs_small", "corner_out_l", "corner_out_r", "corner_in_l", "corner_in_r", "corner_in_cell",
                 "corner_out_cell", "tower_a", "tower_b", "tower_squat", "column", "tower_flared"]
 
@@ -496,10 +497,10 @@ BLOCKS = {
 }
 
 
-def mesh_of(pieces):
+def mesh_of(pieces, smooth=True):
     """Triangles with per-vertex normals: flat on the faces, smoothed where neighbouring faces differ by less than SMOOTH_DEG."""
     tris = []
-    cos_limit = math.cos(math.radians(SMOOTH_DEG))
+    cos_limit = math.cos(math.radians(SMOOTH_DEG)) if smooth else 0.99999   # only faces in the same plane share a normal
     for piece in pieces:
         faces = piece[1] if isinstance(piece, tuple) and piece[0] == "tris" else hull(piece)
         by_pos = {}
@@ -546,7 +547,7 @@ if __name__ == "__main__":
         pieces = make()
         if only_stone:
             pieces = [merge(pieces)]
-        tris = mesh_of(pieces)
+        tris = mesh_of(pieces, smooth=not only_stone or name in ROUND_STONE)
         write_obj(name, tris)
         xs = [p[0] for t in tris for p, _ in t]
         ys = [p[1] for t in tris for p, _ in t]
