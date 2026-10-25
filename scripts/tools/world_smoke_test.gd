@@ -71,18 +71,23 @@ func _init() -> void:
 	_check(Blocks.shape(w_raw) >= Blocks.SHAPE_WEDGE_PX and Blocks.shape(w_raw) <= Blocks.SHAPE_WEDGE_NZ, "wedge is stored in the world (raw %d)" % w_raw)
 	_check(Blocks.is_solid(w_raw) and not Blocks.is_opaque(w_raw), "wedge is solid ground but does not hide neighbours")
 	_check(world.dig_step(wedge) and world.get_block(wedge) == Blocks.AIR, "digging a wedge removes it")
-	# Smoothing after edits: removing the higher neighbour that a wedge leaned on changes (or removes) that wedge.
+	# Smoothing after edits: dig the higher neighbour each wedge leans on, then every ramp cell around must equal what
+	# the rules give for the new heights, and at least one of them must actually have changed shape.
 	var lean := {1: Vector3i(1, 0, 0), 2: Vector3i(-1, 0, 0), 3: Vector3i(0, 0, 1), 4: Vector3i(0, 0, -1)}
-	var found_resmooth := false
+	var tested := 0
+	var changed := 0
+	var consistent := true
 	for dz2 in range(-30, 31):
 		for dx2 in range(-30, 31):
+			if tested >= 12:
+				continue
 			var cx2 := int(world.generator.islands[0].center.x) + dx2
 			var cz2 := int(world.generator.islands[0].center.y) + dz2
 			var col2 := world.generator.column(cx2, cz2)
-			if col2.x < 0 or found_resmooth:
+			if col2.x < 0:
 				continue
 			var sh2 := world.generator.ramp_shape(cx2, cz2, col2.x)
-			if sh2 < 1 or sh2 > 4:
+			if sh2 < 1 or sh2 > 4 or (tested > 0 and (dx2 + dz2) % 5 != 0):
 				continue
 			var cell2 := Vector3i(cx2, col2.x + 1, cz2)
 			var before := world.get_block(cell2)
@@ -91,9 +96,20 @@ func _init() -> void:
 			var high: Vector3i = cell2 + lean[sh2]
 			world.dig_step(high)
 			world.dig_step(high)
-			found_resmooth = true
-			_check(world.get_block(cell2) != before, "ramp re-smoothed after its high neighbour was dug (was %d, now %d)" % [before, world.get_block(cell2)])
-	_check(found_resmooth, "found a wedge to re-smooth")
+			tested += 1
+			var top2 := world.cube_top(cx2, cz2)
+			var nt := {}
+			for off in Ramps.NEIGHBOURS:
+				nt[off] = world.cube_top(cx2 + off.x, cz2 + off.y)
+			var shape_now := Ramps.shape_from(top2, nt)
+			var expected := Blocks.AIR if shape_now == Blocks.SHAPE_CUBE else Blocks.make(Blocks.mat(world.get_block(Vector3i(cx2, top2, cz2))), shape_now)
+			if world.get_block(cell2) != expected:
+				consistent = false
+			if world.get_block(cell2) != before:
+				changed += 1
+	_check(tested >= 3, "enough wedges tested for re-smoothing (%d)" % tested)
+	_check(consistent, "after digging, ramp cells match the rules for the new heights")
+	_check(changed >= 1, "at least one ramp changed shape after its neighbour was dug (%d of %d)" % [changed, tested])
 	var cube := Vector3i(spawn.x + 3, spawn.y, spawn.z + 3)
 	_check(world.get_block(cube) == Blocks.GRASS, "cube before digging")
 	_check(world.dig_step(cube) and Blocks.shape(world.get_block(cube)) == Blocks.SHAPE_SLAB and Blocks.mat(world.get_block(cube)) == Blocks.GRASS, "first dig stage: cube becomes a slab of the same material")
@@ -156,7 +172,8 @@ func _terrain_report(world: VoxelWorld) -> void:
 	var reach := 0
 	while not queue.is_empty():
 		var p: Vector2i = queue.pop_back()
-		reach += 1
+		if Vector2(p).distance_to(isl.center) <= isl.radius * 1.3:
+			reach += 1
 		var h := gen.column(p.x, p.y).x
 		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			var q: Vector2i = p + d

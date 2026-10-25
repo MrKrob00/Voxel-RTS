@@ -45,3 +45,22 @@ static func shape_from(top: int, tops: Dictionary) -> int:
 static func is_managed(raw: int) -> bool:
 	var s := Blocks.shape(raw)
 	return s != Blocks.SHAPE_CUBE and s != Blocks.SHAPE_SLAB
+
+
+## Removes 1-block pits and 1-wide trenches from the height field: a column lower than all four neighbours, or
+## lower than both neighbours on one axis, is raised to the lower of those neighbours (only when that is 1-2 blocks).
+## `px`, `nx`, `pz`, `nz` are the neighbouring tops (+x, -x, +z, -z), -1 where there is no ground.
+static func despeckle(top: int, px: int, nx: int, pz: int, nz: int) -> int:
+	if px > top and nx > top and pz > top and nz > top:
+		var lo := mini(mini(px, nx), mini(pz, nz))
+		if lo - top <= 2:
+			return lo
+	if px > top and nx > top:
+		var lo2 := mini(px, nx)
+		if lo2 - top <= 2:
+			top = lo2
+	if pz > top and nz > top:
+		var lo3 := mini(pz, nz)
+		if lo3 - top <= 2:
+			top = lo3
+	return top

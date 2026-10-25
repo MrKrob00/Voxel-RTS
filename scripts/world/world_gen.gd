@@ -11,6 +11,7 @@ class Island extends RefCounted:
 	var base_top: int
 	var thickness: int
 	var anchor := 0   ## index of the island this one hangs off (for bridges)
+	var shape_amp := 0.22   ## how ragged the outline is: bays and peninsulas
 
 	func _init(c: Vector2, r: float, top: int, thick: int) -> void:
 		center = c
@@ -75,6 +76,7 @@ var _cave: FastNoiseLite
 var _coal: FastNoiseLite
 var _iron: FastNoiseLite
 var _orange: FastNoiseLite
+var _pocket: FastNoiseLite
 var _max_y: int
 var _region_cache := {}
 var _region_mutex := Mutex.new()
@@ -86,7 +88,7 @@ func _init(world_seed: int, size: Vector3i, map_preset: MapPreset, forced_extra 
 	rock_y = int(size.y * 0.62)
 	snow_y = int(size.y * 0.78)
 	_shape = _make_noise(world_seed, 0.018, 3)
-	_hills = _make_noise(world_seed + 1, 0.021, 2)
+	_hills = _make_noise(world_seed + 1, 0.014, 2)
 	_ridge = _make_noise(world_seed + 7, 0.024, 3)
 	_pass = _make_noise(world_seed + 8, 0.016, 2)
 	_region = _make_noise(world_seed + 9, 0.013, 2)
@@ -96,6 +98,7 @@ func _init(world_seed: int, size: Vector3i, map_preset: MapPreset, forced_extra 
 	_coal = _make_noise(world_seed + 5, 0.12, 1)
 	_iron = _make_noise(world_seed + 6, 0.14, 1)
 	_orange = _make_noise(world_seed + 10, 0.16, 1)
+	_pocket = _make_noise(world_seed + 11, 0.11, 1)
 	_layout_islands(world_seed, size, forced_extra)
 	_build_bridges()
 
@@ -152,6 +155,7 @@ func _layout_islands(world_seed: int, size: Vector3i, forced_extra: int) -> void
 		# Neighbouring islands sit at similar heights so the bridge between them stays walkable.
 		var top := clampi(anchor.base_top + rng.randi_range(-3, 3), mid_top - 6, mid_top + 6)
 		var isl := Island.new(c, r, top, rng.randi_range(16, 22))
+		isl.shape_amp = 0.34   # extras get more bays and peninsulas than the main island
 		isl.anchor = islands.find(anchor)
 		islands.append(isl)
 		placed += 1
@@ -188,7 +192,7 @@ func _build_bridges() -> void:
 ## How far inside an island's own outline a point is (above 0 means ground belongs to this island).
 func _own_influence(isl: Island, p: Vector2) -> float:
 	var d := p.distance_to(isl.center) / isl.radius
-	d *= 1.0 + _shape.get_noise_2d(p.x, p.y) * 0.22
+	d *= 1.0 + _shape.get_noise_2d(p.x, p.y) * isl.shape_amp
 	return 1.0 - d
 
 
@@ -219,7 +223,21 @@ func column(wx: int, wz: int) -> Vector2i:
 
 
 ## Like column(), plus the bridge style in z (-1 for island ground, 0 / 1 for a bridge); x < 0 means open sky.
+## Island ground has 1-block pits and 1-wide trenches filled in (Ramps.despeckle).
 func column_full(wx: int, wz: int) -> Vector3i:
+	var v := raw_column(wx, wz)
+	if v.z != -1 or v.x < 0:
+		return v
+	var px := raw_column(wx + 1, wz)
+	var nx := raw_column(wx - 1, wz)
+	var pz := raw_column(wx, wz + 1)
+	var nz := raw_column(wx, wz - 1)
+	var top := Ramps.despeckle(v.x, px.x, nx.x, pz.x, nz.x)
+	return Vector3i(top, v.y, -1)
+
+
+## The column before despeckling.
+func raw_column(wx: int, wz: int) -> Vector3i:
 	var c := _island_column(wx, wz)
 	if bridges.is_empty():
 		return Vector3i(c.x, c.y, -1)
@@ -290,7 +308,7 @@ func near_bridge(p: Vector2, margin: float) -> bool:
 ## Near a bridge end the island ground is levelled to the deck height, so the bridge never ends against a ledge.
 func _landing_pad(p: Vector2, c: Vector2i) -> Vector2i:
 	# Only the nearest bridge end shapes the ground, so two bridges landing close together do not fight.
-	var best_d := 12.0
+	var best_d := 14.0
 	var best_h := -1
 	for br in bridges:
 		for end in 2:
@@ -301,7 +319,7 @@ func _landing_pad(p: Vector2, c: Vector2i) -> Vector2i:
 				best_h = br.ha if end == 0 else br.hb
 	if best_h < 0:
 		return c
-	var w := 1.0 - smoothstep(3.0, 12.0, best_d)
+	var w := 1.0 - smoothstep(5.0, 14.0, best_d)
 	var top := clampi(roundi(lerpf(c.x, best_h, w)), 4, _max_y)
 	return Vector2i(top, clampi(c.y + top - c.x, 1, top))
 
@@ -313,7 +331,7 @@ func _island_column(wx: int, wz: int) -> Vector2i:
 	var n := _shape.get_noise_2d(wx, wz)
 	for isl in islands:
 		var d := p.distance_to(isl.center) / isl.radius
-		d *= 1.0 + n * 0.22
+		d *= 1.0 + n * isl.shape_amp
 		var m := 1.0 - d
 		if m > best_m:
 			best_m = m
@@ -323,7 +341,7 @@ func _island_column(wx: int, wz: int) -> Vector2i:
 	var rim := minf(1.0, best_m * 4.0)
 	# Flat build area in the middle of each island, fading into the wild terrain.
 	var flat := 1.0 - smoothstep(preset.flat_share, preset.flat_share + 0.25, 1.0 - best_m)
-	flat *= 0.92 if best == islands[0] else 0.45
+	flat *= 1.0 if best == islands[0] else 0.45
 	var hills := _hills.get_noise_2d(wx, wz) * preset.hills_amp
 	# Mountains: ridged noise, only inside "mountain regions", cut by winding passes (valleys) where the pass noise crosses 0.
 	var ridge_line := pow(1.0 - absf(_ridge.get_noise_2d(wx, wz)), 1.4)
@@ -339,7 +357,11 @@ func _island_column(wx: int, wz: int) -> Vector2i:
 	var level := floorf(rel / step + 0.5) * step
 	var slope := 1.0 - smoothstep(preset.pass_ramp.x, preset.pass_ramp.y, absf(_pass.get_noise_2d(wx, wz)))
 	# Gentle undulation inside a plateau: 1-block steps that the ramp wedges smooth out.
-	var bumps := roundf(_detail.get_noise_2d(wx, wz) * 1.7) * rim * (1.0 - flat * 0.85)
+	# Only a sparse few of them, none on the flat build area: the ramp pieces do the smoothing work.
+	var bump_noise := _detail.get_noise_2d(wx, wz)
+	var bumps := 0.0
+	if flat < 0.5 and absf(bump_noise) > 0.38:
+		bumps = signf(bump_noise) * rim
 	var top := best.base_top + lerpf(level, rel, slope) + bumps
 	var depth := 3.0 + best.thickness * pow(best_m, 0.75) + _under.get_noise_2d(wx, wz) * 4.0 * best_m
 	var top_i := clampi(int(top), 4, _max_y)
@@ -358,14 +380,23 @@ func block_at(wx: int, wy: int, wz: int, top: int, bottom: int, style := -1) -> 
 			return Blocks.SNOW
 		return Blocks.STONE if wy >= rock_y else preset.top_block
 	if depth <= preset.dirt_depth:
-		return Blocks.STONE if wy >= rock_y else preset.sub_block
+		if wy >= rock_y:
+			return Blocks.STONE
+		# Grey stone pockets inside the dirt layer, carrying a few ore flecks, as on the original's cliff faces.
+		if depth >= 2 and _pocket.get_noise_3d(wx, wy * 1.4, wz) > 0.5:
+			if _orange.get_noise_3d(wx, wy, wz) > 0.45:
+				return Blocks.ORANGE_ORE
+			if _iron.get_noise_3d(wx, wy, wz) > 0.5:
+				return Blocks.IRON
+			return Blocks.STONE
+		return preset.sub_block
 	if wy > bottom + 3 and depth > cave_depth and _cave.get_noise_3d(wx, wy * 1.6, wz) > 0.55:
 		return Blocks.AIR
-	if depth > 2 and _orange.get_noise_3d(wx, wy, wz) > 0.70:
+	if depth > 2 and _orange.get_noise_3d(wx, wy, wz) > 0.76:
 		return Blocks.ORANGE_ORE
 	if _coal.get_noise_3d(wx, wy, wz) > 0.62:
 		return Blocks.COAL
-	if depth > 10 and _iron.get_noise_3d(wx, wy, wz) > 0.66:
+	if depth > 4 and _iron.get_noise_3d(wx, wy, wz) > 0.70:
 		return Blocks.IRON
 	return Blocks.STONE
 
@@ -387,6 +418,20 @@ func region(cx: int, cz: int) -> Array:
 	_region_mutex.unlock()
 	if cached != null:
 		return cached
+	# Raw heights for 20 x 20 columns (2 around the chunk), then despeckled for the inner 18 x 18.
+	var raw_top := PackedInt32Array()
+	var raw_bottom := PackedInt32Array()
+	var raw_style := PackedInt32Array()
+	raw_top.resize(400)
+	raw_bottom.resize(400)
+	raw_style.resize(400)
+	for z in range(-2, 18):
+		for x in range(-2, 18):
+			var col := raw_column(cx * 16 + x, cz * 16 + z)
+			var i := (x + 2) + (z + 2) * 20
+			raw_top[i] = col.x
+			raw_bottom[i] = col.y
+			raw_style[i] = col.z
 	var tops := PackedInt32Array()
 	var bottoms := PackedInt32Array()
 	var styles := PackedInt32Array()
@@ -395,10 +440,14 @@ func region(cx: int, cz: int) -> Array:
 	styles.resize(18 * 18)
 	for z in range(-1, 17):
 		for x in range(-1, 17):
-			var col := column_full(cx * 16 + x, cz * 16 + z)
-			tops[(x + 1) + (z + 1) * 18] = col.x
-			bottoms[(x + 1) + (z + 1) * 18] = col.y
-			styles[(x + 1) + (z + 1) * 18] = col.z
+			var i := (x + 2) + (z + 2) * 20
+			var top := raw_top[i]
+			if raw_style[i] == -1 and top >= 0:
+				top = Ramps.despeckle(top, raw_top[i + 1], raw_top[i - 1], raw_top[i + 20], raw_top[i - 20])
+			var j := (x + 1) + (z + 1) * 18
+			tops[j] = top
+			bottoms[j] = raw_bottom[i]
+			styles[j] = raw_style[i]
 	var res := [tops, bottoms, styles]
 	_region_mutex.lock()
 	_region_cache[key] = res

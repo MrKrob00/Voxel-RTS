@@ -51,7 +51,7 @@ const _COLORS := {
 	SAND: [Color("dccf8f"), Color("dccf8f"), Color("dccf8f")],
 	WATER: [Color("3b6fd0"), Color("3b6fd0"), Color("3b6fd0")],
 	COAL: [Color("3a3a3e"), Color("3a3a3e"), Color("3a3a3e")],
-	IRON: [Color("b89478"), Color("b89478"), Color("b89478")],
+	IRON: [Color("a9c9dd"), Color("a9c9dd"), Color("a9c9dd")],
 	BEDROCK: [Color("2a2a2c"), Color("2a2a2c"), Color("2a2a2c")],
 	SNOW: [Color("f2f6fa"), Color("8a8d91"), Color("c9d3dc")],
 	ORANGE_ORE: [Color("f08a1c"), Color("c4690f"), Color("e07a14")],

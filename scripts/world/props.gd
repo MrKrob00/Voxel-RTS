@@ -116,18 +116,22 @@ static func crystals() -> ArrayMesh:
 	return _finish(st)
 
 
-## A tuft of grass: a few bent blades. Used with a double-sided material.
+## A fern / leafy bush: six broad leaves fanning out and curling down at the tips. Used with a double-sided material.
 static func tuft() -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var blades := 7
-	for i in blades:
-		var a := TAU * i / blades + 0.3 * i
+	var leaves := 6
+	for i in leaves:
+		var a := TAU * i / leaves + 0.35 * (i % 2)
 		var dir := Vector3(cos(a), 0, sin(a))
-		var side := Vector3(-dir.z, 0, dir.x) * 0.07
-		var h := 0.55 + 0.25 * fmod(float(i) * 0.37, 1.0)
-		var base := dir * 0.12
-		var tip := base + dir * 0.28 + Vector3(0, h, 0)
-		var col := Color("4aa337").lerp(Color("79c248"), fmod(float(i) * 0.31, 1.0))
-		_tri(st, base - side, base + side, tip, col)
+		var side := Vector3(-dir.z, 0, dir.x)
+		var lift := 0.34 + 0.12 * float(i % 3)
+		var base := dir * 0.08 + Vector3(0, 0.05, 0)
+		var left := dir * 0.5 + side * 0.24 + Vector3(0, lift, 0)
+		var right := dir * 0.5 - side * 0.24 + Vector3(0, lift, 0)
+		var tip := dir * 1.0 + Vector3(0, lift * 0.55, 0)
+		var dark := Color("2f7a3a").lerp(Color("3f9440"), fmod(float(i) * 0.37, 1.0))
+		var light := Color("58b04a").lerp(Color("7ac85a"), fmod(float(i) * 0.29, 1.0))
+		_tri(st, base, left, right, dark)
+		_tri(st, left, tip, right, light)
 	return _finish(st)

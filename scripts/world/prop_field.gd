@@ -54,14 +54,14 @@ func _scatter() -> void:
 
 	# Guaranteed start resources, a short walk from the spawn crystal.
 	var a0 := _rng.randf() * TAU
-	_plan_near(planned, "forest", _spawn, a0, 15.0, 24.0, _rng.randf_range(8.0, 11.0))
+	_plan_near(planned, "forest", _spawn, a0, 15.0, 24.0, _rng.randf_range(9.0, 12.0))
 	_plan_near(planned, "stone", _spawn, a0 + 2.2, 13.0, 22.0, 4.0)
 	_plan_near(planned, "plants", _spawn, a0 + 4.1, 9.0, 15.0, _rng.randf_range(6.0, 9.0))
-	_plan_near(planned, "forest", _spawn, a0 + 3.1, 24.0, 34.0, _rng.randf_range(7.0, 10.0))
+	_plan_near(planned, "forest", _spawn, a0 + 3.1, 24.0, 34.0, _rng.randf_range(9.0, 13.0))
 
 	# The rest of every island.
 	for isl in _gen.islands:
-		var count := int(isl.radius / 5.5)
+		var count := int(isl.radius / 3.8)
 		var tries := 0
 		while count > 0 and tries < 200:
 			tries += 1
@@ -69,8 +69,8 @@ func _scatter() -> void:
 			var dist := sqrt(_rng.randf()) * isl.radius * 0.85
 			var c: Vector2 = isl.center + Vector2.from_angle(ang) * dist
 			var roll := _rng.randf()
-			var type := "forest" if roll < 0.42 else ("stone" if roll < 0.62 else "plants")
-			var radius := _rng.randf_range(7.0, 11.0) if type == "forest" else (4.0 if type == "stone" else _rng.randf_range(5.0, 9.0))
+			var type := "forest" if roll < 0.55 else ("stone" if roll < 0.70 else "plants")
+			var radius := _rng.randf_range(9.0, 15.0) if type == "forest" else (4.0 if type == "stone" else _rng.randf_range(5.0, 9.0))
 			if _zone_ok(planned, c, radius):
 				planned.append({"type": type, "center": c, "radius": radius})
 				count -= 1
@@ -89,10 +89,14 @@ func _scatter() -> void:
 
 	for z in planned:
 		match z.type:
-			"forest": _fill_forest(z)
+			"forest":
+				_fill_forest(z)
+				_fern_ring(z.center, z.radius * 0.75, z.radius + 3.0, 0.45)
 			"stone": _fill_stone(z)
 			"plants": _fill_plants(z)
 			"crystal": _fill_vein(z)
+	# Ferns around the spawn clearing, outside the bare disc.
+	_fern_ring(_spawn, 7.0, 11.0, 0.12)
 	# A thin scatter of single bushes so open ground is not bare.
 	for i in 900:
 		var isl: WorldGen.Island = _gen.islands[_rng.randi() % _gen.islands.size()]
@@ -171,6 +175,12 @@ func _try_prop(kind: String, p: Vector2, max_slope: int, smin: float, smax: floa
 	var top := _surface(p.x, p.y)
 	if top < 0 or _slope(p.x, p.y, top) > max_slope:
 		return false
+	if kind == "pine" or kind == "boulder":
+		# A tree crown reaches about two blocks out: no standing at a cliff lip, an island edge or a bridge mouth.
+		for d in [Vector2(2, 0), Vector2(-2, 0), Vector2(0, 2), Vector2(0, -2), Vector2(2, 2), Vector2(-2, 2), Vector2(2, -2), Vector2(-2, -2)]:
+			var n := _gen.column(int(p.x + d.x), int(p.y + d.y))
+			if n.x < 0 or absi(n.x - top) > 2:
+				return false
 	_out[kind].append(_xform(Vector3(p.x, top + 1.0, p.y), _rng, smin, smax))
 	return true
 
@@ -185,9 +195,23 @@ func _fill_forest(z: Dictionary) -> void:
 			var p := c + Vector2(gx, gz) + Vector2(_rng.randf_range(-0.7, 0.7), _rng.randf_range(-0.7, 0.7))
 			var d := (p - c).length() / r
 			if d < 1.0 and _rng.randf() < 0.8 * (1.0 - d * d) + 0.1 and p.distance_to(_spawn) > 8.0:
-				_try_prop("pine", p, 2, 0.85, 1.45)
-			gz += 2.0
-		gx += 2.0
+				_try_prop("pine", p, 1, 0.85, 1.45)
+			gz += 1.6
+		gx += 1.6
+
+
+## A band of ferns just outside a grove, like the leafy thickets that edge the groves in the reference.
+func _fern_ring(c: Vector2, inner: float, outer: float, chance: float) -> void:
+	var gx := -outer
+	while gx <= outer:
+		var gz := -outer
+		while gz <= outer:
+			var p := c + Vector2(gx, gz) + Vector2(_rng.randf_range(-0.4, 0.4), _rng.randf_range(-0.4, 0.4))
+			var d := (p - c).length()
+			if d >= inner and d <= outer and _rng.randf() < chance and p.distance_to(_spawn) > 6.0:
+				_try_prop("tuft", p, 1, 1.0, 1.7)
+			gz += 1.2
+		gx += 1.2
 
 
 func _fill_stone(z: Dictionary) -> void:
@@ -223,6 +247,8 @@ func _fill_vein(z: Dictionary) -> void:
 	for i in n:
 		var p := c + t * (float(i) - n * 0.5) * 1.1 + Vector2(_rng.randf_range(-0.3, 0.3), _rng.randf_range(-0.3, 0.3))
 		_try_prop("crystal", p, 3, 0.9, 1.5)
+	for i in _rng.randi_range(4, 6):
+		_try_prop("tuft", c + Vector2(_rng.randf_range(-5.0, 5.0), _rng.randf_range(-5.0, 5.0)), 2, 1.0, 1.7)
 
 
 func _xform(pos: Vector3, rng: RandomNumberGenerator, smin: float, smax: float) -> Transform3D:
