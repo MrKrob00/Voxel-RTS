@@ -66,6 +66,42 @@ static func pine() -> ArrayMesh:
 	return _finish(st)
 
 
+## What is left of a felled tree, like the stumps of the original's cut forests: a short wide trunk that flares at the foot, dark bark
+## in stripes, and a pale top with rings.
+static func stump() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sides := 12
+	var foot := 0.5
+	var top := 0.38
+	var h := 0.42
+	for i in sides:
+		var a0 := TAU * i / sides
+		var a1 := TAU * (i + 1) / sides
+		var b0 := Vector3(cos(a0) * foot, 0, sin(a0) * foot)
+		var b1 := Vector3(cos(a1) * foot, 0, sin(a1) * foot)
+		var t0 := Vector3(cos(a0) * top, h, sin(a0) * top)
+		var t1 := Vector3(cos(a1) * top, h, sin(a1) * top)
+		var bark := Color("6b4a2b") if i % 2 == 0 else Color("5a3d22")
+		_tri(st, b1, b0, t0, bark)
+		_tri(st, b1, t0, t1, bark)
+	var rings := [0.38, 0.30, 0.22, 0.14, 0.06]
+	var cols := [Color("d9b27a"), Color("c49a5c"), Color("d9b27a"), Color("c49a5c"), Color("d9b27a")]
+	for k in rings.size():
+		var r_out: float = rings[k]
+		var r_in: float = rings[k + 1] if k + 1 < rings.size() else 0.0
+		for i in sides:
+			var a0 := TAU * i / sides
+			var a1 := TAU * (i + 1) / sides
+			var o0 := Vector3(cos(a0) * r_out, h, sin(a0) * r_out)
+			var o1 := Vector3(cos(a1) * r_out, h, sin(a1) * r_out)
+			var n0 := Vector3(cos(a0) * r_in, h, sin(a0) * r_in)
+			var n1 := Vector3(cos(a1) * r_in, h, sin(a1) * r_in)
+			_tri(st, o0, n0, n1, cols[k])
+			_tri(st, o0, n1, o1, cols[k])
+	return _finish(st)
+
+
 static func boulder(seed_value: int = 0) -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)

@@ -105,26 +105,13 @@ func build(station_kind: int, cell: Vector3i) -> void:
 	var steel := _mat(Color("b7bcc4"))
 	if kind == Kind.STUMP:
 		var stump := MeshInstance3D.new()
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.4
-		cyl.bottom_radius = 0.46
-		cyl.height = 0.55
-		stump.mesh = cyl
-		stump.material_override = dark
-		stump.position = Vector3(0.5, 0.275, 0.5)
+		stump.mesh = Props.stump()
+		stump.material_override = Props.material(false)
+		stump.position = Vector3(0.5, 0.0, 0.5)
 		add_child(stump)
-		var top := MeshInstance3D.new()
-		var disc := CylinderMesh.new()
-		disc.top_radius = 0.38
-		disc.bottom_radius = 0.38
-		disc.height = 0.03
-		top.mesh = disc
-		top.material_override = _mat(Color("d9b27a"))
-		top.position = Vector3(0.5, 0.56, 0.5)
-		add_child(top)
 		# The axe: a handle leaning out of the top and a steel head sunk into the wood.
-		_box(Vector3(0.09, 0.7, 0.09), Vector3(0.55, 0.9, 0.5), wood, Vector3(0.0, 0.0, deg_to_rad(18.0)))
-		_box(Vector3(0.34, 0.2, 0.06), Vector3(0.42, 0.66, 0.5), steel, Vector3(0.0, 0.0, deg_to_rad(18.0)))
+		_box(Vector3(0.09, 0.7, 0.09), Vector3(0.55, 0.8, 0.5), wood, Vector3(0.0, 0.0, deg_to_rad(18.0)))
+		_box(Vector3(0.34, 0.2, 0.06), Vector3(0.42, 0.52, 0.5), steel, Vector3(0.0, 0.0, deg_to_rad(18.0)))
 	else:
 		# A low bench, two uprights with a crossbar, a spoked wheel and a coil of rope on it.
 		_box(Vector3(1.9, 0.18, 0.7), Vector3(1.0, 0.45, 0.5), dark)
@@ -167,7 +154,7 @@ func build(station_kind: int, cell: Vector3i) -> void:
 
 ## The goods drawn on the station: the unit is seen putting the log on the stump and the planks lying there afterwards.
 func _make_goods() -> void:
-	var top := 0.62 if kind == Kind.STUMP else 1.0
+	var top := 0.45 if kind == Kind.STUMP else 1.0
 	var x := size().x * 0.5
 	var z := size().y * 0.5
 	_input_vis = Node3D.new()

@@ -14,6 +14,7 @@ func _ready() -> void:
 	var task_rect: Array[int] = []        # --task=x0,z0,x1,z1[,depth]: mark an area to dig and put every unit on it (--nocollect: bring nothing home)
 	var tool_mode := -1                   # --tool=N: choose that Tools.Mode, --palette: open the tool palette
 	var palette := false
+	var fell := false                     # --fell: fell the trees nearest to the spawn (to see the stumps)
 	var tab := "stone"                    # --tab=wood|structures: which tab of the build panel
 	var demo := false                     # --demo-blocks: one of every block of the catalog on the ground near the spawn
 	var clock := -1.0                     # --time=0.75: freeze the day at that time (0 midnight, 0.5 noon)
@@ -48,6 +49,8 @@ func _ready() -> void:
 			clock = float(a.get_slice("=", 1))
 		elif a == "--demo-blocks":
 			demo = true
+		elif a == "--fell":
+			fell = true
 		elif a == "--radial":
 			radial = true
 		elif a.begins_with("--tab="):
@@ -147,6 +150,17 @@ func _ready() -> void:
 		get_parent().get("rig").yaw = deg_to_rad(yaw)
 	if zoom > 0.0:
 		get_parent().get("rig").distance = zoom
+	if fell:
+		var main = get_parent()
+		while main.props == null or not main.props.is_built():
+			await get_tree().process_frame
+		var sp: Vector3i = main.world.spawn_point()
+		var order := range(main.props.trees.size())
+		order.sort_custom(func(a: int, b: int) -> bool: return Vector2(main.props.trees[a].origin.x - sp.x, main.props.trees[a].origin.z - sp.z).length() < Vector2(main.props.trees[b].origin.x - sp.x, main.props.trees[b].origin.z - sp.z).length())
+		for k in 40:
+			main.props.fell_tree(order[k])
+		main.rig.distance = 14.0
+		main.rig.focus = main.props.trees[order[0]].origin
 	for i in wait_frames:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

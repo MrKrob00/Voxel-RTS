@@ -142,6 +142,7 @@ func reset() -> void:
 		if tree_alive[i] == 0:
 			tree_alive[i] = 1
 			_multimeshes["pine"].set_instance_transform(i, trees[i])
+			_hide("stump", i, trees[i])
 	for i in tufts.size():
 		if tuft_alive[i] == 0:
 			tuft_alive[i] = 1
@@ -174,6 +175,9 @@ func fell_tree(i: int) -> void:
 	if i >= 0 and i < trees.size() and tree_alive[i] == 1:
 		tree_alive[i] = 0
 		_hide("pine", i, trees[i])
+		var mm: MultiMesh = _multimeshes.get("stump")
+		if mm != null:
+			mm.set_instance_transform(i, Transform3D(Basis(Vector3.UP, i * 1.3).scaled(Vector3.ONE * 1.0), trees[i].origin))   # the stump stays
 
 
 func cut_tuft(i: int) -> void:
@@ -347,7 +351,13 @@ func _build(res: Dictionary) -> void:
 		"boulder": [Props.boulder(3), Props.material(false)],
 		"crystal": [Props.crystals(), Props.material(false)],
 		"tuft": [Props.tuft(), Props.material(true)],
+		"stump": [Props.stump(), Props.material(false)],
 	}
+	# A stump for every tree, hidden until the tree is felled.
+	var hidden: Array = []
+	for xf: Transform3D in res.get("pine", []):
+		hidden.append(Transform3D(Basis().scaled(Vector3.ZERO), xf.origin))
+	res["stump"] = hidden
 	for kind in specs:
 		var list: Array = res.get(kind, [])
 		if list.is_empty():
