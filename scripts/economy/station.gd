@@ -25,6 +25,13 @@ var kind := Kind.STUMP
 var origin := Vector3i.ZERO
 var task: CraftTask
 
+const SHOW_OUTPUT_FOR := 3.0      # seconds the made goods lie on the station before the unit takes them away
+
+var _input_vis: Node3D            # what is being worked on: a log on the stump, sacks on the rope machine
+var _output_vis: Node3D           # what has been made, lying on the station until the unit has picked it up
+var _input_until := 0.0
+var _output_until := 0.0
+
 
 func def() -> Dictionary:
 	return DEFS[kind]
@@ -142,6 +149,8 @@ func build(station_kind: int, cell: Vector3i) -> void:
 		coil.material_override = _mat(Color("d9c28a"))
 		coil.position = Vector3(1.55, 0.62, 0.5)
 		add_child(coil)
+	_make_goods()
+	set_process(false)
 	var label := Label3D.new()
 	label.text = def().name
 	label.font_size = 22
@@ -151,6 +160,85 @@ func build(station_kind: int, cell: Vector3i) -> void:
 	label.outline_size = 8
 	label.position = Vector3(size().x * 0.5, 1.9, size().y * 0.5)
 	add_child(label)
+
+
+## The goods drawn on the station: the unit is seen putting the log on the stump and the planks lying there afterwards.
+func _make_goods() -> void:
+	var top := 0.62 if kind == Kind.STUMP else 1.0
+	var x := size().x * 0.5
+	var z := size().y * 0.5
+	_input_vis = Node3D.new()
+	_input_vis.position = Vector3(x, top, z)
+	_input_vis.visible = false
+	add_child(_input_vis)
+	_output_vis = Node3D.new()
+	_output_vis.position = Vector3(x, top, z)
+	_output_vis.visible = false
+	add_child(_output_vis)
+	if kind == Kind.STUMP:
+		var log_mesh := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 0.16
+		cyl.bottom_radius = 0.16
+		cyl.height = 0.8
+		log_mesh.mesh = cyl
+		log_mesh.material_override = _mat(Color("8a5a2b"))
+		log_mesh.rotation = Vector3(0.0, 0.0, deg_to_rad(90.0))
+		log_mesh.position.y = 0.16
+		_input_vis.add_child(log_mesh)
+		for i in 3:   # the three planks made of it, stacked
+			var plank := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = Vector3(0.8, 0.07, 0.3)
+			plank.mesh = bm
+			plank.material_override = _mat(Color("c99a5b"))
+			plank.position = Vector3(0.0, 0.04 + i * 0.08, 0.0)
+			plank.rotation.y = deg_to_rad(i * 14.0 - 14.0)
+			_output_vis.add_child(plank)
+	else:
+		for i in 2:   # two sacks of grass in, one rope out
+			var sack := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			sm.radius = 0.2
+			sm.height = 0.36
+			sack.mesh = sm
+			sack.material_override = _mat(Color("6b9a3a"))
+			sack.position = Vector3(-0.25 + i * 0.5, 0.2, 0.0)
+			_input_vis.add_child(sack)
+		var coil := MeshInstance3D.new()
+		var ring := TorusMesh.new()
+		ring.inner_radius = 0.1
+		ring.outer_radius = 0.26
+		coil.mesh = ring
+		coil.material_override = _mat(Color("d9c28a"))
+		coil.position.y = 0.1
+		_output_vis.add_child(coil)
+
+
+## Called every frame while a unit works here: the material lies on the station for as long as that goes on.
+func show_working() -> void:
+	_input_until = Time.get_ticks_msec() / 1000.0 + 0.25
+	_output_vis.visible = false
+	_input_vis.visible = true
+	set_process(true)
+
+
+## The work is done: what was made lies here for a few seconds.
+func show_made() -> void:
+	_input_vis.visible = false
+	_output_until = Time.get_ticks_msec() / 1000.0 + SHOW_OUTPUT_FOR
+	_output_vis.visible = true
+	set_process(true)
+
+
+func _process(_delta: float) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if _input_vis.visible and now > _input_until:
+		_input_vis.visible = false
+	if _output_vis.visible and now > _output_until:
+		_output_vis.visible = false
+	if not _input_vis.visible and not _output_vis.visible:
+		set_process(false)
 
 
 func _box(sz: Vector3, pos: Vector3, m: StandardMaterial3D, rot := Vector3.ZERO) -> void:

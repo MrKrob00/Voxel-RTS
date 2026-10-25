@@ -103,3 +103,11 @@ Notes, so the screenshots need not be studied again; compare the game's HUD agai
 - Style: dark translucent panels, thin yellow-orange text and accents, rounded icon buttons, no text on tool buttons.
 
 What this game does with it: the same layout (banner, side panel with "New Task", dock with "+", right-edge Home), text buttons instead of icons (no art yet), a ribbon of task cards for the workers' tasks, level/turn/done actions of the active tool. Not done: minimap, waves, goals, settings/help icons, priority flag.
+
+### More HUD notes (2026-10-25-13-07-54 → 23-49-44 → cs_snow_crystals_workers_01)
+
+The flow in the original: **"+" → "New Task" panel** (task *types*: Maintenance / Harvest / Mining / Construction icons) → choosing Construction opens the **"Blocks" panel** in the same place (X closes): sections *Stone Blocks, Plugs, Round Bricks, Crenelations, Wood Blocks*, each an icon grid with a hotkey letter above some icons. The top banner is not a full-width strip but a **small dark tab, centred** ("Build", "Harvest Task"). The map shows the plan as a translucent **cyan ghost** (invalid part **red**).
+- **Command bar** (just above the bottom ribbon, left): three groups with tiny headers: *Goals* (icons), *Priority* (− +), *Actions* (green ✓ confirm, ∨, red ✗ cancel, trash with Ctrl+Del).
+- **Bottom ribbon**: left "Tasks: 4/15"; cards ~90 px wide: title (Crystal / Quarry / Build / Harvest) top-left in small yellow text, a task icon, worker dots (filled = busy); the selected card has a thin outline. Idle workers have a card too (blue drop icon, "Bezczynni"). Population panel above it: units 6/15, dead, spawn, main crystal energy bar.
+- **Minimap** thumbnail at the top left with resource counts under it (planks, stone, grass).
+- **In the world**, the things worth copying: a *badge over a work site* with a tool icon and "x done/total" (e.g. "x 1/8"); a *speech label over a unit* when it is stuck ("can't find what I need") or idle ("Nothing to do"); a *pole with a yellow disc* marking where a task is; the **blueprint of a station drawn as a translucent ghost** (white for a workbench, cyan cylinders for posts) while units bring the materials; units visibly **carry** things (a sack on the back); goods **lie on the building** (planks stacked on the workbench/platform).

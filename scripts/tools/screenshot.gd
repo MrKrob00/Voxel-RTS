@@ -14,6 +14,7 @@ func _ready() -> void:
 	var task_rect: Array[int] = []        # --task=x0,z0,x1,z1[,depth]: mark an area to dig and put every unit on it (--nocollect: bring nothing home)
 	var tool_mode := -1                   # --tool=N: choose that Tools.Mode, --palette: open the tool palette
 	var palette := false
+	var blocks := false                   # --blocks: and the page of blocks
 	var wait_frames := 400                # --wait=N: frames to wait before the shot (let units work)
 	var move_to := Vector2(-1, -1)   # --move=x,z: select every unit and send it there, then wait for it to walk a bit
 	for a in OS.get_cmdline_user_args():
@@ -39,6 +40,9 @@ func _ready() -> void:
 			tool_mode = int(a.substr(7))
 		elif a == "--palette":
 			palette = true
+		elif a == "--blocks":
+			palette = true
+			blocks = true
 		elif a.begins_with("--wait="):
 			wait_frames = int(a.substr(7))
 		elif a == "--select-all":
@@ -87,6 +91,9 @@ func _ready() -> void:
 		get_parent()._choose_tool(tool_mode)
 	if hud_node != null and palette:
 		hud_node._set_palette(true)
+		if blocks:
+			hud_node._page = "blocks"
+			hud_node._fill_palette()
 	for d in digs:
 		var terrain: TerrainEdit = world.terrain
 		var lv0 := terrain.level(d.x, d.y)

@@ -248,6 +248,8 @@ func _work(delta: float) -> void:
 		state = State.SEEK
 		return
 	_timer += delta
+	if task is CraftTask and is_instance_valid(task.station):
+		task.station.show_working()
 	var total := task.work_time(target)
 	unit.progress = _timer / total
 	unit.position.y = board.nav.feet_position(unit.cell).y + absf(sin(_timer * 14.0)) * 0.05   # a little shake while working
@@ -255,6 +257,8 @@ func _work(delta: float) -> void:
 		return
 	unit.progress = -1.0
 	var res := task.perform(target, board, unit)
+	if task is CraftTask and is_instance_valid(task.station):
+		task.station.show_made()
 	if res.get("consumed", false):
 		unit.carry(Resources.Kind.NONE, 0)
 	if res.get("done", false):

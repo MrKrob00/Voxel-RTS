@@ -38,6 +38,8 @@ var _resources: VBoxContainer
 var _units_label: Label
 var _palette: PanelContainer
 var _palette_open := false
+var _page := "tasks"                    # "tasks": the New Task panel; "blocks": what can be built
+var _palette_title: Label
 var _banner: PanelContainer
 var _title_name: Label
 var _title_hint: Label
@@ -144,6 +146,7 @@ func set_tool(mode: int) -> void:
 	_title_hint.text = d.hint
 	var active := mode != Tools.Mode.SELECT
 	_banner.visible = active
+	_title_hint.visible = active
 	_actions.visible = active
 	_level_row.visible = d.get("level", false)
 	_level_name = d.get("level_name", "level")
@@ -227,19 +230,15 @@ func _build_banner() -> void:
 	_banner = PanelContainer.new()
 	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_banner)
-	var col := VBoxContainer.new()
-	_banner.add_child(col)
 	_title_name = Label.new()
 	_title_name.add_theme_font_size_override("font_size", 20)
 	_title_name.add_theme_color_override("font_color", ACCENT)
 	_title_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(_title_name)
-	_title_hint = Label.new()
-	_title_hint.add_theme_font_size_override("font_size", 12)
+	_banner.add_child(_title_name)
+	_title_hint = _outlined_label(13)
 	_title_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_title_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_hint.modulate = Color(1, 1, 1, 0.85)
-	col.add_child(_title_hint)
+	_root.add_child(_title_hint)
 
 
 func _set_palette(open: bool) -> void:
@@ -247,6 +246,7 @@ func _set_palette(open: bool) -> void:
 	_palette.visible = open
 	_plus.button_pressed = open
 	if open:
+		_page = "tasks"
 		_fill_palette()
 	_relayout()
 
@@ -259,11 +259,11 @@ func _build_palette() -> void:
 	_palette.add_child(col)
 	var head := HBoxContainer.new()
 	col.add_child(head)
-	var title := Label.new()
-	title.text = "New Task"
-	title.add_theme_font_size_override("font_size", 24)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(title)
+	_palette_title = Label.new()
+	_palette_title.text = "New Task"
+	_palette_title.add_theme_font_size_override("font_size", 24)
+	_palette_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(_palette_title)
 	var close := _button("x")
 	close.pressed.connect(func() -> void: _set_palette(false))
 	head.add_child(close)
@@ -277,28 +277,72 @@ func _build_palette() -> void:
 	scroll.add_child(sections)
 
 
-## Every tool, in sections like the original's "New Task" panel.
+## The panel's two pages, like the original's: "New Task" (the kinds of task; Construction opens the next page) and "Blocks"
+## (what can be built, in sections).
 func _fill_palette() -> void:
 	var sections: VBoxContainer = _palette.find_child("Sections", true, false)
 	for c in sections.get_children():
 		c.queue_free()
+	if _page == "blocks":
+		_palette_title.text = "Blocks"
+		for section in Tools.BUILD_SECTIONS:
+			var grid := _section(sections, section)
+			for d in Tools.defs():
+				if d.get("section", "") == section:
+					grid.add_child(_tile(d))
+		var back := _button("< New Task", Vector2(0, 44))
+		back.pressed.connect(func() -> void:
+			_page = "tasks"
+			_fill_palette())
+		sections.add_child(back)
+		return
+	_palette_title.text = "New Task"
 	for category in Tools.CATEGORIES:
-		var head := Label.new()
-		head.text = {"Harvest": "Harvest Tasks", "Mining": "Mining Tasks", "Construction": "Construction Tasks", "Sandbox": "Sandbox (no units)"}[category]
-		head.add_theme_color_override("font_color", ACCENT)
-		head.add_theme_font_size_override("font_size", 15)
-		sections.add_child(head)
-		var grid := GridContainer.new()
-		grid.columns = 4
-		sections.add_child(grid)
+		var grid := _section(sections, {"Harvest": "Harvest Tasks", "Mining": "Mining Tasks", "Construction": "Construction Tasks", "Sandbox": "Sandbox (no units)"}[category])
+		if category == "Construction":
+			var open := ToolTile.new().setup(Tools.OPEN_BLOCKS, "Build")
+			open.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			open.pressed.connect(func() -> void:
+				_page = "blocks"
+				_fill_palette())
+			grid.add_child(open)
+			continue
 		for d in Tools.defs():
-			if d.category != category:
-				continue
-			var b := ToolTile.new().setup(d.mode, d.get("short", d.label))
-			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			b.tooltip_text = d.label + ": " + d.hint
-			b.pressed.connect(func() -> void: tool_chosen.emit(d.mode))
-			grid.add_child(b)
+			if d.category == category:
+				grid.add_child(_tile(d))
+
+
+func _section(parent: Control, title: String) -> GridContainer:
+	var head := Label.new()
+	head.text = title
+	head.add_theme_color_override("font_color", ACCENT)
+	head.add_theme_font_size_override("font_size", 14)
+	parent.add_child(head)
+	parent.add_child(HSeparator.new())
+	var grid := GridContainer.new()
+	grid.columns = 4
+	parent.add_child(grid)
+	return grid
+
+
+func _tile(d: Dictionary) -> ToolTile:
+	var b := ToolTile.new().setup(d.mode, d.get("short", d.label))
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.tooltip_text = d.label + ": " + d.hint
+	b.pressed.connect(func() -> void: tool_chosen.emit(d.mode))
+	return b
+
+
+## A group of controls under a tiny header, like the "Goals / Priority / Actions" of the original's command bar.
+func _group(title: String, content: Control) -> Control:
+	var col := VBoxContainer.new()
+	var l := Label.new()
+	l.text = title
+	l.add_theme_font_size_override("font_size", 11)
+	l.modulate = Color(1, 1, 1, 0.6)
+	col.add_child(l)
+	col.add_child(content)
+	return col
 
 
 func _build_bottom() -> void:
@@ -327,26 +371,34 @@ func _build_bottom() -> void:
 	_actions = PanelContainer.new()
 	_root.add_child(_actions)
 	var arow := HBoxContainer.new()
+	arow.add_theme_constant_override("separation", 14)
 	_actions.add_child(arow)
 	_level_row = HBoxContainer.new()
-	arow.add_child(_level_row)
+	arow.add_child(_group("Priority" , _level_row))
 	var minus := _button("-")
 	minus.pressed.connect(func() -> void: level_changed.emit(_level - 1))
 	_level_row.add_child(minus)
 	_level_label = Label.new()
-	_level_label.custom_minimum_size = Vector2(110, MIN_TOUCH)
+	_level_label.custom_minimum_size = Vector2(96, MIN_TOUCH)
 	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_level_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_level_row.add_child(_level_label)
 	var plus := _button("+")
 	plus.pressed.connect(func() -> void: level_changed.emit(_level + 1))
 	_level_row.add_child(plus)
-	_turn_button = _button("Turn", Vector2(88, MIN_TOUCH))
+	var acts := HBoxContainer.new()
+	arow.add_child(_group("Actions", acts))
+	_turn_button = _button("Turn", Vector2(80, MIN_TOUCH))
 	_turn_button.pressed.connect(func() -> void: turn_pressed.emit())
-	arow.add_child(_turn_button)
-	var done := _button("Done", Vector2(104, MIN_TOUCH))
+	acts.add_child(_turn_button)
+	var done := _button("OK", Vector2(MIN_TOUCH, MIN_TOUCH))
+	done.add_theme_color_override("font_color", Color(0.4, 0.9, 0.35))
 	done.pressed.connect(func() -> void: tool_chosen.emit(Tools.Mode.SELECT))
-	arow.add_child(done)
+	acts.add_child(done)
+	var cancel := _button("X", Vector2(MIN_TOUCH, MIN_TOUCH))
+	cancel.add_theme_color_override("font_color", Color(0.95, 0.3, 0.3))
+	cancel.pressed.connect(func() -> void: tool_chosen.emit(Tools.Mode.SELECT))
+	acts.add_child(cancel)
 	_home = _button("Home", Vector2(MIN_TOUCH + 8, MIN_TOUCH))
 	_home.pressed.connect(func() -> void: home_pressed.emit())
 	_root.add_child(_home)
@@ -355,7 +407,7 @@ func _build_bottom() -> void:
 ## One card of the ribbon, like the original's: the kind of task, its workers as dots, and what can be done with it.
 func _task_card(t: WorkTask) -> Control:
 	var card := PanelContainer.new()
-	card.custom_minimum_size.x = 188
+	card.custom_minimum_size.x = 132
 	var col := VBoxContainer.new()
 	card.add_child(col)
 	var head := Button.new()
@@ -437,11 +489,14 @@ func _relayout() -> void:
 		ib = maxf(ib, (screen.y - safe.end.y) * scale)
 
 	# The banner of the active tool across the top; the side panel under it.
-	_banner.custom_minimum_size = Vector2(size.x - il - ir, 0.0)
-	_title_hint.custom_minimum_size = Vector2(size.x - il - ir - 32.0, 0.0)
+	_banner.custom_minimum_size = Vector2(180.0, 44.0)
 	_banner.reset_size()
-	_banner.position = Vector2(il, it)
-	var top := it + (_banner.size.y + 8.0 if _banner.visible else 0.0)
+	var side_right := il + (SIDE_W if not _compact else 0.0) + 8.0
+	_banner.position = Vector2(maxf((size.x - _banner.size.x) * 0.5, side_right if not _compact else 0.0), it)
+	_title_hint.custom_minimum_size.x = minf(size.x * 0.6, 560.0)
+	_title_hint.reset_size()
+	_title_hint.position = Vector2((size.x - _title_hint.size.x) * 0.5, it + 48.0)
+	var top := it
 	_status.position = Vector2(size.x - ir - _status.size.x - RIGHT_W, size.y - ib - 18.0)
 	var side_w := minf(SIDE_W, size.x - il - ir - RIGHT_W)
 	if _compact:

@@ -47,6 +47,9 @@ func _emblem(c: Vector2, u: float) -> void:
 		Tools.Mode.MARK_DIG, Tools.Mode.DIG:
 			draw_line(c + Vector2(-16, 14) * u, c + Vector2(14, -16) * u, WOOD, 4.0 * u)
 			draw_arc(c + Vector2(6, -12) * u, 14.0 * u, deg_to_rad(200), deg_to_rad(340), 12, STONE, 4.0 * u)
+		Tools.OPEN_BLOCKS:
+			draw_line(c + Vector2(-14, 16) * u, c + Vector2(8, -6) * u, WOOD, 5.0 * u)
+			_rect(c, u, -2, -22, 26, 14, STONE)
 		Tools.Mode.STOCKPILE:
 			for i in 3:
 				_rect(c, u, -20, -8 + i * 9, 40, 7, WOOD)
