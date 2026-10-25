@@ -121,21 +121,23 @@ def pts_of(*rows):
     return [tuple(r) for r in rows]
 
 
-def solid(pieces):
+def solid(pieces, cuts=()):
     """One mesh from axis-aligned boxes: their union, with no faces inside it. `pieces` are box() point lists. Returns a ("tris", ...)
     piece that mesh_of passes through as it is: faces between neighbouring boxes disappear and coplanar neighbours merge."""
-    boxes = []
-    for pts in pieces:
+    def bounds(pts):
         xs, ys, zs = [p[0] for p in pts], [p[1] for p in pts], [p[2] for p in pts]
-        boxes.append((min(xs), max(xs), min(ys), max(ys), min(zs), max(zs)))
-    cuts = [sorted({round(v, 5) for b in boxes for v in (b[2 * a], b[2 * a + 1])}) for a in range(3)]
+        return (min(xs), max(xs), min(ys), max(ys), min(zs), max(zs))
+    boxes = [bounds(pts) for pts in pieces]
+    holes = [bounds(pts) for pts in cuts]
+    cuts = [sorted({round(v, 5) for b in boxes + holes for v in (b[2 * a], b[2 * a + 1])}) for a in range(3)]
     n = [len(c) - 1 for c in cuts]
     full = {}
     for i in range(n[0]):
         for j in range(n[1]):
             for k in range(n[2]):
                 mid = ((cuts[0][i] + cuts[0][i + 1]) / 2, (cuts[1][j] + cuts[1][j + 1]) / 2, (cuts[2][k] + cuts[2][k + 1]) / 2)
-                full[(i, j, k)] = any(b[0] < mid[0] < b[1] and b[2] < mid[1] < b[3] and b[4] < mid[2] < b[5] for b in boxes)
+                full[(i, j, k)] = any(b[0] < mid[0] < b[1] and b[2] < mid[1] < b[3] and b[4] < mid[2] < b[5] for b in boxes) \
+                    and not any(b[0] < mid[0] < b[1] and b[2] < mid[1] < b[3] and b[4] < mid[2] < b[5] for b in holes)
     def filled(c): return full.get(c, False)
     quads = []
     for axis in range(3):
@@ -297,8 +299,20 @@ def plug_slab(slots, y0, y1, half, d, w, core_scale=1.0):
 
 def plug(slots):
     """A plain platform below (15% of the height) and above it a cube with U-shaped channels from the sides reaching nearly to the
-    middle: F +z, B -z, L -x, R +x. One mesh."""
-    return [solid([box(0, -0.425, 0, 1.0, 0.15, 1.0, 0.0)] + plug_slab(slots, -0.35, 0.5, 0.5, 0.34, 0.34, 2.25))]
+    middle: F +z, B -z, L -x, R +x. The core in the middle is 2.25 times what the channels leave, so the channels are short. In the
+    top layer (5% of the height) every channel has a recess 0.2 deep into the core. One mesh."""
+    w, core = 0.34, 2 * (0.5 - 0.34) * 2.25
+    reach, top = core / 2, 0.45
+    holes = []
+    for side, (ax, sign) in {"F": (2, 1), "B": (2, -1), "L": (0, -1), "R": (0, 1)}.items():
+        if side not in slots:
+            continue
+        lo, hi = sorted((sign * (reach - 0.2), sign * (reach + 0.01)))
+        if ax == 2:
+            holes.append(box((0), (top + 0.51) / 2, (lo + hi) / 2, w, 0.51 - top, hi - lo, 0.0))
+        else:
+            holes.append(box((lo + hi) / 2, (top + 0.51) / 2, 0, hi - lo, 0.51 - top, w, 0.0))
+    return [solid([box(0, -0.425, 0, 1.0, 0.15, 1.0, 0.0)] + plug_slab(slots, -0.35, 0.5, 0.5, 0.34, 0.34, 2.25), holes)]
 
 
 def quarter(cx, cz, sx, sz, r=1.0, seg=12):
