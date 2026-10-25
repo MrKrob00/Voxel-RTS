@@ -167,6 +167,26 @@ def corner_cell_in(steps=4):
     return out
 
 
+def fan_cell(steps=4):
+    """A one-cell winding stair: wedge-shaped treads fanning round the (+x, +z) corner (the corner where the cell meets the cube, at
+    the front): the lowest along the front wall, the highest along the cube."""
+    out = []
+    px, pz = 0.5, 0.5
+    def edge(theta):
+        c, s_ = math.cos(theta), math.sin(theta)
+        t = min(1.0 / c if c > 1e-6 else 1e9, 1.0 / s_ if s_ > 1e-6 else 1e9)
+        return (px - c * t, pz - s_ * t)
+    for k in range(steps):
+        a0 = math.pi / 2 * k / steps
+        a1 = math.pi / 2 * (k + 1) / steps
+        pts = [(px, pz), edge(a0), edge(a1)]
+        if a0 < math.pi / 4 < a1:
+            pts.append((-0.5, -0.5))
+        top = -0.5 + (k + 1) / steps
+        out.append(plan(pts, -0.5, top))
+    return out
+
+
 def with_cube(cell, right):
     """A 2 x 1 x 1 block: a one-cell piece and a cube. `right`: the piece is the right-hand cell (and mirrored)."""
     cube = [box(0.5 if not right else -0.5, 0, 0, 1.0, 1.0, 1.0)]
@@ -339,8 +359,8 @@ BLOCKS = {
     "cube":         lambda: [box(0, 0, 0, 1.0, 1.0, 1.0)],
     "stairs":       lambda: stairs(1.0, 3, -1.0) + [box(0.5, 0, 0, 1.0, 1.0, 1.0)],   # one cell of steps and one cell of block
     "stairs_small": lambda: stairs(1.0, 3),
-    "corner_out_l": lambda: with_cube(corner_cell(), False),
-    "corner_out_r": lambda: with_cube(corner_cell(), True),
+    "corner_out_l": lambda: with_cube(fan_cell(), False),     # 5, 6: a cell of fanned treads and a cube
+    "corner_out_r": lambda: with_cube(fan_cell(), True),
     "corner_in_l":  lambda: with_cube(corner_cell_in(), False),
     "corner_in_r":  lambda: with_cube(corner_cell_in(), True),
     "corner_in_cell": lambda: moved(corner_cell_in(), 0.0, mirror_x=True),    # the notch in the near corner: chevrons point at the viewer
