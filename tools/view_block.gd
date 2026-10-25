@@ -49,7 +49,7 @@ func _run() -> void:
 	sv.add_child(mi)
 	var views := {
 		"front": Vector3(0, 0.0, 1), "back": Vector3(0, 0.0, -1), "left": Vector3(-1, 0.0, 0), "right": Vector3(1, 0.0, 0),
-		"top": Vector3(0, 1, 0.001), "iso": Vector3(0.38, 0.6, 0.82),
+		"top": Vector3(0, 1, 0.001), "iso": Vector3(0.656, 0.375, 0.656),
 	}
 	for v in views:
 		var up := Vector3.UP if v != "top" else Vector3(0, 0, -1)

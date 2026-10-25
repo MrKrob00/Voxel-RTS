@@ -63,7 +63,9 @@ func _run() -> void:
 		sv.add_child(mi)
 		# The same view and the same scale for every block, as the original's panel has: a little from the right of the front, about
 		# 28 degrees above the ground, the middle of the block in the middle of the picture.
-		var d := Vector3(sin(deg_to_rad(22.0)) * cos(deg_to_rad(36.0)), sin(deg_to_rad(36.0)), cos(deg_to_rad(22.0)) * cos(deg_to_rad(36.0)))
+		var az := deg_to_rad(45.0)
+		var el := deg_to_rad(22.0)
+		var d := Vector3(sin(az) * cos(el), sin(el), cos(az) * cos(el))
 		cam.look_at_from_position(d * 10.0, Vector3.ZERO, Vector3.UP)
 		cam.size = 3.1
 		cam.near = 0.1
