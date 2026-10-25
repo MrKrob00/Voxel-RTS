@@ -17,6 +17,7 @@ import os
 OUT = os.environ.get("BLOCKGEN_OUT") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "blocks")
 EPS = 1e-5
 BEVEL = 0.035
+MERGING = os.environ.get("BLOCKGEN_MERGE") == "stone"   # one-mesh blocks: no chamfers on the boxes, so no grooves where pieces meet
 SMOOTH_DEG = 40.0
 
 
@@ -71,7 +72,7 @@ def hull(points):
 
 def box(cx, cy, cz, sx, sy, sz, b=BEVEL):
     hx, hy, hz = sx / 2, sy / 2, sz / 2
-    b = min(b, hx * 0.9, hy * 0.9, hz * 0.9)
+    b = 0.0 if MERGING else min(b, hx * 0.9, hy * 0.9, hz * 0.9)
     pts = []
     for x in (-1, 1):
         for y in (-1, 1):
