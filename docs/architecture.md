@@ -84,6 +84,7 @@ Run from the project folder (Godot 4.7.2 headless):
 ```
 godot --headless --path . --import                              # once, builds the class cache
 godot --headless --path . -s res://tests/world_smoke_test.gd    # generation, islands, bridges, stages, slopes, atomic frames
+godot --headless --path . -s res://tests/ramps_rule_test.gd     # the slope rule on all 6561 neighbourhoods + random height fields
 godot --headless --path . -s res://tests/brick_test.gd          # support rules, collapse, flat-ground-only building
 godot --headless --path . -s res://tests/island_seeds_test.gd   # 40 seeds x 3 island counts: layout and bridges
 ```

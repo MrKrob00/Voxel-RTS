@@ -53,6 +53,7 @@ func _init() -> void:
 	await _test_stages(world)
 	await _test_slope_rules(world)
 	await _test_atomic_commit(world)
+	await _test_random_edits(world)
 	await _test_basic_editing(world, spawn)
 
 	quit(1 if _failed else 0)
@@ -402,6 +403,53 @@ func _test_atomic_commit(world: VoxelWorld) -> void:
 		frames[_meshed_frames[cpos]] = true
 	_check(_meshed_frames.size() >= 2, "the edit rebuilt several chunks (%d)" % _meshed_frames.size())
 	_check(frames.size() == 1, "all rebuilt chunks were committed in the same frame (%s)" % str(frames.keys()))
+
+
+## Hundreds of random digs and builds in a small area (whole blocks, half-dug blocks, holes and slopes in every mix):
+## after each batch the slope pieces still follow the rules and still meet at equal heights.
+func _test_random_edits(world: VoxelWorld) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99
+	var c0 := world.generator.islands[0].center
+	var origin := Vector2i(int(c0.x) - 25, int(c0.y) + 5)   # a varied stretch of the main island
+	var area := 16
+	var edits := 0
+	var bad_batches := 0
+	for batch in 24:
+		for i in 25:
+			var x := origin.x + rng.randi_range(0, area - 1)
+			var z := origin.y + rng.randi_range(0, area - 1)
+			var lv := world.terrain.level(x, z)
+			if lv < 4:
+				continue
+			var whole_y := lv / 2 - 1
+			var roll := rng.randf()
+			if roll < 0.55:
+				if world.terrain.dig_step(Vector3i(x, whole_y, z)):
+					edits += 1
+			elif roll < 0.8:
+				# build on whatever is above: a half-dug block, a slope piece, or free space next to ground
+				if world.terrain.build(Vector3i(x, lv / 2, z), Blocks.STONE):
+					edits += 1
+			else:
+				# dig a slope piece
+				if world.terrain.dig_step(Vector3i(x, lv / 2, z)):
+					edits += 1
+		var centre := Vector2(origin.x + area / 2, origin.y + area / 2)
+		var before := _failed
+		_failed = false
+		_check_skin_consistency(world, "random edits, batch %d" % batch, area, centre, true)
+		_check_seams(world, "random edits, batch %d" % batch, area, centre)
+		if _failed:
+			bad_batches += 1
+		_failed = before or _failed
+		await process_frame
+	_check(edits > 300 and bad_batches == 0, "random digs and builds: %d edits, %d batches broke a rule" % [edits, bad_batches])
+	var waited := 0
+	while not world.is_settled() and waited < 600:
+		await process_frame
+		waited += 1
+	_check(world.is_settled(), "all the random edits finished meshing")
 
 
 func _test_basic_editing(world: VoxelWorld, spawn: Vector3i) -> void:
