@@ -17,6 +17,11 @@ func is_finished() -> bool:
 	return true
 
 
+## Whether the task has a card in the HUD's ribbon.
+func shown() -> bool:
+	return true
+
+
 func summary() -> String:
 	return title
 

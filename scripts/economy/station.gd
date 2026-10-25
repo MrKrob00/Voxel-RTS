@@ -12,11 +12,11 @@ enum Kind { STUMP, ROPE_MACHINE }
 
 const DEFS := {
 	Kind.STUMP: {
-		"name": "Stump with an axe", "size": Vector2i(1, 1), "cost": {Resources.Kind.LOG: 1},
+		"name": "Stump with an axe", "verb": "Produce Planks", "about": "Continually transform logs into planks", "auto": true, "size": Vector2i(1, 1), "cost": {Resources.Kind.LOG: 1},
 		"input": {"kind": Resources.Kind.LOG, "amount": 1}, "output": {"kind": Resources.Kind.PLANK, "amount": 3}, "time": 3.0,
 	},
 	Kind.ROPE_MACHINE: {
-		"name": "Rope machine", "size": Vector2i(2, 1), "cost": {Resources.Kind.PLANK: 2},
+		"name": "Rope machine", "verb": "Produce Rope", "about": "Continually transform plants into rope", "auto": false, "size": Vector2i(2, 1), "cost": {Resources.Kind.PLANK: 2},
 		"input": {"kind": Resources.Kind.PLANT, "amount": 2}, "output": {"kind": Resources.Kind.ROPE, "amount": 1}, "time": 4.0,
 	},
 }
@@ -24,6 +24,8 @@ const DEFS := {
 var kind := Kind.STUMP
 var origin := Vector3i.ZERO
 var task: CraftTask
+## Whether the station works by itself. A stump does from the start; the rope machine is switched on and off from its round menu.
+var enabled := true
 
 const SHOW_OUTPUT_FOR := 3.0      # seconds the made goods lie on the station before the unit takes them away
 
@@ -95,6 +97,7 @@ func access_cells(nav: Navigation) -> Array[Vector3i]:
 func build(station_kind: int, cell: Vector3i) -> void:
 	kind = station_kind
 	origin = cell
+	enabled = DEFS[station_kind].get("auto", true)
 	name = "Station_%d_%d" % [cell.x, cell.z]
 	position = Vector3(cell.x, cell.y, cell.z)
 	var wood := _mat(Color("b98a4e"))

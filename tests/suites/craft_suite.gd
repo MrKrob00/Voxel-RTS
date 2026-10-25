@@ -180,6 +180,10 @@ func _grass_and_rope(frame: Stockpile, planks_pile: Stockpile, crew: Array, base
 	# The rope machine: costs two planks, takes two sacks of grass per rope.
 	var ropes_pile := _economy.place_stockpile(base + Vector3i(14, 0, 6), Stockpile.Style.PLATFORM)
 	var machine := _board.place_station(Station.Kind.ROPE_MACHINE, base + Vector3i(10, 0, 6))
+	check(machine != null and not machine.enabled, "the rope machine waits to be switched on")
+	await _tick(120)
+	check(_economy.stock_of(Resources.Kind.ROPE) == 0 and frame.count == 4, "switched off, it makes nothing (%d ropes)" % _economy.stock_of(Resources.Kind.ROPE))
+	machine.enabled = true   # what the round menu's Produce does
 	check(machine != null and _economy.stock_of(Resources.Kind.PLANK) == 1, "the rope machine is set up for two planks (%d left)" % _economy.stock_of(Resources.Kind.PLANK))
 	ticks = await _until(func() -> bool: return _economy.stock_of(Resources.Kind.ROPE) == 2 and frame.count == 0, 60 * 90)
 	check(_economy.stock_of(Resources.Kind.ROPE) == 2, "two ropes were made of four sacks of grass (%d, %.0f s)" % [_economy.stock_of(Resources.Kind.ROPE), ticks * DT])

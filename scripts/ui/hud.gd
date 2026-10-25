@@ -40,6 +40,7 @@ var _palette: PanelContainer
 var _palette_open := false
 var _page := "tasks"                    # "tasks": the New Task panel; "blocks": what can be built
 var _palette_title: Label
+var _radial: RadialMenu
 var _banner: PanelContainer
 var _title_name: Label
 var _title_hint: Label
@@ -74,6 +75,8 @@ func _ready() -> void:
 	_build_palette()
 	_build_banner()
 	_build_bottom()
+	_radial = RadialMenu.new()
+	_root.add_child(_radial)
 	_toast = _outlined_label(22)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_root.add_child(_toast)
@@ -130,6 +133,7 @@ func set_resources(lines: Dictionary) -> void:
 func set_tasks(tasks: Array) -> void:
 	for c in _ribbon.get_children():
 		c.queue_free()
+	tasks = tasks.filter(func(t: WorkTask) -> bool: return t.shown())
 	for t in tasks:
 		_ribbon.add_child(_task_card(t))
 	if tasks.is_empty():
@@ -155,6 +159,11 @@ func set_tool(mode: int) -> void:
 	_set_palette(false)
 	_relayout()
 	_relayout.call_deferred()   # the labels settle their height one frame later
+
+
+## The round menu around a thing in the world (items as RadialMenu.open takes them).
+func open_radial(at: Vector2, title: String, description: String, cost: String, items: Array) -> void:
+	_radial.open(at, title, description, cost, items)
 
 
 func set_level(v: int) -> void:

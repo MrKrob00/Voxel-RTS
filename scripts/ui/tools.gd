@@ -14,6 +14,8 @@ enum Mode {
 const BUILD_SECTIONS := ["Stone Blocks", "Buildings"]
 ## The pseudo tool of the "Construction" tile of the task panel: it opens the panel of blocks.
 const OPEN_BLOCKS := -2
+## Emblem of "stop" in the round menu.
+const STOP := -3
 const CATEGORIES := ["Harvest", "Mining", "Construction", "Sandbox"]
 
 

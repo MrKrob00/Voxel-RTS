@@ -310,6 +310,32 @@ func _describe_cell(cell: Vector3i, brick: bool) -> String:
 	return "cell %s: material %d, %s, column level %d" % [str(cell), Blocks.mat(raw), kind, world.terrain.level(cell.x, cell.z)]
 
 
+## The station standing at the tapped cell (or just under the tapped one).
+func _station_at(hit: Dictionary) -> Station:
+	for st in economy.stations:
+		if st.covers(hit.cell) or st.covers(hit.cell + Vector3i(0, 1, 0)):
+			return st
+	return null
+
+
+## The round menu of a station: switch its production on or off.
+func _station_menu(st: Station) -> void:
+	var d := st.def()
+	var cost := "%d %s -> %d %s" % [d.input.amount, Resources.label(d.input.kind).to_lower(), d.output.amount, Resources.label(d.output.kind).to_lower()]
+	var items := [
+		{"mode": Tools.Mode.STUMP if st.kind == Station.Kind.STUMP else Tools.Mode.ROPE_MACHINE, "label": "Produce", "active": st.enabled,
+			"call": func() -> void: _set_station(st, true)},
+		{"mode": Tools.STOP, "label": "Stop", "active": not st.enabled, "call": func() -> void: _set_station(st, false)},
+	]
+	hud.open_radial(rig.camera.unproject_position(st.center() + Vector3(0.0, 1.0, 0.0)), d.verb, d.about, cost, items)
+
+
+func _set_station(st: Station, on: bool) -> void:
+	st.enabled = on
+	hud.show_message("%s: %s" % [st.def().name, "working while there is stock and room" if on else "stopped"])
+	_refresh_tasks_panel()
+
+
 func _on_primary(pos: Vector2) -> void:
 	var u := units.unit_at(pos, rig.camera) if mode == Tools.Mode.SELECT else null
 	if u != null:
@@ -324,7 +350,11 @@ func _on_primary(pos: Vector2) -> void:
 		return
 	match mode:
 		Tools.Mode.SELECT:
-			_command_move(hit)
+			var st := _station_at(hit)
+			if st != null:
+				_station_menu(st)
+			else:
+				_command_move(hit)
 		Tools.Mode.MARK_DIG:
 			_mark_dig(hit.cell.x, hit.cell.z, hit.cell.x, hit.cell.z)
 		Tools.Mode.MARK_TREES:

@@ -29,12 +29,17 @@ func detail() -> String:
 	return "%d %s -> %d %s" % [d.input.amount, Resources.label(d.input.kind).to_lower(), d.output.amount, Resources.label(d.output.kind).to_lower()]
 
 
+## A switched-off station has no card in the task ribbon.
+func shown() -> bool:
+	return is_instance_valid(station) and station.enabled
+
+
 func input_needed() -> Dictionary:
 	return station.def().input
 
 
 func wants_workers(board: TaskBoard) -> bool:
-	if not is_instance_valid(station) or workers.size() >= max_workers:
+	if not is_instance_valid(station) or not station.enabled or workers.size() >= max_workers:
 		return false
 	var d := station.def()
 	return board.economy.find_stock(Vector3i(station.origin), d.input.kind, d.input.amount) != null \

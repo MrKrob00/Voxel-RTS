@@ -14,6 +14,7 @@ func _ready() -> void:
 	var task_rect: Array[int] = []        # --task=x0,z0,x1,z1[,depth]: mark an area to dig and put every unit on it (--nocollect: bring nothing home)
 	var tool_mode := -1                   # --tool=N: choose that Tools.Mode, --palette: open the tool palette
 	var palette := false
+	var radial := false                   # --radial: the round menu of the first station
 	var blocks := false                   # --blocks: and the page of blocks
 	var wait_frames := 400                # --wait=N: frames to wait before the shot (let units work)
 	var move_to := Vector2(-1, -1)   # --move=x,z: select every unit and send it there, then wait for it to walk a bit
@@ -40,6 +41,8 @@ func _ready() -> void:
 			tool_mode = int(a.substr(7))
 		elif a == "--palette":
 			palette = true
+		elif a == "--radial":
+			radial = true
 		elif a == "--blocks":
 			palette = true
 			blocks = true
@@ -89,6 +92,8 @@ func _ready() -> void:
 	var hud_node = get_parent().get("hud")
 	if hud_node != null and tool_mode >= 0:
 		get_parent()._choose_tool(tool_mode)
+	if radial and not get_parent().economy.stations.is_empty():
+		get_parent()._station_menu(get_parent().economy.stations[0])
 	if hud_node != null and palette:
 		hud_node._set_palette(true)
 		if blocks:
