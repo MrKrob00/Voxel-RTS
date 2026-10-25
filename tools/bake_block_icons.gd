@@ -91,7 +91,17 @@ func _bake_structures(sv: SubViewport, cam: Camera3D) -> void:
 		["platform", func() -> Node3D:
 			var n := Stockpile.new()
 			n.build(Vector3i.ZERO, Stockpile.Style.PLATFORM)
-			return n, Vector3(1.0, 0.3, 1.0), 4.0],
+			# as the original's picture: the platform with a block of stone on it
+			var mi := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = Vector3(1.3, 0.7, 0.8)
+			mi.mesh = bm
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = Color(0.8, 0.8, 0.82)
+			mi.material_override = mat
+			mi.position = Vector3(1.0, 0.55, 1.0)
+			n.add_child(mi)
+			return n, Vector3(1.0, 0.4, 1.0), 4.0],
 		["frame", func() -> Node3D:
 			var n := Stockpile.new()
 			n.build(Vector3i.ZERO, Stockpile.Style.FRAME)
@@ -107,6 +117,8 @@ func _bake_structures(sv: SubViewport, cam: Camera3D) -> void:
 	]
 	for j in jobs:
 		var node: Node3D = j[1].call()
+		for lab in node.find_children("*", "Label3D", true, false):
+			lab.visible = false   # the name tags over a building are not part of its picture
 		sv.add_child(node)
 		var az := deg_to_rad(45.0)
 		var el := deg_to_rad(22.0)

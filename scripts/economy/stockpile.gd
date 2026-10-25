@@ -152,11 +152,7 @@ func build(cell: Vector3i, new_style: int) -> void:
 	if style != Style.STACK:
 		_plank_panel(Transform3D.IDENTITY)   # the floor (a stack of bricks stands on the bare ground)
 	if style == Style.FRAME:
-		# The floor copied onto the four sides, standing up: x = 0 and 2, z = 0 and 2.
-		_plank_panel(Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
-		_plank_panel(Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(SIZE, 0.0, 0.0)))
-		_plank_panel(Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
-		_plank_panel(Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, SIZE)))
+		_wooden_frame()
 	_piles = Node3D.new()
 	add_child(_piles)
 	_label = Label3D.new()
@@ -182,6 +178,40 @@ func _plank_panel(t: Transform3D) -> void:
 		_box(panel, Vector3(SIZE - 0.08, PLATFORM_HEIGHT * 0.6, SIZE / 5.0 - 0.05), Vector3(SIZE * 0.5, PLATFORM_HEIGHT * 0.7, (i + 0.5) * SIZE / 5.0), wood if i % 2 == 0 else dark)
 	for bx in [0.3, SIZE - 0.3]:
 		_box(panel, Vector3(0.18, PLATFORM_HEIGHT * 0.5, SIZE - 0.04), Vector3(bx, PLATFORM_HEIGHT * 0.25, SIZE * 0.5), dark)
+
+
+## The frame of the original's storage: an open wooden rack. Two A-frames (an upright post on each side, a thick top bar, two lower
+## bars, a slanted leg splayed outwards) joined by long bars along the top and the middle; what is stored shows between the posts.
+func _wooden_frame() -> void:
+	var wood := _mat(Color("b98a4e"))
+	var dark := _mat(Color("7b5630"))
+	var h := WALL_HEIGHT
+	var t := 0.16
+	for x in [0.1, SIZE - 0.1]:
+		for z in [0.1, SIZE - 0.1]:
+			_beam(self, Vector3(x, PLATFORM_HEIGHT, z), Vector3(x, h, z), t, wood)                    # the posts
+		_beam(self, Vector3(x, h, 0.0), Vector3(x, h, SIZE), t * 1.3, dark)                          # the thick top bar
+		_beam(self, Vector3(x, h * 0.5, 0.0), Vector3(x, h * 0.5, SIZE), t, dark)                    # the middle bar
+		_beam(self, Vector3(x, h * 0.2, 0.0), Vector3(x, h * 0.2, SIZE), t, dark)                    # the low bar
+		var out := -1.0 if x < 1.0 else 1.0
+		for z in [0.1, SIZE - 0.1]:
+			_beam(self, Vector3(x, h * 0.85, z), Vector3(x + out * 0.45, PLATFORM_HEIGHT, z), t, wood)  # the splayed legs
+	for z in [0.1, SIZE - 0.1]:
+		_beam(self, Vector3(0.1, h, z), Vector3(SIZE - 0.1, h, z), t * 1.3, dark)                    # the long bars on top
+		_beam(self, Vector3(0.1, h * 0.5, z), Vector3(SIZE - 0.1, h * 0.5, z), t, dark)
+
+
+## A square beam between two points.
+func _beam(parent: Node3D, from: Vector3, to: Vector3, thickness: float, m: StandardMaterial3D) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	var d := to - from
+	bm.size = Vector3(thickness, thickness, d.length())
+	mi.mesh = bm
+	mi.material_override = m
+	parent.add_child(mi)
+	var up := Vector3.UP if absf(d.normalized().y) < 0.99 else Vector3.RIGHT
+	mi.transform = Transform3D(Basis.looking_at(d.normalized(), up), (from + to) * 0.5)
 
 
 func _box(parent: Node3D, size: Vector3, pos: Vector3, m: StandardMaterial3D) -> void:
