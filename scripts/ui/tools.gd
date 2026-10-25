@@ -37,7 +37,7 @@ static func defs() -> Array[Dictionary]:
 		var wood: bool = b.material == BlockCatalog.WOOD
 		out.append({"mode": BLOCK_BASE + i, "category": "Construction", "section": b.section, "tab": "wood" if wood else "stone", "label": b.label, "short": b.label, "block": b.id,
 			"enabled": not wood,
-			"hint": ("Needs plugs to stand on: coming. Costs one plank." if wood else "Tap to plan one, or drag the way it should lie (the turn button turns it). Costs one block of stone, whatever its shape.")})
+			"hint": ("Needs plugs to stand on: coming. Costs one plank." if wood else "Tap to plan one, or drag the way it should lie (the round arrow turns it, or the R key). Costs one block of stone, whatever its shape.")})
 	return out
 
 

@@ -122,7 +122,7 @@ func _place_starting_buildings(sp: Vector3i) -> void:
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_T:
+	if event is InputEventKey and event.pressed and not event.echo and (event.keycode == KEY_T or event.keycode == KEY_R):
 		_rotate_brick()
 
 

@@ -44,9 +44,8 @@ var _radial: RadialMenu
 var _banner: PanelContainer
 var _title_name: Label
 var _title_hint: Label
-var _actions: PanelContainer
+var _rotate: RotateButton
 var _picker: LevelPicker
-var _turn_button: Button
 var _dock: PanelContainer
 var _plus: Button
 var _ribbon_scroll: ScrollContainer
@@ -155,13 +154,12 @@ func set_tool(mode: int) -> void:
 	var active := mode != Tools.Mode.SELECT
 	_banner.visible = active
 	_title_hint.visible = active
-	_actions.visible = active
 	_picker.visible = d.get("level", false)
 	_picker.caption = d.get("level_name", "level").capitalize()
 	_picker.levels = 12
 	_level_name = d.get("level_name", "level")
 	_refresh_level()
-	_turn_button.visible = Tools.is_block(mode) or mode in [Tools.Mode.STONE_BRICK, Tools.Mode.WOOD_BRICK]
+	_rotate.visible = Tools.is_block(mode) or mode in [Tools.Mode.STONE_BRICK, Tools.Mode.WOOD_BRICK]
 	_set_palette(false)
 	_relayout()
 	_relayout.call_deferred()   # the labels settle their height one frame later
@@ -249,13 +247,25 @@ func _build_side() -> void:
 
 func _build_banner() -> void:
 	_banner = PanelContainer.new()
-	_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_banner)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_banner.add_child(row)
 	_title_name = Label.new()
 	_title_name.add_theme_font_size_override("font_size", 20)
 	_title_name.add_theme_color_override("font_color", ACCENT)
 	_title_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_banner.add_child(_title_name)
+	_title_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title_name.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_title_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_title_name)
+	var leave := Button.new()          # the cross: leave the tool (the way out of "+")
+	leave.text = "x"
+	leave.flat = true
+	leave.focus_mode = Control.FOCUS_NONE
+	leave.custom_minimum_size = Vector2(MIN_TOUCH - 8, MIN_TOUCH - 8)
+	leave.pressed.connect(func() -> void: tool_chosen.emit(Tools.Mode.SELECT))
+	row.add_child(leave)
 	_title_hint = _outlined_label(13)
 	_title_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_title_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -372,18 +382,6 @@ func _tile(d: Dictionary) -> ToolTile:
 	return b
 
 
-## A group of controls under a tiny header, like the "Goals / Priority / Actions" of the original's command bar.
-func _group(title: String, content: Control) -> Control:
-	var col := VBoxContainer.new()
-	var l := Label.new()
-	l.text = title
-	l.add_theme_font_size_override("font_size", 11)
-	l.modulate = Color(1, 1, 1, 0.6)
-	col.add_child(l)
-	col.add_child(content)
-	return col
-
-
 func _build_bottom() -> void:
 	_dock = PanelContainer.new()
 	_root.add_child(_dock)
@@ -407,24 +405,10 @@ func _build_bottom() -> void:
 	_root.add_child(_ribbon_scroll)
 	_ribbon = HBoxContainer.new()
 	_ribbon_scroll.add_child(_ribbon)
-	_actions = PanelContainer.new()
-	_root.add_child(_actions)
-	var arow := HBoxContainer.new()
-	arow.add_theme_constant_override("separation", 14)
-	_actions.add_child(arow)
-	var acts := HBoxContainer.new()
-	arow.add_child(_group("Actions", acts))
-	_turn_button = _button("Turn", Vector2(80, MIN_TOUCH))
-	_turn_button.pressed.connect(func() -> void: turn_pressed.emit())
-	acts.add_child(_turn_button)
-	var done := _button("OK", Vector2(MIN_TOUCH, MIN_TOUCH))
-	done.add_theme_color_override("font_color", Color(0.4, 0.9, 0.35))
-	done.pressed.connect(func() -> void: tool_chosen.emit(Tools.Mode.SELECT))
-	acts.add_child(done)
-	var cancel := _button("X", Vector2(MIN_TOUCH, MIN_TOUCH))
-	cancel.add_theme_color_override("font_color", Color(0.95, 0.3, 0.3))
-	cancel.pressed.connect(func() -> void: tool_chosen.emit(Tools.Mode.SELECT))
-	acts.add_child(cancel)
+	_rotate = RotateButton.new()
+	_rotate.visible = false
+	_rotate.pressed.connect(func() -> void: turn_pressed.emit())
+	_root.add_child(_rotate)
 	_picker = LevelPicker.new()
 	_picker.visible = false
 	_picker.chosen.connect(func(l: int) -> void: level_changed.emit(l))
@@ -516,7 +500,7 @@ func _relayout() -> void:
 		ib = maxf(ib, (screen.y - safe.end.y) * scale)
 
 	# The banner of the active tool across the top; the side panel under it.
-	_banner.custom_minimum_size = Vector2(180.0, 44.0)
+	_banner.custom_minimum_size = Vector2(220.0, 48.0)
 	_banner.reset_size()
 	var side_right := il + (SIDE_W if not _compact else 0.0) + 8.0
 	_banner.position = Vector2(maxf((size.x - _banner.size.x) * 0.5, side_right if not _compact else 0.0), it)
@@ -549,8 +533,7 @@ func _relayout() -> void:
 	_palette.position = Vector2(il, top)
 
 	# Actions of the tool: above the ribbon, at the right.
-	_actions.reset_size()
-	_actions.position = Vector2(size.x - ir - _actions.size.x - RIGHT_W, ribbon_y - _actions.size.y - 6.0)
+	_rotate.position = Vector2(size.x - ir - _rotate.size.x - 4.0, ribbon_y - _rotate.size.y - 12.0)
 	_home.position = Vector2(size.x - ir - _home.custom_minimum_size.x, top)
 	_picker.position = Vector2(size.x - ir - _picker.size.x, minf(top + 76.0, size.y - _picker.size.y - ib - 90.0))
 	_cell_info.position = Vector2(il + (0.0 if _compact else side_w + 8.0), _dock.position.y - 22.0 if _compact else ribbon_y - 24.0)
