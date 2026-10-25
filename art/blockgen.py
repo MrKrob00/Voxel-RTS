@@ -459,7 +459,7 @@ def corbel_slab(rounded):
     platform, from the cube to its end, a block 30% as wide as the cell. Two slopes join that block to the rest:
       - from the side edges of the platform, down to half the height of the straight part of the block;
       - from the side edges of the cube's face, about 10% of a block out along the block, up to the platform's slope.
-    `rounded`: the slopes are curves (quarter ellipses, hollow) and the front corners of the platform are round."""
+    `rounded`: the slopes are curves (quarter ellipses bulging outwards) and the front corners of the platform are round."""
     cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
     w, under, rise = 0.15, 0.28, 0.1            # half the width of the narrow block, the underside of the platform, the slope at the cube
     low = under - 0.5 * (under + 0.5)             # half way down the straight part
@@ -477,10 +477,10 @@ def corbel_slab(rounded):
     for side in (-1, 1):
         if rounded:
             k = 8
-            arc = [(0.5 - (0.5 - w) * math.cos(math.pi / 2 * i / k), low + (under - low) * math.sin(math.pi / 2 * i / k)) for i in range(k + 1)]   # (z, y)
+            arc = [(w + (0.5 - w) * math.cos(math.pi / 2 * i / k), under - (under - low) * math.sin(math.pi / 2 * i / k)) for i in range(k + 1)]   # (z, y), bulging out
             for (z0, y0), (z1, y1) in zip(arc, arc[1:]):
                 out.append([(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((y0, w), (y0, z0), (y1, z1), (y1, w))])
-            arc = [(rise - rise * math.cos(math.pi / 2 * i / k), 0.5 - (0.5 - w) * math.sin(math.pi / 2 * i / k)) for i in range(k + 1)]   # (x, z)
+            arc = [(rise * math.sin(math.pi / 2 * i / k), w + (0.5 - w) * math.cos(math.pi / 2 * i / k)) for i in range(k + 1)]   # (x, z), bulging out
             for (x0, z0), (x1, z1) in zip(arc, arc[1:]):
                 out.append([(x, y, side * z) for y in (-0.5, under) for (x, z) in ((x0, w), (x0, z0), (x1, z1), (x1, w))])
         else:
