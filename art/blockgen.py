@@ -299,19 +299,19 @@ def plug_slab(slots, y0, y1, half, d, w, core_scale=1.0):
 
 def plug(slots):
     """A plain platform below (15% of the height) and above it a cube with U-shaped channels from the sides reaching nearly to the
-    middle: F +z, B -z, L -x, R +x. The core in the middle is 2.25 times what the channels leave, so the channels are short. In the
-    top layer (5% of the height) every channel has a recess 0.2 deep into the core. One mesh."""
+    middle: F +z, B -z, L -x, R +x. The core in the middle is 2.25 times what the channels leave, so the channels are short. Below the
+    top layer (5% of the height, left whole) every channel has a recess 0.2 deep into the core. One mesh."""
     w, core = 0.34, 2 * (0.5 - 0.34) * 2.25
-    reach, top = core / 2, 0.45
+    reach, floor, top = core / 2, -0.35, 0.45
     holes = []
     for side, (ax, sign) in {"F": (2, 1), "B": (2, -1), "L": (0, -1), "R": (0, 1)}.items():
         if side not in slots:
             continue
         lo, hi = sorted((sign * (reach - 0.2), sign * (reach + 0.01)))
         if ax == 2:
-            holes.append(box((0), (top + 0.51) / 2, (lo + hi) / 2, w, 0.51 - top, hi - lo, 0.0))
+            holes.append(box(0, (floor + top) / 2, (lo + hi) / 2, w, top - floor, hi - lo, 0.0))
         else:
-            holes.append(box((lo + hi) / 2, (top + 0.51) / 2, 0, hi - lo, 0.51 - top, w, 0.0))
+            holes.append(box((lo + hi) / 2, (floor + top) / 2, 0, hi - lo, top - floor, w, 0.0))
     return [solid([box(0, -0.425, 0, 1.0, 0.15, 1.0, 0.0)] + plug_slab(slots, -0.35, 0.5, 0.5, 0.34, 0.34, 2.25), holes)]
 
 
