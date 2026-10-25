@@ -264,10 +264,13 @@ def column():
             cyl(0, 0.38, 0, 0.36, 0.36, 0.12)]
 
 
-def plug_slab(slots, y0, y1, half, d, w):
-    """One layer of a plug: a square of side 2*half with U-shaped channels (width w, depth d from the edge) in the given sides."""
+def plug_slab(slots, y0, y1, half, d, w, core_scale=1.0):
+    """One layer of a plug: a square of side 2*half with U-shaped channels (width w, depth d from the edge) in the given sides. The
+    core in the middle is `core_scale` times the size the channels leave; a bigger core makes the channels shorter, the columns beside
+    them keep their size."""
     yc, hy = (y0 + y1) / 2, y1 - y0
-    out = [box(0, yc, 0, 2 * (half - d), hy, 2 * (half - d), 0.0)]    # the core
+    core = 2 * (half - d) * core_scale
+    out = [box(0, yc, 0, core, hy, core, 0.0)]    # the core
     def band_z(sign, slotted):
         zc = sign * (half - d / 2)
         if not slotted:
@@ -295,7 +298,7 @@ def plug_slab(slots, y0, y1, half, d, w):
 def plug(slots):
     """A plain platform below (15% of the height) and above it a cube with U-shaped channels from the sides reaching nearly to the
     middle: F +z, B -z, L -x, R +x. One mesh."""
-    return [solid([box(0, -0.425, 0, 1.0, 0.15, 1.0, 0.0)] + plug_slab(slots, -0.35, 0.5, 0.5, 0.34, 0.34))]
+    return [solid([box(0, -0.425, 0, 1.0, 0.15, 1.0, 0.0)] + plug_slab(slots, -0.35, 0.5, 0.5, 0.34, 0.34, 1.5))]
 
 
 def quarter(cx, cz, sx, sz, r=1.0, seg=12):
