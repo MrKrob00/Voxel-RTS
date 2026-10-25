@@ -527,7 +527,7 @@ def cren_corbel(length=2.0, shift=0.0):
     # plate (cut to the arch), and 10% of a block along the plate from the side edges of the cube's face.
     low = top_low - 0.5 * (top_low + 0.5)
     for side in (-1, 1):
-        slope = [(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((top_low, plate_w), (top_low, 0.5), (low, plate_w))]
+        slope = [(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((top_low, plate_w), (top_low, plate_w + 0.15), (low, plate_w))]
         out.append(("clip", slope, mask))   # the slope follows the arch: it is only where the plate is
         out.append([(x, y, side * z) for y in (-0.5, top_low) for (x, z) in ((0.0, plate_w), (0.0, 0.5), (0.1, plate_w))])
     return out
