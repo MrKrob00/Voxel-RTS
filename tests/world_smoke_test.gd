@@ -46,6 +46,7 @@ func _init() -> void:
 	_check(meshes > 0, "chunk meshes committed (%d)" % meshes)
 
 	_slope_report(world)
+	_dirt_report(world)
 	_check_skin_consistency(world, "generated ground")
 	_check_seams(world, "generated ground")
 
@@ -175,6 +176,42 @@ func _check_skin_consistency(world: VoxelWorld, label: String, radius := 60, aro
 	_check(bad == 0, "%s: slope pieces match the rules (%d columns checked, %d off) %s" % [label, checked, bad, first_bad])
 
 
+## Grass only on top, then a thin layer of earth: one block, a second one in patches, never more.
+func _dirt_report(world: VoxelWorld) -> void:
+	var gen := world.generator
+	var c0 := gen.islands[0].center
+	var one := 0
+	var two := 0
+	var more := 0
+	var grass_below := 0
+	var total := 0
+	for dz in range(-60, 61):
+		for dx in range(-60, 61):
+			var x := int(c0.x) + dx
+			var z := int(c0.y) + dz
+			var col := gen.column(x, z)
+			if col.x < 0 or col.x - col.y < 6 or gen.block_at(x, col.x, z, col.x, col.y) != Blocks.GRASS:
+				continue
+			total += 1
+			var layers := 0
+			var y := col.x - 1
+			while y > col.y and gen.block_at(x, y, z, col.x, col.y) == Blocks.DIRT:
+				layers += 1
+				y -= 1
+			if gen.block_at(x, col.x - 1, z, col.x, col.y) == Blocks.GRASS:
+				grass_below += 1
+			if layers <= 1:
+				one += 1
+			elif layers == 2:
+				two += 1
+			else:
+				more += 1
+	print("earth under the grass: %d columns, one layer %d, two layers %d, more %d" % [total, one, two, more])
+	_check(more == 0, "never more than two layers of earth (%d columns with more)" % more)
+	_check(grass_below == 0, "grass only on the very top")
+	_check(two > total * 0.1 and two < total * 0.6, "a second layer of earth in patches (%.0f%% of columns)" % (100.0 * two / maxf(total, 1)))
+
+
 # --- editing rules ---------------------------------------------------------------------------------
 
 ## A natural block that is not at a chunk border and has a lower column next to it (slopes depend on it).
@@ -249,7 +286,7 @@ func _test_stages(world: VoxelWorld) -> void:
 	# Stage 1: the block becomes half dug FIRST, and the neighbour follows that state, not "destroyed".
 	_check(world.terrain.dig_step(cell), "dig stage 1")
 	var half := world.get_block(cell)
-	_check(Blocks.is_dug(half) and Blocks.shape(half) == Blocks.SHAPE_HALF and Blocks.mat(half) == Blocks.mat(raw), "stage 1: a half-dug block of the same material")
+	_check(Blocks.is_dug(half) and Blocks.shape(half) == Blocks.SHAPE_HALF and Blocks.mat(half) == Blocks.dug_material(Blocks.mat(raw)), "stage 1: a half-dug block; its grass is gone and the earth shows")
 	_check(world.terrain.level(x, z) == lv - 1, "stage 1: the column level dropped by half a block (%d -> %d)" % [lv, world.terrain.level(x, z)])
 	_check(Blocks.shape(world.get_block(neighbour_cell)) == step.shapes[1], "stage 1: the neighbouring slope is in the half-way state (not the 'destroyed' one)")
 	_check_skin_consistency(world, "after stage 1", 8, Vector2(x, z), true)

@@ -77,6 +77,7 @@ var _coal: FastNoiseLite
 var _iron: FastNoiseLite
 var _orange: FastNoiseLite
 var _pocket: FastNoiseLite
+var _dirt_extra: FastNoiseLite
 var _max_y: int
 var _region_cache := {}
 var _region_mutex := Mutex.new()
@@ -99,6 +100,7 @@ func _init(world_seed: int, size: Vector3i, map_preset: MapPreset, forced_extra 
 	_iron = _make_noise(world_seed + 6, 0.14, 1)
 	_orange = _make_noise(world_seed + 10, 0.16, 1)
 	_pocket = _make_noise(world_seed + 11, 0.11, 1)
+	_dirt_extra = _make_noise(world_seed + 12, 0.05, 2)
 	_layout_islands(world_seed, size, forced_extra)
 	_build_bridges()
 
@@ -379,11 +381,12 @@ func block_at(wx: int, wy: int, wz: int, top: int, bottom: int, style := -1) -> 
 		if wy >= snow_y:
 			return Blocks.SNOW
 		return Blocks.STONE if wy >= rock_y else preset.top_block
-	if depth <= preset.dirt_depth:
+	# One layer of dirt under the grass, a second one in patches.
+	if depth <= preset.dirt_depth or (depth == preset.dirt_depth + 1 and _dirt_extra.get_noise_2d(wx, wz) > preset.dirt_extra_threshold):
 		if wy >= rock_y:
 			return Blocks.STONE
 		# Grey stone pockets inside the dirt layer, carrying a few ore flecks, as on the original's cliff faces.
-		if depth >= 2 and _pocket.get_noise_3d(wx, wy * 1.4, wz) > 0.5:
+		if _pocket.get_noise_3d(wx, wy * 1.4, wz) > 0.58:
 			if _orange.get_noise_3d(wx, wy, wz) > 0.45:
 				return Blocks.ORANGE_ORE
 			if _iron.get_noise_3d(wx, wy, wz) > 0.5:

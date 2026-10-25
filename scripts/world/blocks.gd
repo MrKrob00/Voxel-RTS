@@ -87,6 +87,18 @@ static func shape_from_corners(h0: int, h1: int, h2: int, h3: int) -> int:
 	return 1 + h0 + 3 * h1 + 9 * h2 + 27 * h3
 
 
+## What a block turns into when it is dug: the grass on top is torn up and the earth shows, snow gives way to stone.
+## Grass does not grow back on its own.
+static func dug_material(material: int) -> int:
+	match material:
+		GRASS:
+			return DIRT
+		SNOW:
+			return STONE
+		_:
+			return material
+
+
 ## Highest corner of a shape, in half-blocks (2 for a cube).
 static func max_height(shape_id: int) -> int:
 	var h := corner_heights(shape_id)

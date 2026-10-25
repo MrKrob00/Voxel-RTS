@@ -16,7 +16,8 @@ var pass_width := Vector2(0.05, 0.22)        ## smoothstep edges on |pass noise|
 var flat_share := 0.24            ## share of the island radius kept flat around the island centre (build area)
 var terrace_step := 6.0           ## plateaus are this many blocks apart; between them are cliffs...
 var pass_ramp := Vector2(0.03, 0.16)   ## ...except where the pass noise is near zero: there the ground slopes (a pass)
-var dirt_depth := 4               ## dirt layers under the surface block, stone below
+var dirt_depth := 1               ## dirt layers under the surface block, stone below...
+var dirt_extra_threshold := 0.18  ## ...plus a second dirt layer where this 2D noise is above the threshold (about a third of the ground)
 var top_block := Blocks.GRASS
 var sub_block := Blocks.DIRT
 
