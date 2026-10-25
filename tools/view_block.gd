@@ -13,11 +13,17 @@ func _initialize() -> void:
 func _run() -> void:
 	var id := "stairs"
 	var out := "/tmp"
+	var turn := 0.0                       # --turn=-90: the block turned about y (degrees)
+	var only := ""                        # --only=iso: just that view
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--id="):
 			id = a.get_slice("=", 1)
 		elif a.begins_with("--out="):
 			out = a.get_slice("=", 1)
+		elif a.begins_with("--turn="):
+			turn = float(a.get_slice("=", 1))
+		elif a.begins_with("--only="):
+			only = a.get_slice("=", 1)
 	var sv := SubViewport.new()
 	sv.size = Vector2i(PX, PX)
 	sv.transparent_bg = false
@@ -46,12 +52,15 @@ func _run() -> void:
 	m.albedo_color = Color(0.66, 0.66, 0.66)
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = m
+	mi.rotation_degrees.y = turn
 	sv.add_child(mi)
 	var views := {
 		"front": Vector3(0, 0.0, 1), "back": Vector3(0, 0.0, -1), "left": Vector3(-1, 0.0, 0), "right": Vector3(1, 0.0, 0),
 		"top": Vector3(0, 1, 0.001), "iso": Vector3(0.656, 0.375, 0.656),
 	}
 	for v in views:
+		if only != "" and v != only:
+			continue
 		var up := Vector3.UP if v != "top" else Vector3(0, 0, -1)
 		cam.look_at_from_position(views[v].normalized() * 10.0, Vector3.ZERO, up)
 		cam.near = 0.1
@@ -59,5 +68,5 @@ func _run() -> void:
 		await process_frame
 		await process_frame
 		await RenderingServer.frame_post_draw
-		sv.get_texture().get_image().save_png("%s/%s_%s.png" % [out, id, v])
+		sv.get_texture().get_image().save_png("%s/%s_%s%s.png" % [out, id, v, "" if turn == 0.0 else "_turn%d" % int(turn)])
 	quit()
