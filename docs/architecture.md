@@ -114,11 +114,12 @@ picture is final; later stamps rebuild only the chunks they touch (`stamp_cover_
   A stockpile holds one kind at a time and takes another once it is empty. With no stockpile that takes the kind, the worker
   keeps its bag and says "No free stockpile for stone".
 - **Quarry** (a dig task with depth > 1, the `+/-` buttons next to "mark dig area"): it digs **layer by layer** (`DigTask.update`
-  opens the next layer when the one before is dug). Each column has a limit of layers; along the longer side of the area the limits climb
-  0, 1, 1, 2, 2, 3, ..., so what is left standing is a **staircase of earth or stone** down into the pit, a block lower every two
-  columns. At every second column of the staircase, once its last layer is dug, the worker leaves a **stair piece**: the second of the
-  2 x 1 x 1 pair (one half plain floor, the other half four steps up to the floor before it). The depth is cut back when the area is too
-  short for a staircase that deep (it needs two columns per layer). Units walk down (drops of one block) and climb out (one block per step).
+  opens the next layer when the one before is dug). Each column has a limit of layers. Along the edge of the area, from its low corner and
+  first along the longer side, the limits climb 0, 1, 2, 3, ...: what is left standing is a **staircase of earth or stone** down into the pit,
+  **one column per step**, back to back, as short as it can be. Every step column ends in a **stair piece** (four small steps, rising towards
+  the column before it); where the edge ends and there is still depth to go, the stairs turn the corner and the corner column is a **flat
+  landing**, the only flat stretch. The depth is cut back when the whole edge is too short for stairs that deep. Units walk down and climb
+  out one block at a time.
 - **Stair piece** (`Blocks.STAIRS_FLAG`): a wedge-shaped partial piece drawn as 4 steps (`ChunkMesher._emit_stairs`), height under the feet
   stepped (`Blocks.surface_height(..., stairs)`). Only workers make it (`TerrainEdit.make_stairs`); the neighbour rules never derive, change
   or replace it, it is removed when the ground under it goes, and digging it takes one stage.

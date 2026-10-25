@@ -5,13 +5,15 @@ var preset := MapPreset.plains()
 var world: VoxelWorld
 var props: PropField
 var rig: RTSCamera
-enum Mode { SELECT, MARK_DIG, STOCKPILE, FRAME, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
-const MODE_NAMES := ["select / move", "mark dig area", "stockpile: plank platform (wood, ore)", "stockpile: frame (stone, plants)", "dig (instant)", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
+enum Mode { SELECT, MARK_DIG, MARK_TREES, MARK_GRASS, STOCKPILE, FRAME, STUMP, ROPE_MACHINE, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
+const MODE_NAMES := ["select / move", "mark dig area (depth +/-)", "mark trees to fell", "mark grass to cut", "stockpile: plank platform (logs, planks, rope, ore)", "stockpile: frame (stone, grass)", "stump with an axe (1 log): logs -> planks", "rope machine (2 planks): grass -> rope", "dig (instant)", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
 const START_UNITS := 5
 
 var bricks: BrickWorld
 var units: UnitManager
 var economy: Economy
+var colliders: GroundColliders
+var loose: LooseItems
 var board: TaskBoard
 var _tasks_panel: VBoxContainer
 var _stock_label: Label
@@ -50,10 +52,18 @@ func _ready() -> void:
 		add_child(props)
 		props.setup(world)
 
+	colliders = GroundColliders.new()
+	colliders.name = "GroundColliders"
+	add_child(colliders)
+	colliders.setup(world)
 	bricks = BrickWorld.new()
 	bricks.name = "Bricks"
 	add_child(bricks)
-	bricks.setup(world)
+	bricks.setup(world, colliders)
+	loose = LooseItems.new()
+	loose.name = "LooseItems"
+	add_child(loose)
+	loose.setup(world, colliders)
 
 	rig = RTSCamera.new()
 	rig.name = "Camera"
@@ -81,7 +91,8 @@ func _ready() -> void:
 	board = TaskBoard.new()
 	board.name = "Tasks"
 	add_child(board)
-	board.setup(world, units.nav, economy)
+	units.nav.obstacle = economy.blocks_cell
+	board.setup(world, units.nav, economy, props, loose, units)
 	board.changed.connect(_refresh_tasks_panel)
 	economy.changed.connect(_refresh_stock_label)
 	world.generation_finished.connect(_spawn_units, CONNECT_ONE_SHOT)
@@ -258,11 +269,19 @@ func _update_hover() -> void:
 	_ghost.visible = false
 	_stock_ghost.visible = false
 	_cell_info.text = "" if hit.is_empty() else _describe_cell(hit.cell, hit.brick)
-	if (mode == Mode.STOCKPILE or mode == Mode.FRAME) and not hit.is_empty() and not hit.brick:
+	if (mode == Mode.STOCKPILE or mode == Mode.FRAME or mode == Mode.STUMP or mode == Mode.ROPE_MACHINE) and not hit.is_empty() and not hit.brick:
 		var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
-		var why := Stockpile.can_place(world, bricks, origin, economy.stockpiles)
+		var why := ""
+		var gsize := Vector2(Stockpile.SIZE, Stockpile.SIZE)
+		if mode == Mode.STUMP or mode == Mode.ROPE_MACHINE:
+			var sk := Station.Kind.STUMP if mode == Mode.STUMP else Station.Kind.ROPE_MACHINE
+			why = Station.can_place(world, bricks, sk, origin, economy.stockpiles, economy.stations)
+			gsize = Vector2(Station.DEFS[sk].size)
+		else:
+			why = Stockpile.can_place(world, bricks, origin, economy.stockpiles)
+		(_stock_ghost.mesh as BoxMesh).size = Vector3(gsize.x, 0.2, gsize.y)
 		_stock_ghost.visible = true
-		_stock_ghost.position = Vector3(origin.x + 1.0, origin.y + 0.1, origin.z + 1.0)
+		_stock_ghost.position = Vector3(origin.x + gsize.x * 0.5, origin.y + 0.1, origin.z + gsize.y * 0.5)
 		(_stock_ghost.material_override as StandardMaterial3D).albedo_color = Color(0.2, 0.9, 0.3, 0.5) if why == "" else Color(0.95, 0.2, 0.2, 0.5)
 		if why != "":
 			_cell_info.text += "  |  stockpile: " + why
@@ -311,8 +330,14 @@ func _on_primary(pos: Vector2) -> void:
 			_command_move(hit)
 		Mode.MARK_DIG:
 			_mark_dig(hit.cell.x, hit.cell.z, hit.cell.x, hit.cell.z)
+		Mode.MARK_TREES:
+			_mark_harvest(HarvestTask.Kind.TREES, Rect2(hit.cell.x - 1.0, hit.cell.z - 1.0, 3.0, 3.0))
+		Mode.MARK_GRASS:
+			_mark_harvest(HarvestTask.Kind.GRASS, Rect2(hit.cell.x - 1.0, hit.cell.z - 1.0, 3.0, 3.0))
 		Mode.STOCKPILE, Mode.FRAME:
 			_place_stockpile(hit)
+		Mode.STUMP, Mode.ROPE_MACHINE:
+			_place_station(hit)
 		Mode.DIG:
 			if hit.brick:
 				bricks.remove(bricks.brick_at(hit.cell))
@@ -355,6 +380,17 @@ func _on_double(pos: Vector2) -> void:
 
 func _on_box(rect: Rect2) -> void:
 	_selection_box.hide_rect()
+	if mode == Mode.MARK_TREES or mode == Mode.MARK_GRASS:
+		var lo := Vector2(INF, INF)
+		var hi := Vector2(-INF, -INF)
+		for p in [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]:
+			var h := _pick(p)
+			if not h.is_empty():
+				lo = Vector2(minf(lo.x, h.cell.x), minf(lo.y, h.cell.z))
+				hi = Vector2(maxf(hi.x, h.cell.x + 1.0), maxf(hi.y, h.cell.z + 1.0))
+		if hi.x > lo.x:
+			_mark_harvest(HarvestTask.Kind.TREES if mode == Mode.MARK_TREES else HarvestTask.Kind.GRASS, Rect2(lo, hi - lo))
+		return
 	if mode == Mode.MARK_DIG:
 		# The corners of the box on the ground give the area to dig.
 		var lo := Vector2i(1 << 30, 1 << 30)
@@ -371,6 +407,24 @@ func _on_box(rect: Rect2) -> void:
 
 
 ## Marks ground to be dug and puts the selected units (or, with nothing selected, the idle ones) on it.
+## Marks trees or grass in a rectangle and puts the selected units (or the idle ones) on it.
+func _mark_harvest(kind: int, rect: Rect2) -> void:
+	var t := board.create_harvest(kind, rect)
+	if t == null:
+		_cell_info.text = "Nothing to harvest there"
+		return
+	var crew: Array = units.selection if not units.selection.is_empty() else units.units.filter(func(u: Unit) -> bool: return u.is_idle())
+	for u in crew:
+		board.assign(u, t)
+
+
+func _place_station(hit: Dictionary) -> void:
+	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
+	var kind := Station.Kind.STUMP if mode == Mode.STUMP else Station.Kind.ROPE_MACHINE
+	if not hit.brick and board.place_station(kind, origin) == null:
+		_cell_info.text = "Cannot set it up here: " + economy.last_error
+
+
 func _set_depth(d: int) -> void:
 	_dig_depth = clampi(d, 1, 12)
 	_depth_label.text = "depth %d" % _dig_depth
@@ -429,6 +483,8 @@ func _refresh_stock_label() -> void:
 	var tot := economy.totals()
 	for k in tot:
 		lines.append("%s: %d bags" % [Resources.label(k), tot[k]])
+	for st in economy.stations:
+		lines.append("%s%s" % [st.def().name, " (working)" if st.task != null and not st.task.workers.is_empty() else ""])
 	if economy.packed_bricks > 0:
 		lines.append("Stone bricks stacked: %d" % economy.packed_bricks)
 	_stock_label.text = "\n".join(lines)

@@ -96,20 +96,57 @@ func create_dig(x0: int, z0: int, x1: int, z1: int, depth := 1) -> DigTask:
 	return t
 
 
-## Along the longer side of the area, from its low corner: column j is dug to (j + 1) / 2 layers, column 0 not at all. That leaves
-## a step down every two columns. The depth is cut back when the side is too short for a staircase that deep.
+## The staircase goes along the edge of the area from its low corner, first along the longer side: the first column is not dug at
+## all, each next column is dug one layer deeper and ends in a stair piece, so a column is a step. Where the edge ends (a corner) and
+## there is still depth to go, the stairs turn and the corner column is a flat landing as deep as the column before it. The depth
+## is cut back when the whole edge is too short for stairs that deep.
 func _plan_staircase(t: DigTask, lo: Vector2i, hi: Vector2i) -> void:
-	var along_x := hi.x - lo.x >= hi.y - lo.y
-	var length := (hi.x - lo.x + 1) if along_x else (hi.y - lo.y + 1)
-	t.depth = mini(t.depth, maxi(length / 2, 1))
-	if t.depth <= 1:
+	var w := hi.x - lo.x + 1
+	var h := hi.y - lo.y + 1
+	var first := Vector2i(1, 0) if w >= h else Vector2i(0, 1)
+	var second := Vector2i(0, 1) if w >= h else Vector2i(1, 0)
+	# The edge as a walk: out along the first side, along the second, back along the first, back along the second.
+	var path: Array[Vector2i] = [lo]
+	var legs := [[first, (w if w >= h else h) - 1], [second, (h if w >= h else w) - 1], [-first, (w if w >= h else h) - 1], [-second, (h if w >= h else w) - 1]]
+	var at := lo
+	var corners := {}
+	for leg in legs:
+		for i in range(1, int(leg[1]) + 1):
+			at += leg[0]
+			path.append(at)
+		corners[at] = true
+	if path.size() > 1 and path[-1] == lo:
+		path.pop_back()   # the walk round the edge ends where it began
+	var layers := 0
+	var wanted := t.depth
+	var prev := lo
+	t.limits[lo] = 0
+	t.stair_columns.append(lo)
+	var reached := 0
+	for i in range(1, path.size()):
+		if reached >= wanted:
+			break
+		var col := path[i]
+		var step := col - prev
+		var is_corner: bool = corners.has(col) and i < path.size() - 1
+		# A corner is a landing, but only when the stairs go on round it; the last column of a leg that is also the last needed is a step.
+		var needs_more := reached + 1 < wanted
+		if is_corner and needs_more:
+			t.limits[col] = layers
+			t.stair_columns.append(col)
+		else:
+			layers += 1
+			reached += 1
+			t.limits[col] = layers
+			t.stair_columns.append(col)
+			t.stair_rise[col] = -step
+		prev = col
+	t.depth = maxi(reached, 1)
+	if t.depth <= 1 and reached == 0:
+		t.limits.erase(lo)
+		t.stair_columns.clear()
+		t.stair_rise.clear()
 		t.depth = 1
-		return
-	t.stair_dir = Vector2i(1, 0) if along_x else Vector2i(0, 1)
-	for j in range(0, 2 * t.depth):
-		var col := lo + t.stair_dir * j
-		t.stair_columns.append(col)
-		t.limits[col] = (j + 1) / 2
 
 
 ## Marks the trees (or the grass) in `rect` (x, z in blocks) for harvesting. Null when there are none there.

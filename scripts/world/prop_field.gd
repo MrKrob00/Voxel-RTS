@@ -25,6 +25,13 @@ var _done := false
 func setup(w: VoxelWorld) -> void:
 	world = w
 	world.hold_meshing()
+	if world.generator == null:
+		world.ready.connect(_launch, CONNECT_ONE_SHOT)   # the world is not in the tree yet: its generator comes with _ready
+	else:
+		_launch()
+
+
+func _launch() -> void:
 	_task_id = WorkerThreadPool.add_task(_scatter)
 
 
