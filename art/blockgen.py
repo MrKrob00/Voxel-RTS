@@ -414,8 +414,9 @@ def cren_roof():
     back, the long side climbing from the front to the top of the back wall) whose front edge juts out over the set-back with a rounded
     nose, and the back is the whole block again."""
     lower = box(-0.075, -0.275, 0, 0.85, 0.45, 1.0, 0.0)           # x -0.5 .. 0.35, y -0.5 .. -0.05
-    r, cx, cy = 0.06, 0.44, 0.01
-    nose = [(cx + r * math.cos(math.tau * i / 12), cy + r * math.sin(math.tau * i / 12)) for i in range(12)]
+    r = 0.13                                                       # the nose is a round edge touching the front (x 0.5) and the underside (y -0.05)
+    cx, cy = 0.5 - r, -0.05 + r
+    nose = [(cx + r * math.cos(math.tau * i / 20), cy + r * math.sin(math.tau * i / 20)) for i in range(20)]
     pts = [(-0.5, -0.05), (-0.5, 0.5)] + nose
     upper = [(x, y, z) for (x, y) in pts for z in (-0.5, 0.5)]
     return [lower, upper]
