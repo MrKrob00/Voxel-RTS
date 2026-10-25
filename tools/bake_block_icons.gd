@@ -11,7 +11,7 @@ const STONE := Color(0.62, 0.62, 0.62)
 const WOOD := Color(0.72, 0.50, 0.27)
 ## The way a block is turned for its picture (degrees about y): the original shows a stair with its steps at the near, left-hand
 ## end (towards +z in the block's own space), and the left-hand variants likewise; the right-hand ones have them at +x.
-const ICON_TURN := {"brick": 90.0, "stairs": 90.0, "stairs_small": 90.0, "corner_out_l": 90.0, "corner_in_l": 90.0, "cren_corner": 135.0}
+const ICON_TURN := {"brick": 90.0, "stairs": 90.0, "stairs_small": 90.0, "corner_out_l": 90.0, "corner_in_l": 90.0, "cren_corner": 135.0, "cren_slab": 270.0}
 
 
 func _initialize() -> void:

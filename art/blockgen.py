@@ -380,9 +380,14 @@ def squat():
     return [box(0, -0.43, 0, 1.0, 0.14, 1.0, 0.03), squircle(-0.36, 0.5) + squircle(0.28, 0.4) + squircle(0.24, 0.43)]
 
 
-def cren_slab(length=2.0):
-    h = length / 2
-    return [box(0, 0.35, 0, length, 0.3, 1.0, 0.04), box(h / 2, -0.15, 0.1, h, 0.7, 0.8, 0.03)]
+def cren_slab():
+    """The overhang (2 cells along x): a whole cube at -x and, in front of it (+x), a flat platform 15% of a block thick along the top.
+    Under the platform a slope runs from its underside at half the platform's length back down to the cube's face at 30% of the
+    height from the top. Slope and platform have the width of the cube."""
+    cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
+    platform = box(0.5, 0.425, 0, 1.0, 0.15, 1.0, 0.0)
+    brace = [(x, y, z) for (x, y) in ((0.0, 0.35), (0.5, 0.35), (0.0, 0.2)) for z in (-0.5, 0.5)]
+    return [cube, platform, brace]
 
 
 def cren_bracket():
@@ -479,7 +484,7 @@ BLOCKS = {
     "round_c":      lambda: round_brick("c"),
     "round_corner": lambda: round_brick("d"),
     # --- Crenelations
-    "cren_slab":    lambda: cren_slab(2.0),
+    "cren_slab":    cren_slab,
     "cren_bracket": cren_bracket,
     "cren_corner":  cren_corner,
     "cren_slope":   lambda: cren_slope(1.0),
