@@ -445,19 +445,21 @@ def cren_roof_corner():
 
 
 def cren_roof_inner():
-    """The concave (inner) corner of two roofs: the roof block twice, one facing +z and one facing +x, so the two slopes meet in a
-    valley that falls to the front right corner and the back walls along -x and -z stand whole."""
-    front_z = cren_roof(1.0)
-    front_x = [[(z, y, x) for (x, y, z) in piece] for piece in front_z]
-    return front_z + front_x
+    """The concave (inner) corner of two roofs: a whole lower part (45% high, the full cell) and on it two slopes, one facing +z and one
+    facing +x, that meet in a valley falling to the front right corner; the back walls along -x and -z stand whole."""
+    lower = box(0, -0.275, 0, 1.0, 0.45, 1.0, 0.0)
+    pts = [(-0.5, ROOF_BASE_TOP), (-0.5, 0.5), (0.5, ROOF_BASE_TOP)]
+    slope_z = [(x, y, z) for (z, y) in pts for x in (-0.5, 0.5)]
+    slope_x = [(z, y, x) for (x, y, z) in slope_z]
+    return [lower, slope_z, slope_x]
 
 
 def cren_corbel_long():
     """The long corbel (2 cells along x): a whole cube at -x; in front of it a flat platform 22% of a block thick along the top; under
-    the platform, out from the cube, a block that is 22% as wide as the cell."""
+    the platform, from the cube to its end, a block that is 22% as wide as the cell (as long as the platform)."""
     cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
     platform = box(0.5, 0.39, 0, 1.0, 0.22, 1.0, 0.0)
-    support = box(0.25, -0.11, 0, 0.5, 0.78, 0.22, 0.0)
+    support = box(0.5, -0.11, 0, 1.0, 0.78, 0.22, 0.0)
     return [cube, platform, support]
 
 
