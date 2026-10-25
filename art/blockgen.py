@@ -456,19 +456,17 @@ def cren_roof_inner():
 
 def cren_corbel_long():
     """The long corbel (2 cells along x): a whole cube at -x; in front of it a flat platform 22% of a block thick along the top; under
-    the platform, from the cube to its end, a block 30% as wide as the cell. Where that block meets the cube and the platform there
-    are slopes (a quarter of a block wide) so the joins are not square."""
+    the platform, from the cube to its end, a block 30% as wide as the cell. Two slopes join that block to the rest:
+      - from the side edges of the platform, down to half the height of the straight part of the block;
+      - from the side edges of the cube's face, about 10% of a block out along the block, up to the platform's slope."""
     cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
     platform = box(0.5, 0.39, 0, 1.0, 0.22, 1.0, 0.0)
-    w, f, under = 0.15, 0.2, 0.28            # half the width of the narrow block, the size of the slopes, the underside of the platform
-    support = box(0.5, (-0.5 + under) / 2, 0, 1.0, under + 0.5, 2 * w, 0.0)
-    out = [cube, platform, support]
+    w, under, rise = 0.15, 0.28, 0.1            # half the width of the narrow block, the underside of the platform, the slope at the cube
+    low = under - 0.5 * (under + 0.5)             # half way down the straight part
+    out = [cube, platform, box(0.5, (-0.5 + under) / 2, 0, 1.0, under + 0.5, 2 * w, 0.0)]
     for side in (-1, 1):
-        # slope under the platform, along the whole narrow block
-        out.append([(x, y, side * z) for (x, y, z) in ((0.0, under, w), (1.0, under, w), (0.0, under, w + f), (1.0, under, w + f),
-                                                       (0.0, under - f, w), (1.0, under - f, w))])
-        # slope against the face of the cube, from the foot of it up to the platform
-        out.append([(x, y, side * z) for (x, y, z) in ((0.0, -0.5, w), (0.0, -0.5, w + f), (f, -0.5, w), (0.0, under, w), (0.0, under, w + f), (f, under, w))])
+        out.append([(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((under, w), (under, 0.5), (low, w))])
+        out.append([(x, y, side * z) for y in (-0.5, under) for (x, z) in ((0.0, w), (0.0, 0.5), (rise, w))])
     return out
 
 
