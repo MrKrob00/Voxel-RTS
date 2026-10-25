@@ -61,14 +61,13 @@ func _run() -> void:
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
 		mi.material_override = m
 		sv.add_child(mi)
-		var box := mesh.get_aabb()
-		var c := box.get_center()
-		var r := box.size.length() * 0.5
-		var d := Vector3(1.0, 0.85, 1.0).normalized()
-		cam.look_at_from_position(c + d * r * 4.0, c, Vector3.UP)
-		cam.size = r * 2.1
-		cam.near = 0.01
-		cam.far = r * 12.0
+		# The same view and the same scale for every block, as the original's panel has: a little from the right of the front, about
+		# 28 degrees above the ground, the middle of the block in the middle of the picture.
+		var d := Vector3(sin(deg_to_rad(22.0)) * cos(deg_to_rad(36.0)), sin(deg_to_rad(36.0)), cos(deg_to_rad(22.0)) * cos(deg_to_rad(36.0)))
+		cam.look_at_from_position(d * 10.0, Vector3.ZERO, Vector3.UP)
+		cam.size = 3.1
+		cam.near = 0.1
+		cam.far = 30.0
 		await process_frame
 		await process_frame
 		await RenderingServer.frame_post_draw
