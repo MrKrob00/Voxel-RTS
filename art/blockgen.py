@@ -501,10 +501,10 @@ def cren_hip():
 
 def cren_corbel(length=2.0, shift=0.0):
     """The small corbel, 2 cells along x: a whole cube at the back (-x) and, in front of it, a flat platform 22% thick along the top.
-    A little lower goes a vertical plate 22% as wide as the cell. It keeps a strip 22% high along the top (the crown of the arch) and
+    A little lower goes a vertical plate 30% as wide as the cell. It keeps a strip 22% high along the top (the crown of the arch) and
     at the bottom, from the cube's face, a length of 22%; the rest of it is cut away as an arch, a quarter ellipse (as in the bracket)
     from the floor at the end of that foot up to the front of the crown."""
-    plate_w, foot, crown = 0.11, 0.22, 0.22
+    plate_w, foot, crown = 0.15, 0.22, 0.22
     top_low = 0.28                                   # the underside of the platform
     arch_top = top_low - crown                       # the underside of the crown
     cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
@@ -515,7 +515,14 @@ def cren_corbel(length=2.0, shift=0.0):
     rib = []
     for (x0, y0), (x1, y1) in zip(arc, arc[1:]):
         rib.append([(x, y, z) for (x, y) in ((0.0, y0), (x0, y0), (x1, y1), (0.0, y1)) for z in (-plate_w, plate_w)])
-    return [cube, platform, strip] + rib
+    out = [cube, platform, strip] + rib
+    # The slopes of the big corbel where the plate meets the platform and the cube: from the side edges of the platform half way down the
+    # plate, and 10% of a block along the plate from the side edges of the cube's face.
+    low = top_low - 0.5 * (top_low + 0.5)
+    for side in (-1, 1):
+        out.append([(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((top_low, plate_w), (top_low, 0.5), (low, plate_w))])
+        out.append([(x, y, side * z) for y in (-0.5, top_low) for (x, z) in ((0.0, plate_w), (0.0, 0.5), (0.1, plate_w))])
+    return out
 
 
 def wood_log():
