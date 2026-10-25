@@ -1,41 +1,39 @@
 class_name Stockpile
 extends Node3D
-## A 2x2 place where units put what they carry. Two styles, as in the original game:
-##   PLATFORM  a plank platform with the goods lying on it: logs, planks, rope, ores
-##   CRATE     the same platform with a copy of it standing up on each of the four sides: a solid crate of 2 x 2 x 2 blocks for
-##             loose stuff, stone and grass. When a crate is filled with stone to the brim the crate goes and what is left is a
-##             stack of 2x1x1 stone bricks (BrickWorld), 4 of them: the 2x2x2 volume of the stockpile.
+## A 2x2 place where units put what they carry. It is ONE structure: what it looks like depends on what is in it (its `form`):
+##   PLATFORM  a plank platform with the goods lying on it: logs, planks, rope, ores (and when it is empty)
+##   CRATE     stone or grass: the platform with a copy of it standing up on each of the four sides, a solid crate of 2 x 2 x 2 blocks
+##             with the loose stuff in it. When it is filled with stone to the brim, the crate becomes ...
+##   STACK     ... a stack of stone bricks (2x1x1, 4 of them: the 2x2x2 volume), without the floor; as bricks are taken it shrinks,
+##             and the empty stockpile is a platform again.
 ## A stockpile holds one kind at a time (it takes a new kind once it is empty). How much fits depends on the kind: bags are half
 ## blocks (a crate holds 16 of stone, a brick is four), a platform holds 4 logs, 24 planks or 20 ropes (a rope takes a quarter
 ## of the area and a fifth of the height).
 ##
 ## `origin` is the lowest-x/z cell of the platform at the height of the cell ABOVE the ground (where feet stand on it).
 
-enum Style { PLATFORM, CRATE, STACK }
+enum Form { PLATFORM, CRATE, STACK }
 
 const SIZE := 2
 const PLATFORM_HEIGHT := 0.18
 const WALL_HEIGHT := 2.0
 const BAGS_PER_BRICK := 4
-const ACCEPTS := {
-	Style.PLATFORM: [Resources.Kind.LOG, Resources.Kind.PLANK, Resources.Kind.ROPE, Resources.Kind.IRON, Resources.Kind.COAL, Resources.Kind.AMBER],
-	Style.CRATE: [Resources.Kind.STONE, Resources.Kind.PLANT],
-	Style.STACK: [Resources.Kind.BRICK],   # the bricks a full crate turned into; builders take them from the top
-}
+## How many of a kind it holds when full; what is not in the list it does not take.
 const CAPACITY := {
-	Style.PLATFORM: {Resources.Kind.LOG: 4, Resources.Kind.PLANK: 24, Resources.Kind.ROPE: 20, Resources.Kind.IRON: 24, Resources.Kind.COAL: 24, Resources.Kind.AMBER: 24},
-	Style.CRATE: {Resources.Kind.STONE: 16, Resources.Kind.PLANT: 16},
-	Style.STACK: {Resources.Kind.BRICK: 8},   # 4 bricks of 2x1x1 = 8 halves, two layers of two
+	Resources.Kind.LOG: 4, Resources.Kind.PLANK: 24, Resources.Kind.ROPE: 20,
+	Resources.Kind.IRON: 24, Resources.Kind.COAL: 24, Resources.Kind.AMBER: 24,
+	Resources.Kind.STONE: 16, Resources.Kind.PLANT: 16,
+	Resources.Kind.BRICK: 8,   # 4 bricks of 2x1x1 = 8 halves, two layers of two (made of a full crate of stone)
 }
-## What a stockpile costs, paid from the planks in the stockpiles (a guess: the original's price is not known here). The very first one is free.
+## What a stockpile costs, paid from the planks in the stockpiles (a guess: the original's price is not known here).
 const COST := {Resources.Kind.PLANK: 3}
-const STYLE_NAMES := {Style.PLATFORM: "plank platform", Style.CRATE: "crate", Style.STACK: "stack of bricks"}
 
-var style := Style.PLATFORM
 var origin := Vector3i.ZERO
 var holding := Resources.Kind.NONE       ## what it holds right now (NONE when empty)
 var count := 0                           ## how many of them
 var _piles: Node3D
+var _floor: Node3D
+var _walls: Node3D
 var _label: Label3D
 
 
@@ -61,9 +59,9 @@ static func can_place(world: VoxelWorld, bricks: BrickWorld, origin_cell: Vector
 	return ""
 
 
-## How many of a kind it holds when full (0: this style does not take it).
+## How many of a kind it holds when full (0: it does not take that kind).
 func capacity_for(kind: int) -> int:
-	return CAPACITY[style].get(kind, 0)
+	return CAPACITY.get(kind, 0)
 
 
 ## The capacity of what it holds now; when empty, the biggest it could take.
@@ -71,18 +69,28 @@ func capacity() -> int:
 	if holding != Resources.Kind.NONE:
 		return capacity_for(holding)
 	var best := 0
-	for k in CAPACITY[style]:
-		best = maxi(best, CAPACITY[style][k])
+	for k in CAPACITY:
+		best = maxi(best, CAPACITY[k])
 	return best
+
+
+## What it looks like now: by what is in it.
+func form() -> int:
+	match holding:
+		Resources.Kind.STONE, Resources.Kind.PLANT:
+			return Form.CRATE
+		Resources.Kind.BRICK:
+			return Form.STACK
+	return Form.PLATFORM
 
 
 func covers(c: Vector3i) -> bool:
 	return c.y == origin.y and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
 
 
-## The crate is a solid crate two blocks high: nobody walks through its cells.
+## A crate and a stack are two blocks high: nobody walks through their cells (a platform can be walked over).
 func blocks(c: Vector3i) -> bool:
-	return (style == Style.CRATE or style == Style.STACK) and (c.y == origin.y or c.y == origin.y + 1) and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
+	return form() != Form.PLATFORM and (c.y == origin.y or c.y == origin.y + 1) and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
 
 
 func free_space() -> int:
@@ -93,7 +101,7 @@ func amount(kind: int) -> int:
 	return count if kind == holding else 0
 
 
-## Would it take one more of this kind now (right style, nothing else inside, room left)?
+## Would it take one more of this kind now (a kind it takes, nothing else inside, room left)?
 func accepts(kind: int) -> bool:
 	return capacity_for(kind) > 0 and (holding == Resources.Kind.NONE or holding == kind) and count < capacity_for(kind)
 
@@ -128,7 +136,7 @@ func take(kind: int, n: int) -> int:
 
 ## True when a crate has been filled with stone to the brim: time to turn it into bricks.
 func packed_stone() -> bool:
-	return style == Style.CRATE and holding == Resources.Kind.STONE and count >= capacity_for(Resources.Kind.STONE)
+	return holding == Resources.Kind.STONE and count >= capacity_for(Resources.Kind.STONE)
 
 
 ## Where a unit may stand to use it: any standable cell touching the platform (from the 12 around it).
@@ -144,19 +152,20 @@ func access_cells(nav: Navigation) -> Array[Vector3i]:
 	return cells
 
 
-func build(cell: Vector3i, new_style: int) -> void:
-	style = new_style
+func build(cell: Vector3i) -> void:
 	origin = cell
 	name = "Stockpile_%d_%d" % [cell.x, cell.z]
 	position = Vector3(cell.x, cell.y, cell.z)
-	if style != Style.STACK:
-		_plank_panel(Transform3D.IDENTITY)   # the floor (a stack of bricks stands on the bare ground)
-	if style == Style.CRATE:
-		# The floor copied onto the four sides, standing up: x = 0 and 2, z = 0 and 2.
-		_plank_panel(Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
-		_plank_panel(Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(SIZE, 0.0, 0.0)))
-		_plank_panel(Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
-		_plank_panel(Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, SIZE)))
+	_floor = Node3D.new()
+	add_child(_floor)
+	_plank_panel(_floor, Transform3D.IDENTITY)
+	# The walls: the floor copied onto the four sides, standing up (x = 0 and 2, z = 0 and 2); shown while it holds stone or grass.
+	_walls = Node3D.new()
+	add_child(_walls)
+	_plank_panel(_walls, Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
+	_plank_panel(_walls, Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(SIZE, 0.0, 0.0)))
+	_plank_panel(_walls, Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
+	_plank_panel(_walls, Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, SIZE)))
 	_piles = Node3D.new()
 	add_child(_piles)
 	_label = Label3D.new()
@@ -165,17 +174,17 @@ func build(cell: Vector3i, new_style: int) -> void:
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_label.no_depth_test = true
 	_label.outline_size = 8
-	_label.position = Vector3(SIZE * 0.5, (WALL_HEIGHT + 0.6) if style != Style.PLATFORM else 1.5, SIZE * 0.5)
+	_label.position = Vector3(SIZE * 0.5, WALL_HEIGHT + 0.6, SIZE * 0.5)
 	add_child(_label)
 	_refresh()
 
 
 ## One 2 x 2 panel of planks: five boards side by side with two beams across, flat, lying with its middle at the cell corner
 ## (0, 0) and spreading over +x and +z (the floor). Rotated by `t` about the origin for the walls, the beams being the outside.
-func _plank_panel(t: Transform3D) -> void:
+func _plank_panel(parent: Node3D, t: Transform3D) -> void:
 	var panel := Node3D.new()
 	panel.transform = t
-	add_child(panel)
+	parent.add_child(panel)
 	var wood := _mat(Color("b98a4e"))
 	var dark := _mat(Color("7b5630"))
 	for i in 5:
@@ -213,6 +222,8 @@ static func _fract(x: float) -> float:
 
 
 func _refresh() -> void:
+	_floor.visible = form() != Form.STACK     # a stack of bricks stands on the bare ground
+	_walls.visible = form() == Form.CRATE
 	for c in _piles.get_children():
 		c.queue_free()
 	if count > 0:
@@ -227,7 +238,7 @@ func _refresh() -> void:
 				_show_bricks()
 			_:
 				_show_heap()
-	_label.text = "%s %d/%d" % [Resources.label(holding), count, capacity_for(holding)] if count > 0 else "empty (%s)" % STYLE_NAMES[style]
+	_label.text = "%s %d/%d" % [Resources.label(holding), count, capacity_for(holding)] if count > 0 else "empty"
 
 
 ## Loose stuff (stone, ore, grass): a heap of rubble that grows with every bag, like the gravel in the original. Chunk k lies on
@@ -240,9 +251,9 @@ func _show_heap() -> void:
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = _chunk_mesh()
 	mm.instance_count = shown
-	var inner := 0.28 if style == Style.CRATE else 0.18
+	var inner := 0.28 if form() == Form.CRATE else 0.18
 	var half := SIZE * 0.5 - inner
-	var top := (WALL_HEIGHT - PLATFORM_HEIGHT - 0.15) if style == Style.CRATE else 0.8
+	var top := (WALL_HEIGHT - PLATFORM_HEIGHT - 0.15) if form() == Form.CRATE else 0.8
 	for k in shown:
 		var u := _fract((k + 1) * _GOLDEN_U) * 2.0 - 1.0
 		var v := _fract((k + 1) * _GOLDEN_V) * 2.0 - 1.0

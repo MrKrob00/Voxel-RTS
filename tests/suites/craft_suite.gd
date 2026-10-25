@@ -44,14 +44,14 @@ func run() -> void:
 	var sp := _world.spawn_point()
 	_flatten(Vector3i(sp.x - 12, sp.y, sp.z - 12), 20, 14)
 	var base := Vector3i(sp.x - 12, sp.y + 1, sp.z - 12)
-	var logs_pile := _economy.place_stockpile(base + Vector3i(2, 0, 2), Stockpile.Style.PLATFORM)
-	var grass_frame := _economy.place_stockpile(base + Vector3i(6, 0, 2), Stockpile.Style.CRATE)
-	check(logs_pile != null and grass_frame != null, "a platform for logs and a frame for grass are down")
+	var logs_pile := _economy.place_stockpile(base + Vector3i(2, 0, 2))
+	check(logs_pile != null, "a stockpile for the logs is down")
 	var crew := _units.spawn_squad(base + Vector3i(8, 0, 8), 2, 1)
 
 	await _felling(logs_pile, crew, sp)
 	var planks_pile := await _stump(logs_pile, base)
-	await _grass_and_rope(grass_frame, planks_pile, crew, base, sp)
+	var grass_pile := _economy.place_stockpile(base + Vector3i(6, 0, 2))   # for the grass: made when the logs and planks are done with
+	await _grass_and_rope(grass_pile, planks_pile, crew, base, sp)
 	_circle(sp)
 	Engine.time_scale = 1.0
 	var waited := 0
@@ -141,7 +141,7 @@ func _stump(logs_pile: Stockpile, base: Vector3i) -> Stockpile:
 	check(second != null and logs_pile.count == 1, "a second stump costs another log (%d left)" % logs_pile.count)
 	_board.remove_station(second)
 	# Planks go to an empty platform of their own.
-	var planks_pile := _economy.place_stockpile(base + Vector3i(2, 0, 6), Stockpile.Style.PLATFORM)
+	var planks_pile := _economy.place_stockpile(base + Vector3i(2, 0, 6))
 	var ticks := await _until(func() -> bool: return _economy.stock_of(Resources.Kind.PLANK) == 3 and _economy.stock_of(Resources.Kind.LOG) == 0, 60 * 60)
 	check(_economy.stock_of(Resources.Kind.PLANK) == 3, "idle units came by themselves and made 3 planks of the last log (%d) in %.0f s" % [_economy.stock_of(Resources.Kind.PLANK), ticks * DT])
 	check(_economy.stock_of(Resources.Kind.LOG) == 0, "no log is left")
@@ -176,10 +176,10 @@ func _grass_and_rope(frame: Stockpile, planks_pile: Stockpile, crew: Array, base
 			if u.carried_kind() == Resources.Kind.PLANT:
 				seen_sack[0] = true
 		return not _board.tasks.has(task), 60 * 150)
-	check(seen_sack[0] and frame.holding == Resources.Kind.PLANT and frame.count == 4, "four sacks of grass went into the frame (%d, %.0f s)" % [frame.count, ticks * DT])
+	check(seen_sack[0] and frame.holding == Resources.Kind.PLANT and frame.count == 4, "four sacks of grass went into the stockpile (%d, %.0f s)" % [frame.count, ticks * DT])
 	check(not (_props.tuft_alive[picked[0]] == 1), "the tufts are gone from the ground")
 	# The rope machine: costs two planks, takes two sacks of grass per rope.
-	var ropes_pile := _economy.place_stockpile(base + Vector3i(14, 0, 6), Stockpile.Style.PLATFORM)
+	var ropes_pile := _economy.place_stockpile(base + Vector3i(14, 0, 6))
 	var machine := _board.place_station(Station.Kind.ROPE_MACHINE, base + Vector3i(10, 0, 6))
 	check(machine != null and not machine.enabled, "the rope machine waits to be switched on")
 	await _tick(120)

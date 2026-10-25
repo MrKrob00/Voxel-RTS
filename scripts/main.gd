@@ -111,7 +111,7 @@ func _place_starting_buildings(sp: Vector3i) -> void:
 			var cx := sp.x + roundi(cos(a) * r)
 			var cz := sp.z + roundi(sin(a) * r)
 			var origin := Vector3i(cx, world.surface_y(cx, cz) + 1, cz)
-			if not placed_platform and economy.place_stockpile(origin, Stockpile.Style.PLATFORM) != null:
+			if not placed_platform and economy.place_stockpile(origin) != null:
 				placed_platform = true
 			elif placed_platform and not placed_stump and board.place_station(Station.Kind.STUMP, origin, false) != null:
 				placed_stump = true
@@ -236,7 +236,7 @@ func _update_hover() -> void:
 	_ghost.visible = false
 	_stock_ghost.visible = false
 	var info := "" if hit.is_empty() else _describe_cell(hit.cell, hit.brick)
-	if (mode == Tools.Mode.STOCKPILE or mode == Tools.Mode.CRATE or mode == Tools.Mode.STUMP or mode == Tools.Mode.ROPE_MACHINE) and not hit.is_empty() and not hit.brick:
+	if (mode == Tools.Mode.STOCKPILE or mode == Tools.Mode.STUMP or mode == Tools.Mode.ROPE_MACHINE) and not hit.is_empty() and not hit.brick:
 		var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
 		var why := ""
 		var gsize := Vector2(Stockpile.SIZE, Stockpile.SIZE)
@@ -335,7 +335,7 @@ func _on_primary(pos: Vector2) -> void:
 			_mark_harvest(HarvestTask.Kind.TREES, Vector2(hit.cell.x + 0.5, hit.cell.z + 0.5), 4.0)
 		Tools.Mode.MARK_GRASS:
 			_mark_harvest(HarvestTask.Kind.GRASS, Vector2(hit.cell.x + 0.5, hit.cell.z + 0.5), 4.0)
-		Tools.Mode.STOCKPILE, Tools.Mode.CRATE:
+		Tools.Mode.STOCKPILE:
 			_place_stockpile(hit)
 		Tools.Mode.STUMP, Tools.Mode.ROPE_MACHINE:
 			_place_station(hit)
@@ -477,8 +477,7 @@ func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
 
 func _place_stockpile(hit: Dictionary) -> void:
 	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
-	var style := Stockpile.Style.CRATE if mode == Tools.Mode.CRATE else Stockpile.Style.PLATFORM
-	if not hit.brick and board.place_blueprint("stockpile", style, origin) == null:
+	if not hit.brick and board.place_blueprint("stockpile", 0, origin) == null:
 		hud.show_message("Cannot plan a stockpile here: " + economy.last_error)
 
 

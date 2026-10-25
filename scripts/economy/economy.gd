@@ -28,7 +28,7 @@ var packed_bricks := 0       ## stone bricks stacked up from frames that were fi
 ## this: the player puts down a blueprint (place_blueprint) and units bring the price.
 var charge_for_stockpiles := true
 
-func place_stockpile(origin: Vector3i, style := Stockpile.Style.PLATFORM) -> Stockpile:
+func place_stockpile(origin: Vector3i) -> Stockpile:
 	last_error = Stockpile.can_place(world, bricks, origin, stockpiles + blueprints)
 	if last_error != "":
 		return null
@@ -41,7 +41,7 @@ func place_stockpile(origin: Vector3i, style := Stockpile.Style.PLATFORM) -> Sto
 			spend(k, Stockpile.COST[k])
 	var s := Stockpile.new()
 	add_child(s)
-	s.build(origin, style)
+	s.build(origin)
 	stockpiles.append(s)
 	# Grass goes under a building.
 	world.stamp_cover_rect(Rect2(origin.x, origin.z, Stockpile.SIZE, Stockpile.SIZE), 0.9)
@@ -73,7 +73,7 @@ func place_station(kind: int, origin: Vector3i, pay := true) -> Station:
 
 
 ## The player's way to build: a plan on the ground. Returns null (and the reason in `last_error`) when it cannot stand there.
-## `type` is "stockpile" (kind: Stockpile.Style) or "station" (kind: Station.Kind).
+## `type` is "stockpile" (kind unused) or "station" (kind: Station.Kind).
 func place_blueprint(type: String, kind: int, origin: Vector3i) -> Blueprint:
 	var cost: Dictionary
 	var size: Vector2i
@@ -82,7 +82,7 @@ func place_blueprint(type: String, kind: int, origin: Vector3i) -> Blueprint:
 		last_error = Stockpile.can_place(world, bricks, origin, stockpiles + blueprints)
 		cost = Stockpile.COST
 		size = Vector2i(Stockpile.SIZE, Stockpile.SIZE)
-		title = "Stockpile (%s)" % Stockpile.STYLE_NAMES[kind]
+		title = "Stockpile"
 	else:
 		last_error = Station.can_place(world, bricks, kind, origin, stockpiles + blueprints, stations)
 		cost = Station.DEFS[kind].cost
@@ -107,7 +107,7 @@ func finish_blueprint(bp: Blueprint) -> Node:
 	if bp.kind_type == "stockpile":
 		var was := charge_for_stockpiles
 		charge_for_stockpiles = false   # it has been paid for, plank by plank
-		made = place_stockpile(bp.origin, bp.kind)
+		made = place_stockpile(bp.origin)
 		charge_for_stockpiles = was
 	else:
 		made = place_station(bp.kind, bp.origin, false)
@@ -300,17 +300,12 @@ func deposit(s: Stockpile, kind: int, n: int) -> int:
 	return put
 
 
-## The crate goes, a stack of 4 stone bricks of 2x1x1 (two layers of two) stands where it was: the material of walls.
+## The full crate of stone becomes a stack of 4 stone bricks of 2x1x1 (two layers of two): the material of walls. The same stockpile,
+## now holding bricks (it looks like a stack: see Stockpile.form).
 func _pack_into_bricks(s: Stockpile) -> void:
-	var at := s.origin
-	remove_stockpile(s)
-	var was := charge_for_stockpiles
-	charge_for_stockpiles = false
-	var stack := place_stockpile(at, Stockpile.Style.STACK)
-	charge_for_stockpiles = was
-	if stack != null:
-		stack.add(Resources.Kind.BRICK, Stockpile.CAPACITY[Stockpile.Style.STACK][Resources.Kind.BRICK])
-		packed_bricks += 4
+	s.take(Resources.Kind.STONE, s.count)
+	s.add(Resources.Kind.BRICK, Stockpile.CAPACITY[Resources.Kind.BRICK])
+	packed_bricks += 4
 
 
 ## Someone is on the way to fetch `n` of its goods: nobody else is promised them.
@@ -326,8 +321,6 @@ func cancel_take(s: Stockpile, n: int) -> void:
 func withdraw(s: Stockpile, kind: int, n: int) -> int:
 	cancel_take(s, n)
 	var got := s.take(kind, n)
-	if s.style == Stockpile.Style.STACK and s.count == 0 and not _reserved.has(s):
-		remove_stockpile(s)   # the last brick is gone: nothing is left standing there
 	changed.emit()
 	return got
 

@@ -41,7 +41,7 @@ func run() -> void:
 	var base := Vector3i(sp.x - 12, sp.y + 1, sp.z - 12)
 	var stacks: Array[Stockpile] = []
 	for i in 3:
-		var st := _economy.place_stockpile(base + Vector3i(1 + i * 3, 0, 1), Stockpile.Style.STACK)
+		var st := _economy.place_stockpile(base + Vector3i(1 + i * 3, 0, 1))
 		st.add(Resources.Kind.BRICK, 8)
 		stacks.append(st)
 	var crew := _units.spawn_squad(base + Vector3i(9, 0, 7), 3, 1)
@@ -159,7 +159,7 @@ func _catalog_blocks(base: Vector3i, crew: Array) -> void:
 		check(m != null and m.get_surface_count() == 1 and m.get_aabb().size.x > d.length * 0.35 and m.get_aabb().size.x < d.length + 0.1, "the %s has its mesh, %d cell(s) long" % [d.id, d.length])
 		check(BlockCatalog.icon(d.id) != null, "...and its photograph")
 	for i in 2:
-		var st := _economy.place_stockpile(base + Vector3i(2 + i * 3, 0, 17), Stockpile.Style.STACK)
+		var st := _economy.place_stockpile(base + Vector3i(2 + i * 3, 0, 17))
 		st.add(Resources.Kind.BRICK, 8)
 	var ids := ["stairs", "column", "plug_1", "round_a", "cren_slab", "corner_out_cell"]
 	var plans: Array[WallPlan] = []

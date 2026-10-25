@@ -70,9 +70,6 @@ func _emblem(c: Vector2, u: float) -> void:
 		Tools.Mode.STOCKPILE:
 			for i in 3:
 				_rect(c, u, -20, -8 + i * 9, 40, 7, WOOD)
-		Tools.Mode.CRATE:
-			draw_rect(Rect2(c + Vector2(-18, -18) * u, Vector2(36, 36) * u), WOOD, false, 4.0 * u)
-			draw_line(c + Vector2(-18, -18) * u, c + Vector2(18, 18) * u, WOOD, 3.0 * u)
 		Tools.Mode.STUMP:
 			draw_circle(c + Vector2(0, 4) * u, 14.0 * u, WOOD)
 			draw_circle(c + Vector2(0, 0) * u, 14.0 * u, WOOD.lightened(0.25))

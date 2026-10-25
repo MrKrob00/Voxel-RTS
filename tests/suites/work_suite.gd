@@ -72,7 +72,7 @@ func _stockpile_rules(bricks: BrickWorld, base: Vector3i) -> void:
 	var at := base + Vector3i(2, 0, 2)
 	check(Stockpile.can_place(_world, bricks, at) == "", "a stockpile fits on flat ground")
 	check(Stockpile.can_place(_world, bricks, base + Vector3i(0, 5, 0)) != "", "...not in mid-air")
-	var s := _economy.place_stockpile(at, Stockpile.Style.PLATFORM)
+	var s := _economy.place_stockpile(at)
 	check(s != null and _economy.stockpiles.size() == 1, "placed")
 	check(_economy.place_stockpile(at + Vector3i(1, 0, 1)) == null and _economy.last_error.contains("overlaps"), "...not over another one")
 	var bump := base + Vector3i(8, 0, 2)
@@ -81,8 +81,8 @@ func _stockpile_rules(bricks: BrickWorld, base: Vector3i) -> void:
 	var brick_at := base + Vector3i(12, 0, 2)
 	bricks.place(brick_at + Vector3i(1, 0, 1), 0, BrickWorld.Kind.STONE, 1)
 	check(Stockpile.can_place(_world, bricks, brick_at) != "", "...not where a brick stands")
-	# What a style takes, one kind at a time.
-	check(s.accepts(Resources.Kind.IRON) and s.accepts(Resources.Kind.LOG) and not s.accepts(Resources.Kind.STONE), "a plank platform takes logs, planks, rope and ore, not stone")
+	# It takes any kind, one kind at a time.
+	check(s.accepts(Resources.Kind.IRON) and s.accepts(Resources.Kind.LOG) and s.accepts(Resources.Kind.STONE), "a stockpile takes logs, planks, rope, ore, stone and grass")
 	check(s.add(Resources.Kind.IRON, 5) == 5 and not s.accepts(Resources.Kind.COAL) and s.add(Resources.Kind.COAL, 1) == 0, "it holds one kind at a time")
 	check(s.add(Resources.Kind.IRON, 100) == s.capacity_for(Resources.Kind.IRON) - 5 and s.free_space() == 0, "it takes bags until it is full")
 	check(s.take(Resources.Kind.IRON, 3) == 3 and s.free_space() == 3, "bags can be taken out again")
@@ -90,12 +90,15 @@ func _stockpile_rules(bricks: BrickWorld, base: Vector3i) -> void:
 	check(s.holding == Resources.Kind.NONE and s.accepts(Resources.Kind.COAL), "once empty it takes another kind")
 	_economy.remove_stockpile(s)
 	check(_economy.stockpiles.is_empty(), "removed")
-	var frame := _economy.place_stockpile(at, Stockpile.Style.CRATE)
-	check(frame.accepts(Resources.Kind.STONE) and frame.accepts(Resources.Kind.PLANT) and not frame.accepts(Resources.Kind.IRON), "a frame takes stone and plants")
-	check(frame.capacity() == 16 and Stockpile.BAGS_PER_BRICK * 4 == frame.capacity(), "a frame is 2 x 2 x 2 blocks: 16 bags, 4 bricks of 4 bags")
-	check(frame.blocks(at + Vector3i(1, 1, 1)) and not frame.blocks(at + Vector3i(0, 2, 0)) and not frame.blocks(at + Vector3i(2, 0, 0)), "a frame is a solid crate two blocks high")
-	_economy.remove_stockpile(frame)
-	var plat := _economy.place_stockpile(at, Stockpile.Style.PLATFORM)
+	var crate := _economy.place_stockpile(at)
+	check(crate.form() == Stockpile.Form.PLATFORM and not crate.blocks(at + Vector3i(1, 1, 1)), "an empty stockpile is a platform")
+	crate.add(Resources.Kind.STONE, 1)
+	check(crate.form() == Stockpile.Form.CRATE and crate.capacity() == 16 and Stockpile.BAGS_PER_BRICK * 4 == crate.capacity(), "with stone in it it is a crate of 2 x 2 x 2 blocks: 16 bags, 4 bricks of 4 bags")
+	check(crate.blocks(at + Vector3i(1, 1, 1)) and not crate.blocks(at + Vector3i(0, 2, 0)) and not crate.blocks(at + Vector3i(2, 0, 0)), "a crate is solid, two blocks high")
+	crate.take(Resources.Kind.STONE, 1)
+	check(crate.form() == Stockpile.Form.PLATFORM and not crate.blocks(at + Vector3i(1, 1, 1)), "emptied, it is a platform again")
+	_economy.remove_stockpile(crate)
+	var plat := _economy.place_stockpile(at)
 	check(not plat.blocks(at), "a platform can be walked over")
 	check(plat.capacity_for(Resources.Kind.LOG) == 4 and plat.capacity_for(Resources.Kind.ROPE) == 20 and plat.capacity_for(Resources.Kind.PLANK) == 24, "a platform holds 4 logs, 24 planks or 20 ropes")
 	check(plat.add(Resources.Kind.LOG, 9) == 4 and not plat.accepts(Resources.Kind.LOG), "the fifth log does not fit")
@@ -103,12 +106,12 @@ func _stockpile_rules(bricks: BrickWorld, base: Vector3i) -> void:
 	check(plat.add(Resources.Kind.ROPE, 30) == 20, "twenty ropes fit: a quarter of the area and a fifth of the height each")
 	_economy.remove_stockpile(plat)
 	# What a stockpile costs when put down at once: three planks in a stockpile (units bring them to a blueprint instead).
-	var bank := _economy.place_stockpile(at, Stockpile.Style.PLATFORM)
+	var bank := _economy.place_stockpile(at)
 	_economy.charge_for_stockpiles = true
-	var refused := _economy.place_stockpile(at + Vector3i(4, 0, 0), Stockpile.Style.PLATFORM)
+	var refused := _economy.place_stockpile(at + Vector3i(4, 0, 0))
 	check(refused == null and _economy.last_error.contains("3 plank"), "a stockpile needs three planks in a stockpile (%s)" % _economy.last_error)
 	bank.add(Resources.Kind.PLANK, 5)
-	var paid := _economy.place_stockpile(at + Vector3i(4, 0, 0), Stockpile.Style.CRATE)
+	var paid := _economy.place_stockpile(at + Vector3i(4, 0, 0))
 	check(paid != null and bank.count == 2, "with planks it is paid for: 3 of the 5 are gone (%d left)" % bank.count)
 	_economy.charge_for_stockpiles = false
 	_economy.remove_stockpile(bank)
@@ -131,7 +134,7 @@ func _dig_and_haul(base: Vector3i) -> void:
 	# Stone ground to dig: 2 x 4 columns = 8 blocks = 16 bags, exactly one frame full.
 	var quarry := base + Vector3i(10, 0, 10)
 	_surface_of(quarry, 2, 4, Blocks.STONE)
-	var frame := _economy.place_stockpile(base + Vector3i(2, 0, 2), Stockpile.Style.CRATE)
+	var frame := _economy.place_stockpile(base + Vector3i(2, 0, 2))
 	var crew := _units.spawn_squad(base + Vector3i(5, 0, 5), 2, 1)
 	var task := _board.create_dig(quarry.x, quarry.z, quarry.x + 1, quarry.z + 3)
 	check(task != null and task.cell_count() == 8, "marking 2 x 4 columns makes a task of 8 blocks")
@@ -159,12 +162,9 @@ func _dig_and_haul(base: Vector3i) -> void:
 	for c in before:
 		all_gone = all_gone and _world.get_block(c) == Blocks.AIR
 	check(all_gone, "all eight blocks are gone")
-	check(not _economy.stockpiles.has(frame), "the frame, filled to the brim with stone, is gone")
-	var stack: Stockpile = null
-	for sp in _economy.stockpiles:
-		if sp.style == Stockpile.Style.STACK and sp.origin == base + Vector3i(2, 0, 2):
-			stack = sp
-	check(_economy.packed_bricks == 4 and stack != null, "...and a stack of 4 stone bricks stands in its place (%d)" % _economy.packed_bricks)
+	var stack: Stockpile = frame
+	check(_economy.stockpiles.has(frame) and frame.form() == Stockpile.Form.STACK, "the crate, filled to the brim with stone, has become a stack of bricks: the same stockpile")
+	check(_economy.packed_bricks == 4, "...4 stone bricks (%d)" % _economy.packed_bricks)
 	check(stack != null and stack.holding == Resources.Kind.BRICK and stack.count == 8, "it holds 8 halves: 4 bricks of 2x1x1, two layers of two")
 	check(stack != null and stack.blocks(Vector3i(base.x + 3, base.y + 1, base.z + 3)), "the stack is a solid block 2 x 2 x 2")
 	_economy.remove_stockpile(stack)
@@ -177,7 +177,7 @@ func _bricks_at(cell: Vector3i) -> bool:
 
 
 func _earth_is_not_collected(base: Vector3i) -> void:
-	var pile := _economy.place_stockpile(base + Vector3i(2, 0, 8), Stockpile.Style.PLATFORM)
+	var pile := _economy.place_stockpile(base + Vector3i(2, 0, 8))
 	var worker := _units.spawn(base + Vector3i(4, 0, 8))
 	var task := _board.create_dig(base.x + 14, base.z + 2, base.x + 15, base.z + 3)   # grass
 	var carried := [false]
@@ -197,32 +197,34 @@ func _filter(base: Vector3i) -> void:
 	_surface_of(spot, 2, 2, Blocks.STONE)
 	_world.set_block(spot + Vector3i(0, 0, 0), Blocks.make(Blocks.IRON))
 	_world.set_block(spot + Vector3i(1, 0, 1), Blocks.make(Blocks.IRON))
-	var pile := _economy.place_stockpile(base + Vector3i(2, 0, 11), Stockpile.Style.PLATFORM)
-	var frame := _economy.place_stockpile(base + Vector3i(6, 0, 11), Stockpile.Style.CRATE)
+	var pile := _economy.place_stockpile(base + Vector3i(2, 0, 11))
+	var frame := _economy.place_stockpile(base + Vector3i(6, 0, 11))
 	var worker := _units.spawn(base + Vector3i(12, 0, 8))
 	var task := _board.create_dig(spot.x, spot.z, spot.x + 1, spot.z + 1)
 	task.collect[Resources.Kind.STONE] = false
 	_run_task(task, [worker])
 	_step(300)
-	check(pile.holding == Resources.Kind.IRON and pile.count == 4, "iron (2 blocks, 4 bags) went to the platform (%d)" % pile.count)
-	check(frame.count == 0, "the stone was thrown away, none reached the frame")
+	var holder := pile if pile.count > 0 else frame
+	check(holder.holding == Resources.Kind.IRON and holder.count == 4, "iron (2 blocks, 4 bags) went to a stockpile (%d)" % holder.count)
+	check(_economy.stock_of(Resources.Kind.STONE) == 0, "the stone was thrown away, none reached a stockpile")
 	_economy.remove_stockpile(pile)
 	_economy.remove_stockpile(frame)
 
 
 func _wrong_style(base: Vector3i) -> void:
-	# Only a plank platform exists: stone has nowhere to go, the worker holds it and says so.
-	var pile := _economy.place_stockpile(base + Vector3i(2, 0, 14), Stockpile.Style.PLATFORM)
+	# The only stockpile holds iron already: stone has nowhere to go, the worker holds it and says so.
+	var pile := _economy.place_stockpile(base + Vector3i(2, 0, 14))
+	pile.add(Resources.Kind.IRON, 1)
 	var spot := base + Vector3i(14, 0, 13)
 	_surface_of(spot, 1, 1, Blocks.STONE)
 	var worker := _units.spawn(base + Vector3i(12, 0, 13))
 	var task := _board.create_dig(spot.x, spot.z, spot.x, spot.z)
 	_board.assign(worker, task)
 	_step(400)
-	check(worker.carried_amount() == 1 and worker.status.contains("No free stockpile for stone"), "stone with only a platform around: the worker keeps the bag (\"%s\")" % worker.status)
-	var frame := _economy.place_stockpile(base + Vector3i(6, 0, 14), Stockpile.Style.CRATE)
+	check(worker.carried_amount() == 1 and worker.status.contains("No free stockpile for stone"), "stone with only a stockpile of iron around: the worker keeps the bag (\"%s\")" % worker.status)
+	var frame := _economy.place_stockpile(base + Vector3i(6, 0, 14))
 	_step(800)
-	check(frame.holding == Resources.Kind.STONE and frame.count >= 1, "once a frame exists it brings the bag there")
+	check(frame.holding == Resources.Kind.STONE and frame.count >= 1, "once an empty stockpile exists it brings the bag there")
 	var t2 := _board.create_dig(base.x + 16, base.z + 16, base.x + 17, base.z + 16)
 	_board.assign(worker, t2)
 	_step(10)

@@ -90,7 +90,7 @@ func _bake_structures(sv: SubViewport, cam: Camera3D) -> void:
 	var jobs := [
 		["platform", func() -> Node3D:
 			var n := Stockpile.new()
-			n.build(Vector3i.ZERO, Stockpile.Style.PLATFORM)
+			n.build(Vector3i.ZERO)
 			# as the original's picture: the platform with a block of stone on it
 			var mi := MeshInstance3D.new()
 			var bm := BoxMesh.new()
@@ -102,10 +102,6 @@ func _bake_structures(sv: SubViewport, cam: Camera3D) -> void:
 			mi.position = Vector3(1.0, 0.55, 1.0)
 			n.add_child(mi)
 			return n, Vector3(1.0, 0.4, 1.0), 4.0],
-		["crate", func() -> Node3D:
-			var n := Stockpile.new()
-			n.build(Vector3i.ZERO, Stockpile.Style.CRATE)
-			return n, Vector3(1.0, 0.8, 1.0), 4.2],
 		["stump", func() -> Node3D:
 			var n := Station.new()
 			n.build(Station.Kind.STUMP, Vector3i.ZERO)

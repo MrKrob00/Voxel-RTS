@@ -69,7 +69,7 @@ func run() -> void:
 	check(worker.carried_amount() == 0 and _board.tasks.has(task), "nobody picks a log up when there is nowhere to take it")
 
 	# 2. A stockpile for the stump's price, then the stump: logs now go to the stump, planks to the stockpile.
-	var pile := _economy.place_stockpile(base + Vector3i(2, 0, 2), Stockpile.Style.PLATFORM)
+	var pile := _economy.place_stockpile(base + Vector3i(2, 0, 2))
 	pile.add(Resources.Kind.LOG, 1)
 	var stump := _board.place_station(Station.Kind.STUMP, base + Vector3i(8, 0, 2))
 	check(stump != null and pile.count == 0, "a stump is set up with a log from the stockpile (%s)" % _economy.last_error)

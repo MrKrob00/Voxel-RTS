@@ -37,15 +37,15 @@ func run() -> void:
 				var p := Vector3i(sp.x - 12 + dx, y, sp.z - 12 + dz)
 				_world.set_block(p, Blocks.make(Blocks.GRASS) if y == sp.y else (Blocks.make(Blocks.DIRT) if y < sp.y else Blocks.AIR))
 	var base := Vector3i(sp.x - 12, sp.y + 1, sp.z - 12)
-	var bank := _economy.place_stockpile(base + Vector3i(2, 0, 2), Stockpile.Style.PLATFORM)
-	var logbank := _economy.place_stockpile(base + Vector3i(2, 0, 7), Stockpile.Style.PLATFORM)
+	var bank := _economy.place_stockpile(base + Vector3i(2, 0, 2))
+	var logbank := _economy.place_stockpile(base + Vector3i(2, 0, 7))
 	var crew := _units.spawn_squad(base + Vector3i(8, 0, 5), 2, 1)
 
 	# A stockpile blueprint costs three planks.
-	var plan := _board.place_blueprint("stockpile", Stockpile.Style.PLATFORM, base + Vector3i(10, 0, 2))
+	var plan := _board.place_blueprint("stockpile", 0, base + Vector3i(10, 0, 2))
 	check(plan != null and plan.cost == {Resources.Kind.PLANK: 3}, "a blueprint of a stockpile asks for three planks")
 	check(_economy.stockpiles.size() == 2 and _economy.blueprints.size() == 1, "nothing is built yet, only planned")
-	check(_board.place_blueprint("stockpile", Stockpile.Style.CRATE, base + Vector3i(11, 0, 3)) == null and _economy.last_error.contains("overlaps"), "a second plan cannot overlap the first (%s)" % _economy.last_error)
+	check(_board.place_blueprint("stockpile", 0, base + Vector3i(11, 0, 3)) == null and _economy.last_error.contains("overlaps"), "a second plan cannot overlap the first (%s)" % _economy.last_error)
 	_step(400)
 	check(_economy.stockpiles.size() == 2 and plan.delivered.is_empty(), "with no planks anywhere nobody does anything")
 	for u in crew:

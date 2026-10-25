@@ -72,7 +72,7 @@ func build(type: String, k: int, at: Vector3i, sz: Vector2i, price: Dictionary, 
 	position = Vector3(at.x, at.y, at.z)
 	var ghost := MeshInstance3D.new()
 	var box := BoxMesh.new()
-	var height := 1.2 if (type == "stockpile" and k == Stockpile.Style.CRATE) else 0.5
+	var height := 0.5
 	box.size = Vector3(sz.x - 0.1, height, sz.y - 0.1)
 	ghost.mesh = box
 	var m := StandardMaterial3D.new()
