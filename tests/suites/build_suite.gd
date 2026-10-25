@@ -91,6 +91,13 @@ func run() -> void:
 	for u in crew:
 		check(u.carried_amount() == 0, "nobody is left holding planks")
 
+	# A stockpile with room AND a plan that needs planks: the planks go to the plan first.
+	var room := _economy.place_stockpile(base + Vector3i(2, 0, 2))
+	var third_plan := _board.place_blueprint("stockpile", 0, base + Vector3i(10, 0, 7))
+	logs_only.add(Resources.Kind.LOG, 1)
+	_until(func() -> bool: return _economy.stockpiles.size() == 4, 6000)
+	check(_economy.stockpiles.size() == 4 and room.count == 0, "the planks went to the plan, not to the stockpile that had room (%d on it)" % room.count)
+
 
 func _step(n: int) -> void:
 	for i in n:
