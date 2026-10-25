@@ -454,29 +454,23 @@ def cren_roof_inner():
     return [lower, slope_z, slope_x]
 
 
-def corbel_slab(rounded):
+def corbel_slab(scale):
     """A corbel of 2 cells along x: a whole cube at -x; in front of it a flat platform 22% of a block thick along the top; under the
-    platform, from the cube to its end, a block 30% as wide as the cell. Two slopes join that block to the rest:
-      - from the side edges of the platform, down to half the height of the straight part of the block;
-      - from the side edges of the cube's face, about 10% of a block out along the block, up to the platform's slope.
-    `rounded`: the slopes are curves (quarter ellipses bulging outwards); nothing else is rounded."""
+    platform, from the cube to its end, a block 30% as wide as the cell. Two straight slopes join that block to the rest:
+      - from the side edges of the platform, down the narrow block (scale 1: half its straight part; scale 2: all of it);
+      - from the side edges of the cube's face, along the narrow block (scale 1: 10% of a block; scale 2: 20%).
+    At the corner where the two meet a wedge closes the gap, so the slopes join as one."""
     cube = box(-0.5, 0, 0, 1.0, 1.0, 1.0, 0.0)
-    w, under, rise = 0.15, 0.28, 0.1            # half the width of the narrow block, the underside of the platform, the slope at the cube
-    low = under - 0.5 * (under + 0.5)             # half way down the straight part
     platform = box(0.5, 0.39, 0, 1.0, 0.22, 1.0, 0.0)
+    w, under = 0.15, 0.28                          # half the width of the narrow block, the underside of the platform
+    rise = 0.1 * scale                             # the slope at the cube
+    low = max(-0.5, under - 0.5 * scale * (under + 0.5))   # how far down the platform's slope reaches
     out = [cube, platform, box(0.5, (-0.5 + under) / 2, 0, 1.0, under + 0.5, 2 * w, 0.0)]
     for side in (-1, 1):
-        if rounded:
-            k = 8
-            arc = [(w + (0.5 - w) * math.cos(math.pi / 2 * i / k), under - (under - low) * math.sin(math.pi / 2 * i / k)) for i in range(k + 1)]   # (z, y), bulging out
-            for (z0, y0), (z1, y1) in zip(arc, arc[1:]):
-                out.append([(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((y0, w), (y0, z0), (y1, z1), (y1, w))])
-            arc = [(rise * math.sin(math.pi / 2 * i / k), w + (0.5 - w) * math.cos(math.pi / 2 * i / k)) for i in range(k + 1)]   # (x, z), bulging out
-            for (x0, z0), (x1, z1) in zip(arc, arc[1:]):
-                out.append([(x, y, side * z) for y in (-0.5, under) for (x, z) in ((x0, w), (x0, z0), (x1, z1), (x1, w))])
-        else:
-            out.append([(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((under, w), (under, 0.5), (low, w))])
-            out.append([(x, y, side * z) for y in (-0.5, under) for (x, z) in ((0.0, w), (0.0, 0.5), (rise, w))])
+        out.append([(x, y, side * z) for x in (0.0, 1.0) for (y, z) in ((under, w), (under, 0.5), (low, w))])
+        out.append([(x, y, side * z) for y in (-0.5, under) for (x, z) in ((0.0, w), (0.0, 0.5), (rise, w))])
+        if scale > 1:
+            out.append([(0.0, under, side * 0.5), (0.0, under, side * w), (0.0, low, side * w), (rise, under, side * w)])
     return out
 
 
@@ -567,8 +561,8 @@ BLOCKS = {
     "cren_slope_corner": cren_roof_corner,
     "cren_slope_long": lambda: cren_roof(2.0),
     "cren_hip":     cren_roof_inner,
-    "cren_corbel_long": lambda: corbel_slab(True),
-    "cren_corbel":  lambda: corbel_slab(False),
+    "cren_corbel_long": lambda: corbel_slab(2),
+    "cren_corbel":  lambda: corbel_slab(1),
     "cren_corbel_small": lambda: cren_corbel(1.0, 0.0),
     # --- Wood Blocks
     "log":          wood_log,
