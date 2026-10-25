@@ -121,6 +121,61 @@ def pts_of(*rows):
     return [tuple(r) for r in rows]
 
 
+def solid(pieces):
+    """One mesh from axis-aligned boxes: their union, with no faces inside it. `pieces` are box() point lists. Returns a ("tris", ...)
+    piece that mesh_of passes through as it is: faces between neighbouring boxes disappear and coplanar neighbours merge."""
+    boxes = []
+    for pts in pieces:
+        xs, ys, zs = [p[0] for p in pts], [p[1] for p in pts], [p[2] for p in pts]
+        boxes.append((min(xs), max(xs), min(ys), max(ys), min(zs), max(zs)))
+    cuts = [sorted({round(v, 5) for b in boxes for v in (b[2 * a], b[2 * a + 1])}) for a in range(3)]
+    n = [len(c) - 1 for c in cuts]
+    full = {}
+    for i in range(n[0]):
+        for j in range(n[1]):
+            for k in range(n[2]):
+                mid = ((cuts[0][i] + cuts[0][i + 1]) / 2, (cuts[1][j] + cuts[1][j + 1]) / 2, (cuts[2][k] + cuts[2][k + 1]) / 2)
+                full[(i, j, k)] = any(b[0] < mid[0] < b[1] and b[2] < mid[1] < b[3] and b[4] < mid[2] < b[5] for b in boxes)
+    def filled(c): return full.get(c, False)
+    quads = []
+    for axis in range(3):
+        u, v = [a for a in range(3) if a != axis]
+        for sign in (1, -1):
+            for layer in range(n[axis]):
+                cells = {}
+                for a in range(n[u]):
+                    for b in range(n[v]):
+                        c = [0, 0, 0]
+                        c[axis], c[u], c[v] = layer, a, b
+                        o = list(c)
+                        o[axis] += sign
+                        if filled(tuple(c)) and not filled(tuple(o)):
+                            cells[(a, b)] = True
+                while cells:   # greedy rectangles of the free faces
+                    a0, b0 = min(cells)
+                    a1 = a0
+                    while (a1 + 1, b0) in cells:
+                        a1 += 1
+                    b1 = b0
+                    while all((a, b1 + 1) in cells for a in range(a0, a1 + 1)):
+                        b1 += 1
+                    for a in range(a0, a1 + 1):
+                        for b in range(b0, b1 + 1):
+                            del cells[(a, b)]
+                    face = cuts[axis][layer + 1] if sign == 1 else cuts[axis][layer]
+                    pts = []
+                    for (ua, vb) in ((a0, b0), (a1 + 1, b0), (a1 + 1, b1 + 1), (a0, b1 + 1)):
+                        q = [0.0, 0.0, 0.0]
+                        q[axis], q[u], q[v] = face, cuts[u][ua], cuts[v][vb]
+                        pts.append(tuple(q))
+                    nrm = [0.0, 0.0, 0.0]
+                    nrm[axis] = float(sign)
+                    if dot(cross(sub(pts[1], pts[0]), sub(pts[2], pts[0])), tuple(nrm)) < 0:
+                        pts.reverse()
+                    quads.append((tuple(nrm), pts))
+    return ("tris", quads)
+
+
 # ---- the blocks ------------------------------------------------------------------------------------------------------------
 
 def stairs(length, steps, start=None):
@@ -238,12 +293,9 @@ def plug_slab(slots, y0, y1, half, d, w):
 
 
 def plug(slots):
-    """A solid platform below; above it a cube with U-shaped channels from the sides reaching nearly to the middle, and a smaller
-    platform on top with the same channels: F +z, B -z, L -x, R +x."""
-    out = [box(0, -0.41, 0, 1.0, 0.18, 1.0, 0.03)]
-    out += plug_slab(slots, -0.32, 0.30, 0.5, 0.34, 0.34)
-    out += plug_slab(slots, 0.30, 0.5, 0.44, 0.34, 0.34)
-    return out
+    """A plain platform below (15% of the height) and above it a cube with U-shaped channels from the sides reaching nearly to the
+    middle: F +z, B -z, L -x, R +x. One mesh."""
+    return [solid([box(0, -0.425, 0, 1.0, 0.15, 1.0, 0.0)] + plug_slab(slots, -0.35, 0.5, 0.5, 0.34, 0.34))]
 
 
 def quarter(cx, cz, sx, sz, r=1.0, seg=12):
@@ -409,7 +461,7 @@ def mesh_of(pieces):
     tris = []
     cos_limit = math.cos(math.radians(SMOOTH_DEG))
     for piece in pieces:
-        faces = hull(piece)
+        faces = piece[1] if isinstance(piece, tuple) and piece[0] == "tris" else hull(piece)
         by_pos = {}
         for fi, (nn, poly) in enumerate(faces):
             for p in poly:
