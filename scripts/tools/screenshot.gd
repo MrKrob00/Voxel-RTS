@@ -11,7 +11,7 @@ func _ready() -> void:
 	var yaw := -1000.0
 	var select_all := false
 	var stockpiles: Array[Vector3i] = []  # --stockpile=x,z[,bags]: put a stockpile there (--frame: a frame, filled with `bags` of stone)
-	var task_rect: Array[int] = []        # --task=x0,z0,x1,z1: mark an area to dig and put every unit on it
+	var task_rect: Array[int] = []        # --task=x0,z0,x1,z1[,depth]: mark an area to dig and put every unit on it (--nocollect: bring nothing home)
 	var wait_frames := 400                # --wait=N: frames to wait before the shot (let units work)
 	var move_to := Vector2(-1, -1)   # --move=x,z: select every unit and send it there, then wait for it to walk a bit
 	for a in OS.get_cmdline_user_args():
@@ -69,8 +69,10 @@ func _ready() -> void:
 		if made != null and sp.z > 0:
 			made.add(Resources.Kind.STONE if framed else Resources.Kind.IRON, sp.z)
 	var board: TaskBoard = get_parent().get("board")
-	if task_rect.size() == 4 and board != null:
-		var t := board.create_dig(task_rect[0], task_rect[1], task_rect[2], task_rect[3])
+	if task_rect.size() >= 4 and board != null:
+		var t := board.create_dig(task_rect[0], task_rect[1], task_rect[2], task_rect[3], task_rect[4] if task_rect.size() > 4 else 1)
+		if t != null and OS.get_cmdline_user_args().has("--nocollect"):
+			t.collect = {}
 		if t != null and units != null:
 			for u in units.units:
 				board.assign(u, t)

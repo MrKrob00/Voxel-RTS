@@ -6,6 +6,14 @@ extends Node3D
 const STEP := 2   ## one candidate spot per STEP x STEP blocks
 
 var world: VoxelWorld
+## The trees and the tufts of grass as individual things: workers fell and cut them. Index i of `trees` is instance i of the
+## pine MultiMesh; a felled tree keeps its slot (alive 0) and its instance is shrunk to nothing.
+var trees: Array[Transform3D] = []
+var tufts: Array[Transform3D] = []
+var tree_alive := PackedByteArray()
+var tuft_alive := PackedByteArray()
+var _multimeshes := {}
+var _built := false
 var _task_id := -1
 var _result := {}
 var _mutex := Mutex.new()
@@ -30,6 +38,13 @@ func _process(_delta: float) -> void:
 	for s in _stamps:
 		world.stamp_cover_disc(s.pos, s.inner, s.outer, s.strength)
 	_build(res)
+	trees.assign(res.get("pine", []))
+	tufts.assign(res.get("tuft", []))
+	tree_alive.resize(trees.size())
+	tree_alive.fill(1)
+	tuft_alive.resize(tufts.size())
+	tuft_alive.fill(1)
+	_built = true
 	world.release_meshing()
 	set_process(false)
 
@@ -112,6 +127,46 @@ func _scatter() -> void:
 	_result = _out
 	_mutex.unlock()
 	_done = true
+
+
+func is_built() -> bool:
+	return _built
+
+
+## Indices of the living trees whose foot is inside `rect` (x and z in blocks).
+func trees_in_rect(rect: Rect2) -> Array[int]:
+	return _in_rect(trees, tree_alive, rect)
+
+
+func tufts_in_rect(rect: Rect2) -> Array[int]:
+	return _in_rect(tufts, tuft_alive, rect)
+
+
+static func _in_rect(list: Array[Transform3D], alive: PackedByteArray, rect: Rect2) -> Array[int]:
+	var out: Array[int] = []
+	for i in list.size():
+		if alive[i] == 1 and rect.has_point(Vector2(list[i].origin.x, list[i].origin.z)):
+			out.append(i)
+	return out
+
+
+## A tree is felled: gone from the picture (the logs it gives are the harvester's business).
+func fell_tree(i: int) -> void:
+	if i >= 0 and i < trees.size() and tree_alive[i] == 1:
+		tree_alive[i] = 0
+		_hide("pine", i, trees[i])
+
+
+func cut_tuft(i: int) -> void:
+	if i >= 0 and i < tufts.size() and tuft_alive[i] == 1:
+		tuft_alive[i] = 0
+		_hide("tuft", i, tufts[i])
+
+
+func _hide(kind: String, i: int, xf: Transform3D) -> void:
+	var mm: MultiMesh = _multimeshes.get(kind)
+	if mm != null:
+		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), xf.origin))
 
 
 func _surface(x: float, z: float) -> int:
@@ -289,6 +344,7 @@ func _build(res: Dictionary) -> void:
 		inst.multimesh = mm
 		inst.material_override = specs[kind][1]
 		add_child(inst)
+		_multimeshes[kind] = mm
 
 
 func counts() -> Dictionary:

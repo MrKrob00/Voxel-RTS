@@ -36,6 +36,34 @@ func place_stockpile(origin: Vector3i, style := Stockpile.Style.PLATFORM) -> Sto
 	return s
 
 
+## Puts a station up and takes its price out of the stockpiles. Returns null and the reason in `last_error` when it cannot be done.
+func place_station(kind: int, origin: Vector3i) -> Station:
+	last_error = Station.can_place(world, bricks, kind, origin, stockpiles, stations)
+	if last_error != "":
+		return null
+	var cost: Dictionary = Station.DEFS[kind].cost
+	for k in cost:
+		if stock_of(k) < cost[k]:
+			last_error = "needs %d %s in a stockpile" % [cost[k], Resources.label(k).to_lower()]
+			return null
+	for k in cost:
+		spend(k, cost[k])
+	var st := Station.new()
+	add_child(st)
+	st.build(kind, origin)
+	stations.append(st)
+	var sz := st.size()
+	world.stamp_cover_rect(Rect2(origin.x, origin.z, sz.x, sz.y), 0.9)
+	changed.emit()
+	return st
+
+
+func remove_station(st: Station) -> void:
+	stations.erase(st)
+	st.queue_free()
+	changed.emit()
+
+
 func remove_stockpile(s: Stockpile) -> void:
 	stockpiles.erase(s)
 	_reserved.erase(s)

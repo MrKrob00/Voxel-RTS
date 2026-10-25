@@ -16,6 +16,8 @@ main.gd (sandbox scene: wires everything, input -> actions)
  │    └─ world/blocks.gd         Blocks: the voxel format and the block palette
  ├─ world/prop_field.gd       PropField: trees, boulders, crystals, ferns (zones), MultiMesh
  │    └─ world/props.gd          Props: procedural low-poly models
+ ├─ physics/ground_colliders.gd  GroundColliders: short-lived collision patches under things that fall (bricks, logs)
+ ├─ items/                    LooseItems / LooseLog: felled logs as physics bodies
  ├─ building/brick_world.gd   BrickWorld: player bricks (1x1x1, 2x1x1), support rule, collapse into RigidBody3D
  ├─ units/navigation.gd       Navigation: where units can stand, 8-way moves, A* (pure rules on voxel data)
  ├─ units/unit.gd             Unit: one worker (1.7 x 0.8 blocks): walking, hopping, falling, model, status label
@@ -111,6 +113,15 @@ picture is final; later stamps rebuild only the chunks they touch (`stamp_cover_
     volume) stand in its place as ordinary `BrickWorld` bricks.
   A stockpile holds one kind at a time and takes another once it is empty. With no stockpile that takes the kind, the worker
   keeps its bag and says "No free stockpile for stone".
+- **Quarry** (a dig task with depth > 1, the `+/-` buttons next to "mark dig area"): it digs **layer by layer** (`DigTask.update`
+  opens the next layer when the one before is dug). Each column has a limit of layers; along the longer side of the area the limits climb
+  0, 1, 1, 2, 2, 3, ..., so what is left standing is a **staircase of earth or stone** down into the pit, a block lower every two
+  columns. At every second column of the staircase, once its last layer is dug, the worker leaves a **stair piece**: the second of the
+  2 x 1 x 1 pair (one half plain floor, the other half four steps up to the floor before it). The depth is cut back when the area is too
+  short for a staircase that deep (it needs two columns per layer). Units walk down (drops of one block) and climb out (one block per step).
+- **Stair piece** (`Blocks.STAIRS_FLAG`): a wedge-shaped partial piece drawn as 4 steps (`ChunkMesher._emit_stairs`), height under the feet
+  stepped (`Blocks.surface_height(..., stairs)`). Only workers make it (`TerrainEdit.make_stairs`); the neighbour rules never derive, change
+  or replace it, it is removed when the ground under it goes, and digging it takes one stage.
 - Not done yet: wood and plant harvesting, building tasks, a task bar like the original (Harvest / Mining / Construction groups),
   and the *mining stair* state of the ground (one 2x1x1 piece, half whole block and half steps, which only units make).
 
@@ -149,6 +160,7 @@ godot --headless --path . -s res://tests/island_seeds_test.gd   # 40 seeds x 3 i
 godot --headless --path . -s res://tests/ground_cover_test.gd   # bare-earth brushes, cliff pass, mesher slices
 godot --headless --path . -s res://tests/navigation_test.gd     # standing rules, A*, bridges, bricks, a unit walking and falling
 godot --headless --path . -s res://tests/work_test.gd           # stockpile rules, the dig / carry / put-down loop
+godot --headless --path . -s res://tests/quarry_test.gd         # layer-by-layer quarry, the staircase and stair pieces, the way down and out
 ```
 
 Screenshots (virtual display): `xvfb-run -a godot --path . --rendering-driver opengl3 -- --shot=out.png [--zoom=D --focus=X,Z

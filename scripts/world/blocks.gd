@@ -4,6 +4,9 @@ extends RefCounted
 ##   bits 0-7    material (AIR, GRASS, ...)
 ##   bits 8-17   shape: 0 is a full cube; any other value is 1 + the heights of the cell's four top corners, each from
 ##               0 to 4 quarter-blocks (see corner_heights). (4,4,4,4) is the cube itself and is never stored.
+##   bit 19      STAIRS: a slope piece made of four steps instead of a smooth ramp (shape: the wedge it follows). Only workers
+##               make it (a quarry leaves one at every second column of its staircase); the generator never does and the
+##               neighbour rules never touch it.
 ##   bit 18      DUG: a natural block that has been partly dug. It keeps its material (a dug grass block still holds its
 ##               turf), stands DUG_HEIGHT quarters high in the middle and its corners are drawn up to the whole
 ##               neighbours, so the pit has sloping sides. Its shape is a corner mask (which corners are raised to a full
@@ -32,6 +35,8 @@ const MAT_MASK := 255
 const SHAPE_SHIFT := 8
 const SHAPE_MASK := 1023
 const DUG_FLAG := 1 << 18
+const STAIRS_FLAG := 1 << 19
+const STAIR_STEPS := 4
 
 ## Quarter-blocks per block: the unit of every height.
 const UNIT := 4
@@ -80,8 +85,39 @@ static func is_dug(raw: int) -> bool:
 	return (raw & DUG_FLAG) != 0
 
 
-static func make(material: int, shape_id: int = SHAPE_CUBE, dug := false) -> int:
-	return material | (shape_id << SHAPE_SHIFT) | (DUG_FLAG if dug else 0)
+static func is_stairs(raw: int) -> bool:
+	return (raw & STAIRS_FLAG) != 0
+
+
+static func make(material: int, shape_id: int = SHAPE_CUBE, dug := false, stairs := false) -> int:
+	return material | (shape_id << SHAPE_SHIFT) | (DUG_FLAG if dug else 0) | (STAIRS_FLAG if stairs else 0)
+
+
+## The wedge of a stair piece that rises towards `dir` (a unit step in x or z): the two corners on that side are a full block high.
+static func wedge_towards(dir: Vector2i) -> int:
+	if dir.x > 0:
+		return shape_from_corners(0, UNIT, UNIT, 0)
+	if dir.x < 0:
+		return shape_from_corners(UNIT, 0, 0, UNIT)
+	if dir.y > 0:
+		return shape_from_corners(0, 0, UNIT, UNIT)
+	return shape_from_corners(UNIT, UNIT, 0, 0)
+
+
+## Which way a stair piece rises: a unit step (x, z), or (0, 0) if the shape is not a plain wedge.
+static func wedge_direction(shape_id: int) -> Vector2i:
+	var h := corner_heights(shape_id)
+	var hi := [h[0] == UNIT, h[1] == UNIT, h[2] == UNIT, h[3] == UNIT]
+	var lo := [h[0] == 0, h[1] == 0, h[2] == 0, h[3] == 0]
+	if hi[1] and hi[2] and lo[0] and lo[3]:
+		return Vector2i(1, 0)
+	if hi[0] and hi[3] and lo[1] and lo[2]:
+		return Vector2i(-1, 0)
+	if hi[2] and hi[3] and lo[0] and lo[1]:
+		return Vector2i(0, 1)
+	if hi[0] and hi[1] and lo[2] and lo[3]:
+		return Vector2i(0, -1)
+	return Vector2i.ZERO
 
 
 ## Heights (0 to 4 quarter-blocks) of the four top corners of a shape.
@@ -156,9 +192,12 @@ static func top_diagonal(h: Array[int]) -> int:
 
 ## Height of the top surface of a piece at (u, v) inside its cell (both 0..1, x and z), in blocks (0..1): what a unit
 ## standing there has under its feet. Follows the same triangles as the mesh, and for a half-dug block its flat floor.
-static func surface_height(shape_id: int, u: float, v: float) -> float:
+static func surface_height(shape_id: int, u: float, v: float, stairs := false) -> float:
 	if shape_id == SHAPE_CUBE:
 		return 1.0
+	if stairs:
+		var smooth := surface_height(shape_id, u, v, false)
+		return minf(1.0, (floorf(smooth * STAIR_STEPS - 0.0001) + 1.0) / STAIR_STEPS) if smooth > 0.0 else 1.0 / STAIR_STEPS
 	var h := corner_heights(shape_id)
 	var q := 1.0 / UNIT
 	if shape_id >= DUG_SHAPE_BASE:
@@ -212,7 +251,7 @@ static func is_partial(raw: int) -> bool:
 
 ## A slope piece derived from the neighbours (partial, not dug).
 static func is_skin(raw: int) -> bool:
-	return is_partial(raw) and not is_dug(raw)
+	return is_partial(raw) and not is_dug(raw) and not is_stairs(raw)
 
 
 static func is_diggable(raw: int) -> bool:

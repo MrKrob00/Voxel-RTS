@@ -69,7 +69,10 @@ static func build(snap: Array, origin: Vector3i, preset: MapPreset, cover := Pac
 					continue
 				var shape := Blocks.shape(raw)
 				if shape != Blocks.SHAPE_CUBE:
-					_emit_shape(solid, snap, x, y, z, id, shape, Blocks.is_dug(raw), origin, preset)
+					if Blocks.is_stairs(raw) and Blocks.wedge_direction(shape) != Vector2i.ZERO:
+						_emit_stairs(solid, snap, x, y, z, id, Blocks.wedge_direction(shape), origin, preset)
+					else:
+						_emit_shape(solid, snap, x, y, z, id, shape, Blocks.is_dug(raw), origin, preset)
 					continue
 				var is_water := id == Blocks.WATER
 				for f in 6:
@@ -134,6 +137,53 @@ static func _emit_shape(buf: Buffers, snap: Array, x: int, y: int, z: int, id: i
 			_shape_tri(buf, [floor_pts[a], floor_pts[b], top[a]], n, id, Blocks.FACE_SIDE, origin, preset)
 		else:
 			_shape_tri(buf, [floor_pts[a], floor_pts[b], top[b]], n, id, Blocks.FACE_SIDE, origin, preset)
+
+
+## A stair piece: STAIR_STEPS steps rising towards `dir`, each a box a step deep and one step higher than the one before. The top
+## and the risers are drawn; the sides unless a whole block hides them; the back of the last step against the higher ground.
+static func _emit_stairs(buf: Buffers, snap: Array, x: int, y: int, z: int, id: int, dir: Vector2i, origin: Vector3i, preset: MapPreset) -> void:
+	var n := Blocks.STAIR_STEPS
+	var base := Vector3(x, y, z)
+	var along := Vector3(dir.x, 0.0, dir.y)             # the way up
+	var across := Vector3(-dir.y, 0.0, dir.x)            # the width of a step
+	var corner := base + Vector3(0.5, 0.0, 0.5) - along * 0.5 - across * 0.5   # the low end, at the start of the width
+	var up := Vector3(0.0, 1.0, 0.0)
+	for k in n:
+		var t0 := float(k) / n
+		var t1 := float(k + 1) / n
+		var h0 := float(k) / n
+		var h1 := float(k + 1) / n
+		var p00 := corner + along * t0 + up * h1
+		var p01 := corner + along * t0 + across + up * h1
+		var p10 := corner + along * t1 + up * h1
+		var p11 := corner + along * t1 + across + up * h1
+		_shape_tri(buf, [p00, p01, p11], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
+		_shape_tri(buf, [p00, p11, p10], Vector3.UP, id, Blocks.FACE_TOP, origin, preset)
+		# The riser: the face of this step towards the low end.
+		var r0 := corner + along * t0 + up * h0
+		var r1 := corner + along * t0 + across + up * h0
+		_shape_tri(buf, [r0, r1, p01], -along, id, Blocks.FACE_SIDE, origin, preset)
+		_shape_tri(buf, [r0, p01, p00], -along, id, Blocks.FACE_SIDE, origin, preset)
+		# The two sides of the step.
+		for side in 2:
+			var s_off := across * float(side)
+			var outward := -across if side == 0 else across
+			var out_cell := Vector3i(int(roundf(outward.x)), 0, int(roundf(outward.z)))
+			if Blocks.is_opaque(_voxel(snap, x + out_cell.x, y, z + out_cell.z)):
+				continue
+			var a0 := corner + along * t0 + s_off
+			var a1 := corner + along * t1 + s_off
+			_shape_tri(buf, [a0, a1, a1 + up * h1], outward, id, Blocks.FACE_SIDE, origin, preset)
+			_shape_tri(buf, [a0, a1 + up * h1, a0 + up * h1], outward, id, Blocks.FACE_SIDE, origin, preset)
+	# The back of the last step, against the higher ground.
+	if not Blocks.is_opaque(_voxel(snap, x + dir.x, y, z + dir.y)):
+		var b0 := corner + along
+		var b1 := corner + along + across
+		_shape_tri(buf, [b0, b1, b1 + up], along, id, Blocks.FACE_SIDE, origin, preset)
+		_shape_tri(buf, [b0, b1 + up, b0 + up], along, id, Blocks.FACE_SIDE, origin, preset)
+	if not Blocks.is_opaque(_voxel(snap, x, y - 1, z)):
+		_shape_tri(buf, [base, base + Vector3(1, 0, 0), base + Vector3(1, 0, 1)], Vector3.DOWN, id, Blocks.FACE_BOTTOM, origin, preset)
+		_shape_tri(buf, [base, base + Vector3(1, 0, 1), base + Vector3(0, 0, 1)], Vector3.DOWN, id, Blocks.FACE_BOTTOM, origin, preset)
 
 
 ## A half-dug block. The top is a small flat floor at DUG_HEIGHT in the middle (DUG_PLATFORM wide) with a ring of slopes from

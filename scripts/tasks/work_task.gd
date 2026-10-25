@@ -78,6 +78,11 @@ func collects(_kind: int) -> bool:
 	return true
 
 
+## Called every frame by the board: lets a task prepare its next batch of targets (a quarry opens its next layer).
+func update(_board: TaskBoard) -> void:
+	pass
+
+
 ## Redraws the marks.
 func redraw(_board: TaskBoard) -> void:
 	pass

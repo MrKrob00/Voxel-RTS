@@ -6,7 +6,16 @@ extends WorkTask
 const WORK_TIME := 1.3
 const MARK_COLOR := Color(1.0, 0.82, 0.15, 0.55)
 
-var cells := {}          ## Vector3i -> Unit that claimed it (or null)
+## A quarry digs down layer by layer: `depth` layers over `columns`, but column (x, z) only down to `limits[(x, z)]` layers (default
+## `depth`). Along one side the limits climb 0, 1, 1, 2, 2, 3, ...: what is left standing there is a staircase down into the pit
+## (made of whatever the ground is: earth or stone), a step down every two columns, which units walk down and climb back out of.
+var depth := 1
+var columns: Array[Vector2i] = []
+var limits := {}         ## Vector2i -> how many layers that column is dug
+var layer := 0           ## the layer being dug now (0: none opened yet)
+var stair_columns: Array[Vector2i] = []   ## the columns of the staircase, from the top down
+var stair_dir := Vector2i(1, 0)           ## the way the staircase goes down
+var cells := {}          ## Vector3i -> Unit that claimed it (or null) -- the blocks of the current layer
 var blocked := {}        ## Vector3i -> time until which nobody tries it again (unreachable just now)
 ## Which of the things this task digs up are brought home. The rest (and all earth) is broken and thrown away: a quarry can be
 ## told to bring iron only, and the stone it breaks on the way just disappears.
@@ -26,11 +35,27 @@ func cell_count() -> int:
 
 
 func is_finished() -> bool:
-	return cells.is_empty()
+	return cells.is_empty() and layer >= depth
 
 
 func summary() -> String:
+	if depth > 1:
+		return "Quarry #%d: layer %d of %d, %d blocks left in it, %d/%d workers" % [id, mini(layer, depth), depth, cells.size(), workers.size(), max_workers]
 	return "Dig #%d: %d blocks, %d/%d workers" % [id, cells.size(), workers.size(), max_workers]
+
+
+## Opens the next layer when the one before is dug: marks the top block of every column that is still to be dug that deep.
+func update(board: TaskBoard) -> void:
+	while cells.is_empty() and layer < depth:
+		layer += 1
+		for col in columns:
+			if limits.get(col, depth) < layer:
+				continue
+			var c := board.world.terrain.surface_target(col.x, col.y)
+			if c.x >= 0 and board.world.terrain.can_dig(c):
+				cells[c] = null
+		if depth == 1:
+			break
 
 
 func has_free_cell() -> bool:
@@ -94,7 +119,20 @@ func perform(target: Variant, board: TaskBoard) -> Dictionary:
 	if kind != Resources.Kind.NONE and not collects(kind):
 		kind = Resources.Kind.NONE   # not wanted: broken and thrown away, like earth
 	board.world.terrain.dig_step(c)
-	return {"kind": kind, "amount": 1 if kind != Resources.Kind.NONE else 0, "done": not board.world.terrain.can_dig(c)}
+	var gone := not board.world.terrain.can_dig(c)
+	if gone:
+		_leave_stair_step(c, board)
+	return {"kind": kind, "amount": 1 if kind != Resources.Kind.NONE else 0, "done": gone}
+
+
+## At every second column of the staircase, once its last layer is dug, a stair piece is left on the new floor: four small steps
+## from this floor up to the one before it, instead of a jump of a whole block.
+func _leave_stair_step(dug: Vector3i, board: TaskBoard) -> void:
+	var col := Vector2i(dug.x, dug.z)
+	var j := stair_columns.find(col)
+	if j <= 0 or j % 2 == 0 or limits.get(col, depth) != layer:
+		return
+	board.world.terrain.make_stairs(Vector3i(dug.x, dug.y, dug.z), -stair_dir)
 
 
 func mark_dirty() -> void:

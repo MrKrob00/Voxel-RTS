@@ -16,6 +16,8 @@ var board: TaskBoard
 var _tasks_panel: VBoxContainer
 var _stock_label: Label
 var _stock_ghost: MeshInstance3D
+var _dig_depth := 1
+var _depth_label: Label
 var mode := Mode.SELECT
 var brick_axis := 0
 var _ghost: MeshInstance3D
@@ -190,7 +192,7 @@ func _setup_ui() -> void:
 	_selection_box = SelectionBox.new()
 	layer.add_child(_selection_box)
 	_stock_label = Label.new()
-	_stock_label.position = Vector2(12, 360)
+	_stock_label.position = Vector2(12, 450)
 	_stock_label.add_theme_font_size_override("font_size", 15)
 	layer.add_child(_stock_label)
 	_tasks_panel = VBoxContainer.new()
@@ -202,6 +204,26 @@ func _setup_ui() -> void:
 	all_button.position = Vector2(12, 232)
 	all_button.pressed.connect(func() -> void: units.select_all())
 	layer.add_child(all_button)
+	# How deep "mark dig area" digs: 1 clears the surface, more is a quarry that digs layer by layer and leaves a staircase.
+	var depth_row := HBoxContainer.new()
+	depth_row.position = Vector2(12, 372)
+	layer.add_child(depth_row)
+	var minus := Button.new()
+	minus.text = "-"
+	minus.custom_minimum_size = Vector2(56, 56)
+	depth_row.add_child(minus)
+	_depth_label = Label.new()
+	_depth_label.custom_minimum_size = Vector2(78, 56)
+	_depth_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_depth_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	depth_row.add_child(_depth_label)
+	var plus := Button.new()
+	plus.text = "+"
+	plus.custom_minimum_size = Vector2(56, 56)
+	depth_row.add_child(plus)
+	minus.pressed.connect(func() -> void: _set_depth(_dig_depth - 1))
+	plus.pressed.connect(func() -> void: _set_depth(_dig_depth + 1))
+	_set_depth(1)
 	var idle_button := Button.new()
 	idle_button.text = "Idle units"
 	idle_button.custom_minimum_size = Vector2(190, 56)
@@ -349,8 +371,13 @@ func _on_box(rect: Rect2) -> void:
 
 
 ## Marks ground to be dug and puts the selected units (or, with nothing selected, the idle ones) on it.
+func _set_depth(d: int) -> void:
+	_dig_depth = clampi(d, 1, 12)
+	_depth_label.text = "depth %d" % _dig_depth
+
+
 func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
-	var t := board.create_dig(x0, z0, x1, z1)
+	var t := board.create_dig(x0, z0, x1, z1, _dig_depth)
 	if t == null:
 		return
 	var crew: Array = units.selection if not units.selection.is_empty() else units.units.filter(func(u: Unit) -> bool: return u.is_idle())

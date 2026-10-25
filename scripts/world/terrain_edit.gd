@@ -58,6 +58,18 @@ func surface_target(x: int, z: int) -> Vector3i:
 	return Vector3i(x, y - 1, z)
 
 
+## A worker leaves a stair piece in the cell `cell`, rising towards `rise` (a unit step in x or z): four steps up to the level of the
+## next column. Needs open air over a whole block; it takes its material from that block (earth or stone). Not derived from
+## anything: the neighbour rules leave it alone.
+func make_stairs(cell: Vector3i, rise: Vector2i) -> bool:
+	if not world.in_bounds(cell) or world.get_block(cell) != Blocks.AIR:
+		return false
+	var below := world.get_block(cell + Vector3i(0, -1, 0))
+	if not Blocks.is_whole(below):
+		return false
+	return world.set_block(cell, Blocks.make(Blocks.mat(below), Blocks.wedge_towards(rise), false, true))
+
+
 ## The y of the cell just above a column's highest whole block: where its slope piece or its half-dug block is.
 static func surface_cell_y(level_value: int) -> int:
 	return level_value / Blocks.UNIT
@@ -182,5 +194,6 @@ func _rederive_column(x: int, z: int, cache: Dictionary, allow_create: bool) -> 
 	# Slope pieces left floating above the surface by a lower level are removed.
 	for y in range(first_free, mini(first_free + 4, size.y)):
 		var c := Vector3i(x, y, z)
-		if Blocks.is_skin(world.get_block(c)):
+		var above := world.get_block(c)
+		if Blocks.is_skin(above) or Blocks.is_stairs(above):
 			world.set_block(c, Blocks.AIR)

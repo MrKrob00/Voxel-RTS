@@ -78,7 +78,7 @@ func standable(c: Vector3i) -> bool:
 func feet_height(c: Vector3i, wx: float, wz: float) -> float:
 	var raw := world.get_block(c)
 	if Blocks.is_partial(raw):
-		return c.y + Blocks.surface_height(Blocks.shape(raw), clampf(wx - c.x, 0.0, 1.0), clampf(wz - c.z, 0.0, 1.0))
+		return c.y + Blocks.surface_height(Blocks.shape(raw), clampf(wx - c.x, 0.0, 1.0), clampf(wz - c.z, 0.0, 1.0), Blocks.is_stairs(raw))
 	return float(c.y)
 
 
