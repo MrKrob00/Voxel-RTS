@@ -298,7 +298,7 @@ def plug_slab(slots, y0, y1, half, d, w, core_scale=1.0):
 def plug(slots):
     """A plain platform below (15% of the height) and above it a cube with U-shaped channels from the sides reaching nearly to the
     middle: F +z, B -z, L -x, R +x. One mesh."""
-    return [solid([box(0, -0.425, 0, 1.0, 0.15, 1.0, 0.0)] + plug_slab(slots, -0.35, 0.5, 0.5, 0.34, 0.34, 1.5))]
+    return [solid([box(0, -0.425, 0, 1.0, 0.15, 1.0, 0.0)] + plug_slab(slots, -0.35, 0.5, 0.5, 0.34, 0.34, 2.25))]
 
 
 def quarter(cx, cz, sx, sz, r=1.0, seg=12):
