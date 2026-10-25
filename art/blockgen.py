@@ -303,9 +303,10 @@ def cren_bracket():
 
 
 def cren_corner():
+    """A corner corbel: a triangular top plate on a body that narrows to a point under the middle of it."""
     tri = [(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5)]
     top = plan(tri, 0.3, 0.5)
-    body = [(-0.5, 0.3, -0.5), (0.5, 0.3, -0.5), (0.5, 0.3, 0.5), (0.5, -0.5, -0.5), (0.5, -0.5, 0.5)]
+    body = [(-0.5, 0.3, -0.5), (0.5, 0.3, -0.5), (0.5, 0.3, 0.5), (0.17, -0.5, -0.17)]
     return [top, body]
 
 
@@ -314,8 +315,8 @@ def cren_slope(length=1.0, half=False):
     lower = box(0, -0.25, 0, length, 0.5, 1.0, 0.03)
     roof = pts_of((-hl, 0.0, 0.5), (hl, 0.0, 0.5), (-hl, 0.5, 0.5), (hl, 0.5, 0.5), (-hl, 0.08, -0.5), (hl, 0.08, -0.5), (-hl, 0.0, -0.5), (hl, 0.0, -0.5))
     if half:
-        roof = pts_of((-hl, 0.0, -0.5), (hl, 0.0, -0.5), (hl, 0.0, 0.5), (hl, 0.5, 0.5), (hl, 0.08, -0.5))
-        lower = plan([(-hl, -0.5), (hl, -0.5), (hl, 0.5)], -0.5, 0.0)
+        # A triangular prism on the low block: the vertical wall on the +x side, the slope falling away towards -x.
+        roof = pts_of((-hl, 0.0, -0.5), (hl, 0.0, -0.5), (hl, 0.5, -0.5), (-hl, 0.0, 0.5), (hl, 0.0, 0.5), (hl, 0.5, 0.5))
     return [lower, roof]
 
 
