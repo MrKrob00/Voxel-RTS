@@ -5,8 +5,8 @@ var preset := MapPreset.plains()
 var world: VoxelWorld
 var props: PropField
 var rig: RTSCamera
-enum Mode { SELECT, MARK_DIG, MARK_TREES, MARK_GRASS, STOCKPILE, FRAME, STUMP, ROPE_MACHINE, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
-const MODE_NAMES := ["select / move", "mark dig area (depth +/-)", "mark trees to fell", "mark grass to cut", "stockpile: plank platform (3 planks; logs, planks, rope, ore)", "stockpile: frame (3 planks; stone, grass)", "stump with an axe (1 log): logs -> planks", "rope machine (2 planks): grass -> rope", "dig (instant)", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
+enum Mode { SELECT, MARK_DIG, MARK_TREES, MARK_GRASS, STOCKPILE, FRAME, STUMP, ROPE_MACHINE, WALL, DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE }
+const MODE_NAMES := ["select / move", "mark dig area (depth +/-)", "mark trees to fell", "mark grass to cut", "stockpile: plank platform (3 planks; logs, planks, rope, ore)", "stockpile: frame (3 planks; stone, grass)", "stump with an axe (1 log): logs -> planks", "rope machine (2 planks): grass -> rope", "plan a wall (drag a line; level = courses, up to 3; stone from brick stacks)", "dig (instant)", "build ground", "stone brick 2x1x1", "stone cube 1x1x1", "wood brick 2x1x1", "wood cube 1x1x1"]
 const START_UNITS := 5
 
 var bricks: BrickWorld
@@ -360,6 +360,8 @@ func _on_primary(pos: Vector2) -> void:
 			_place_stockpile(hit)
 		Mode.STUMP, Mode.ROPE_MACHINE:
 			_place_station(hit)
+		Mode.WALL:
+			_plan_wall(hit, hit)
 		Mode.DIG:
 			if hit.brick:
 				bricks.remove(bricks.brick_at(hit.cell))
@@ -413,6 +415,12 @@ func _on_box(rect: Rect2) -> void:
 		if hi.x > lo.x:
 			_mark_harvest(HarvestTask.Kind.TREES if mode == Mode.MARK_TREES else HarvestTask.Kind.GRASS, Rect2(lo, hi - lo))
 		return
+	if mode == Mode.WALL:
+		var a := _pick(rect.position)
+		var b := _pick(rect.end)
+		if not a.is_empty() and not b.is_empty():
+			_plan_wall(a, b)
+		return
 	if mode == Mode.MARK_DIG:
 		# The corners of the box on the ground give the area to dig.
 		var lo := Vector2i(1 << 30, 1 << 30)
@@ -449,7 +457,18 @@ func _place_station(hit: Dictionary) -> void:
 
 func _set_depth(d: int) -> void:
 	_dig_depth = clampi(d, 1, 12)
-	_depth_label.text = "depth %d" % _dig_depth
+	_depth_label.text = "level %d" % _dig_depth
+
+
+## Plans a wall from the cell above the first point to the cell above the second, as many courses high as the level says (at most 3).
+func _plan_wall(a: Dictionary, b: Dictionary) -> void:
+	if a.brick or b.brick:
+		return
+	var from: Vector3i = a.cell + a.normal if not Blocks.is_partial(world.get_block(a.cell)) else a.cell
+	var to_cell: Vector3i = b.cell + b.normal if not Blocks.is_partial(world.get_block(b.cell)) else b.cell
+	to_cell.y = from.y
+	if board.place_wall(from, to_cell, _dig_depth) == null:
+		_cell_info.text = "Cannot plan a wall here: " + economy.last_error
 
 
 func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
@@ -508,9 +527,12 @@ func _refresh_stock_label() -> void:
 	var lines := PackedStringArray(["Stockpiles: %d" % economy.stockpiles.size()])
 	var tot := economy.totals()
 	for k in tot:
-		lines.append("%s: %d bags" % [Resources.label(k), tot[k]])
+		if k == Resources.Kind.BRICK:
+			lines.append("Stone bricks in stacks: %.1f" % (tot[k] / 2.0))
+		else:
+			lines.append("%s: %d" % [Resources.label(k), tot[k]])
 	for st in economy.stations:
 		lines.append("%s%s" % [st.def().name, " (working)" if st.task != null and not st.task.workers.is_empty() else ""])
 	if economy.packed_bricks > 0:
-		lines.append("Stone bricks stacked: %d" % economy.packed_bricks)
+		lines.append("Stone bricks packed so far: %d" % economy.packed_bricks)
 	_stock_label.text = "\n".join(lines)

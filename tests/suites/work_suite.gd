@@ -160,13 +160,14 @@ func _dig_and_haul(base: Vector3i) -> void:
 		all_gone = all_gone and _world.get_block(c) == Blocks.AIR
 	check(all_gone, "all eight blocks are gone")
 	check(not _economy.stockpiles.has(frame), "the frame, filled to the brim with stone, is gone")
-	check(_economy.packed_bricks == 4, "...and 4 stone bricks of 2x1x1 stand in its place (%d)" % _economy.packed_bricks)
-	var stack := 0
-	for layer in 2:
-		for row in 2:
-			if _bricks_at(Vector3i(base.x + 2, base.y + layer, base.z + 2 + row)):
-				stack += 1
-	check(stack == 4, "they are two layers of two bricks over the old footprint")
+	var stack: Stockpile = null
+	for sp in _economy.stockpiles:
+		if sp.style == Stockpile.Style.STACK and sp.origin == base + Vector3i(2, 0, 2):
+			stack = sp
+	check(_economy.packed_bricks == 4 and stack != null, "...and a stack of 4 stone bricks stands in its place (%d)" % _economy.packed_bricks)
+	check(stack != null and stack.holding == Resources.Kind.BRICK and stack.count == 8, "it holds 8 halves: 4 bricks of 2x1x1, two layers of two")
+	check(stack != null and stack.blocks(Vector3i(base.x + 3, base.y + 1, base.z + 3)), "the stack is a solid block 2 x 2 x 2")
+	_economy.remove_stockpile(stack)
 	for u in crew:
 		check(u.carried_amount() == 0 and u.is_idle() and u.status == "", "a worker is idle, empty-handed and well")
 

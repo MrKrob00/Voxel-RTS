@@ -8,12 +8,16 @@ extends RefCounted
 ##   - in open air there is a whole block or a brick under it (a ground piece carries itself).
 ## Moves go to the 8 neighbouring columns and change height by at most MAX_STEP_UP up (a hop onto a block) or MAX_DROP down.
 ## A diagonal needs both of the cells beside it to be free, so nobody cuts a corner through a wall.
+## When there is no way to walk in a straight direction, a unit may JUMP over a gap of one cell (a hole, a missing block, a one-cell
+## ditch) to the cell beyond it, at the same height or one block up or down. It costs more than walking, so it is only used when it
+## saves a long way round.
 ## Pure rules on voxel data: no scene access, so it can run on a worker thread and in headless tests.
 
 const MAX_STEP_UP := 1
 const MAX_DROP := 3
 const NODE_LIMIT := 60000   ## a search gives up (and returns the closest it got) after expanding this many nodes
 const SQRT2 := 1.41421356
+const JUMP_COST := 3.2
 
 const DIRS: Array[Vector2i] = [
 	Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
@@ -191,7 +195,38 @@ func neighbours(c: Vector3i) -> Array:
 		var r := step(c, d)
 		if r[0].x >= 0:
 			out.append(r)
+		elif d.x == 0 or d.y == 0:
+			var j := jump(c, d)
+			if j[0].x >= 0:
+				out.append(j)
 	return out
+
+
+## A jump from `c` over one cell in the cardinal direction `d`: the cell between must be free to fly over (body height, nothing
+## standing in it as a floor), the landing is standable at the same height or one up or down. Returns [cell, cost] or [(-1,-1,-1), 0].
+func jump(c: Vector3i, d: Vector2i) -> Array:
+	var over_x := c.x + d.x
+	var over_z := c.z + d.y
+	for dy in [0, 1, -1]:
+		# The air the body passes through: over the gap, at the height of the start and of the landing.
+		var lo := mini(c.y, c.y + dy)
+		var hi := maxi(c.y, c.y + dy) + 1
+		var clear := true
+		for k in range(lo, hi + 1):
+			if blocked(Vector3i(over_x, k, over_z)):
+				clear = false
+				break
+		if not clear:
+			continue
+		if dy > 0 and blocked(c + Vector3i(0, 2, 0)):
+			continue
+		var land := Vector3i(c.x + d.x * 2, c.y + dy, c.z + d.y * 2)
+		if not standable(land):
+			continue
+		if blocked(land + Vector3i(0, 1, 0)):
+			continue   # standable() already says so; kept for clarity
+		return [land, JUMP_COST + (0.6 if dy > 0 else 0.0)]
+	return [Vector3i(-1, -1, -1), 0.0]
 
 
 # --- search -----------------------------------------------------------------------------------------

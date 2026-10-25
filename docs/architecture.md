@@ -131,6 +131,14 @@ picture is final; later stamps rebuild only the chunks they touch (`stamp_cover_
   it still needs); its standing job (`BuildTask`) lets idle units, whenever a stockpile holds something the blueprint still needs, fetch a
   load (one log, three planks), carry it over and put it in; when everything is in, the real building stands (a station also gets its
   job). Cancelling a plan removes its job. The game starts with a plank platform and a stump near the spawn crystal.
+- **Bricks and walls.** A frame filled with stone to the brim becomes a **stack of 4 stone bricks** (a `Stockpile.Style.STACK` holding 8
+  halves; a brick is 2 halves, a 1x1x1 cube 1). A wall is planned as a line (`WallPlan`: bricks along it, cubes where a half is needed,
+  every course offset by a cell, a running bond; up to 3 courses, because a unit lays at arm's length, 2 blocks above its feet, and
+  scaffolding does not exist yet). Its job (`WallTask`) lets idle units fetch a brick from a stack (carried on the back), stand next to
+  the place and lay it; **only slots with something to rest on are open**, so the wall grows from the bottom up, stage by stage. A unit
+  keeps its brick while the next course is not open; a lone half goes back to the stack when no cube is left to lay.
+- **Jumping**: a unit hops up one block, drops up to three, and **jumps over a gap of one cell** (a ditch, a missing block) at the same
+  height or one block higher or lower (`Navigation.jump`, more expensive than walking so it is used only when it saves a detour).
 - **Prices** (`Stockpile.COST`, `Station.DEFS`): a stockpile 3 planks (a guess; the original's price was not found), a stump 1 log, a rope
   machine 2 planks (a guess).
 - Not done yet: wood and plant harvesting, building tasks, a task bar like the original (Harvest / Mining / Construction groups),

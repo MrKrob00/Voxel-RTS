@@ -11,6 +11,7 @@ const SUITES := {
 	"craft": "res://tests/suites/craft_suite.gd",
 	"logs": "res://tests/suites/logs_suite.gd",
 	"build": "res://tests/suites/build_suite.gd",
+	"wall": "res://tests/suites/wall_suite.gd",
 	"brick": "res://tests/suites/brick_suite.gd",
 }
 

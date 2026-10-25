@@ -23,6 +23,7 @@ func run() -> void:
 	_blocked_goal(world, nav, start)
 	_drops_and_pits(world, nav, start)
 	_bricks(world, bricks, nav, start)
+	_jumps(world, nav, start)
 	_unit_walks(world, nav, start)
 	# Let the mesh workers finish before the world is torn down.
 	var waited := 0
@@ -58,7 +59,8 @@ func _valid_path(nav: Navigation, path: Array[Vector3i]) -> String:
 		if i > 0:
 			var a := path[i - 1]
 			var b := path[i]
-			if absi(a.x - b.x) > 1 or absi(a.z - b.z) > 1 or (a.x == b.x and a.z == b.z):
+			var jumped := (absi(a.x - b.x) == 2 and a.z == b.z) or (absi(a.z - b.z) == 2 and a.x == b.x)   # over a gap of one cell
+			if not jumped and (absi(a.x - b.x) > 1 or absi(a.z - b.z) > 1 or (a.x == b.x and a.z == b.z)):
 				return "step %d is not to a neighbouring column" % i
 			var dy := b.y - a.y
 			if dy > Navigation.MAX_STEP_UP or dy < -Navigation.MAX_DROP:
@@ -233,3 +235,62 @@ func _unit_walks(world: VoxelWorld, nav: Navigation, start: Vector3i) -> void:
 	for i in 60:
 		victim._process(0.05)
 	check(victim.cell.y == under.y and absf(victim.position.y - float(under.y)) < 0.05, "a unit whose floor was dug out falls one block (now at y %.2f)" % victim.position.y)
+
+
+func _jumps(world: VoxelWorld, nav: Navigation, start: Vector3i) -> void:
+	# A flat pad cut in two by a ditch one cell wide: there is no way to walk across, but a unit can jump over it.
+	var b := nav.nearest_standable(Vector3i(start.x + 4, start.y, start.z + 14), 3)
+	for dz in range(-3, 4):
+		for dx in range(-6, 7):
+			for y in range(b.y - 5, b.y + 4):
+				var p := Vector3i(b.x + dx, y, b.z + dz)
+				world.set_block(p, Blocks.make(Blocks.STONE) if y < b.y else Blocks.AIR)
+	for dz in range(-3, 4):
+		for y in range(b.y - 5, b.y):
+			world.set_block(Vector3i(b.x, y, b.z + dz), Blocks.AIR)   # the ditch, bottomless (no floor to stand on)
+	var left := Vector3i(b.x - 1, b.y, b.z)
+	var right := Vector3i(b.x + 1, b.y, b.z)
+	check(nav.standable(left) and nav.standable(right) and not nav.standable(b), "the two sides are floors and the ditch between them is not")
+	var walk_across := false
+	for r in nav.neighbours(left):
+		if r[0].x == right.x and r[0].z == right.z:
+			walk_across = true
+	check(walk_across, "a one-cell ditch can be jumped (the jump is one of the moves from the edge)")
+	var found := nav.find_path(Vector3i(b.x - 5, b.y, b.z), Vector3i(b.x + 5, b.y, b.z))
+	var jumps := 0
+	for i in range(1, found.size()):
+		if absi(found[i].x - found[i - 1].x) == 2 or absi(found[i].z - found[i - 1].z) == 2:
+			jumps += 1
+	check(nav.last_reached and jumps == 1, "a way across exists, with exactly one jump (%d)" % jumps)
+	check(_valid_path(nav, found) == "", "...and every step of it is legal")
+	# Two cells wide is too far.
+	for dz in range(-3, 4):
+		for y in range(b.y - 5, b.y):
+			world.set_block(Vector3i(b.x + 1, y, b.z + dz), Blocks.AIR)
+	check(nav.jump(left, Vector2i(1, 0))[0].x < 0, "a ditch two cells wide cannot be jumped")
+	# One cell wide again, with the far side one block higher: the jump goes up as well.
+	for dz in range(-3, 4):
+		for dx in range(1, 7):
+			for y in range(b.y - 5, b.y + 1):
+				world.set_block(Vector3i(b.x + dx, y, b.z + dz), Blocks.make(Blocks.STONE))
+			for y in range(b.y + 1, b.y + 5):
+				world.set_block(Vector3i(b.x + dx, y, b.z + dz), Blocks.AIR)
+	var from_edge := nav.jump(left, Vector2i(1, 0))
+	check(from_edge[0] == Vector3i(b.x + 1, b.y + 1, b.z), "the jump over one cell can land one block higher %s" % str(from_edge[0]))
+	# A unit does it for real.
+	var manager := UnitManager.new()
+	add(manager)
+	manager.setup(world, null)
+	var u := manager.spawn(Vector3i(b.x - 4, b.y, b.z))
+	var goal := Vector3i(b.x + 4, b.y + 1, b.z)
+	var done := [false]
+	u.arrived.connect(func() -> void: done[0] = true)
+	var ok := u.walk_to(goal) if nav.standable(goal) else false
+	var peak := 0.0
+	var frames := 0
+	while ok and not done[0] and frames < 2000:
+		u._process(0.05)
+		peak = maxf(peak, u.position.y)
+		frames += 1
+	check(done[0] and u.cell == goal, "a unit walks across the ditch and up the step, jumping once (%d frames)" % frames)
+	check(peak > b.y + 0.5, "it really leaves the ground for the jump (peak %.2f over floor %d)" % [peak, b.y])

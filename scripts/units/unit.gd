@@ -194,7 +194,7 @@ func _walk(delta: float) -> void:
 			path.clear()
 			path_failed.emit()
 		return
-	var climb := 1.0 + clampf(absf(_to.y - _from.y), 0.0, 1.0) * 0.5   # hopping up or down is slower
+	var climb := 1.0 + clampf(absf(_to.y - _from.y), 0.0, 1.0) * 0.5 + (0.5 if _seg_len > 1.6 else 0.0)   # hopping and jumping are slower
 	_seg_t += delta * SPEED / climb / _seg_len
 	if _seg_t >= 1.0:
 		position = _to
@@ -217,8 +217,10 @@ func _walk(delta: float) -> void:
 	if dir.length() > 0.01:
 		rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), minf(1.0, delta * TURN_SPEED))
 	position = p
-	# A small hop when going up or down a block.
-	if absf(_to.y - _from.y) > 0.3:
+	# A small hop when going up or down a block, a big jump over a gap.
+	if _seg_len > 1.6:
+		position.y += sin(_seg_t * PI) * 0.8
+	elif absf(_to.y - _from.y) > 0.3:
 		position.y += sin(_seg_t * PI) * 0.35
 	_walk_phase += delta * 11.0
 

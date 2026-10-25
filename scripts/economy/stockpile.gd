@@ -11,7 +11,7 @@ extends Node3D
 ##
 ## `origin` is the lowest-x/z cell of the platform at the height of the cell ABOVE the ground (where feet stand on it).
 
-enum Style { PLATFORM, FRAME }
+enum Style { PLATFORM, FRAME, STACK }
 
 const SIZE := 2
 const PLATFORM_HEIGHT := 0.18
@@ -20,14 +20,16 @@ const BAGS_PER_BRICK := 4
 const ACCEPTS := {
 	Style.PLATFORM: [Resources.Kind.LOG, Resources.Kind.PLANK, Resources.Kind.ROPE, Resources.Kind.IRON, Resources.Kind.COAL, Resources.Kind.AMBER],
 	Style.FRAME: [Resources.Kind.STONE, Resources.Kind.PLANT],
+	Style.STACK: [Resources.Kind.BRICK],   # the bricks a full frame turned into; builders take them from the top
 }
 const CAPACITY := {
 	Style.PLATFORM: {Resources.Kind.LOG: 4, Resources.Kind.PLANK: 24, Resources.Kind.ROPE: 20, Resources.Kind.IRON: 24, Resources.Kind.COAL: 24, Resources.Kind.AMBER: 24},
 	Style.FRAME: {Resources.Kind.STONE: 16, Resources.Kind.PLANT: 16},
+	Style.STACK: {Resources.Kind.BRICK: 8},   # 4 bricks of 2x1x1 = 8 halves, two layers of two
 }
 ## What a stockpile costs, paid from the planks in the stockpiles (a guess: the original's price is not known here). The very first one is free.
 const COST := {Resources.Kind.PLANK: 3}
-const STYLE_NAMES := {Style.PLATFORM: "plank platform", Style.FRAME: "frame"}
+const STYLE_NAMES := {Style.PLATFORM: "plank platform", Style.FRAME: "frame", Style.STACK: "stack of bricks"}
 
 var style := Style.PLATFORM
 var origin := Vector3i.ZERO
@@ -80,7 +82,7 @@ func covers(c: Vector3i) -> bool:
 
 ## The frame is a solid crate two blocks high: nobody walks through its cells.
 func blocks(c: Vector3i) -> bool:
-	return style == Style.FRAME and (c.y == origin.y or c.y == origin.y + 1) and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
+	return (style == Style.FRAME or style == Style.STACK) and (c.y == origin.y or c.y == origin.y + 1) and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
 
 
 func free_space() -> int:
@@ -147,7 +149,8 @@ func build(cell: Vector3i, new_style: int) -> void:
 	origin = cell
 	name = "Stockpile_%d_%d" % [cell.x, cell.z]
 	position = Vector3(cell.x, cell.y, cell.z)
-	_plank_panel(Transform3D.IDENTITY)   # the floor
+	if style != Style.STACK:
+		_plank_panel(Transform3D.IDENTITY)   # the floor (a stack of bricks stands on the bare ground)
 	if style == Style.FRAME:
 		# The floor copied onto the four sides, standing up: x = 0 and 2, z = 0 and 2.
 		_plank_panel(Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
@@ -162,7 +165,7 @@ func build(cell: Vector3i, new_style: int) -> void:
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_label.no_depth_test = true
 	_label.outline_size = 8
-	_label.position = Vector3(SIZE * 0.5, (WALL_HEIGHT + 0.6) if style == Style.FRAME else 1.5, SIZE * 0.5)
+	_label.position = Vector3(SIZE * 0.5, (WALL_HEIGHT + 0.6) if style != Style.PLATFORM else 1.5, SIZE * 0.5)
 	add_child(_label)
 	_refresh()
 
@@ -220,6 +223,8 @@ func _refresh() -> void:
 				_show_planks()
 			Resources.Kind.ROPE:
 				_show_ropes()
+			Resources.Kind.BRICK:
+				_show_bricks()
 			_:
 				_show_heap()
 	_label.text = "%s %d/%d" % [Resources.label(holding), count, capacity_for(holding)] if count > 0 else "empty (%s)" % STYLE_NAMES[style]
@@ -283,6 +288,16 @@ func _show_planks() -> void:
 		mi.position = Vector3(0.5 + (stack % 2) * 1.0, PLATFORM_HEIGHT + 0.04 + level * 0.075, 0.5 + (stack / 2) * 1.0)
 		mi.rotation.y = (level % 3 - 1) * 0.06
 		_piles.add_child(mi)
+
+
+## A stack of stone bricks, two layers of two (the frame's 2 x 2 x 2): one brick per two halves, a lone half as a cube on top.
+func _show_bricks() -> void:
+	var m := _mat(Resources.COLORS[Resources.Kind.BRICK])
+	var whole := count / 2
+	for i in whole:
+		_box(_piles, Vector3(1.94, 0.96, 0.96), Vector3(1.0, 0.5 + (i / 2) * 1.0, 0.5 + (i % 2) * 1.0), m)
+	if count % 2 == 1:
+		_box(_piles, Vector3(0.96, 0.96, 0.96), Vector3(0.5, 0.5 + (whole / 2) * 1.0, 0.5 + (whole % 2) * 1.0), m)
 
 
 ## Ropes are coils: a quarter of the area each and a fifth of the height, so 4 per layer and 5 layers make 20.

@@ -199,6 +199,22 @@ func finish_blueprint(bp: Blueprint) -> void:
 		_give_station_its_job(made)
 
 
+## The player's way to wall: a plan of bricks and cubes, and the standing job of laying them.
+func place_wall(from: Vector3i, to: Vector3i, height: int) -> WallPlan:
+	var plan := economy.place_wall(from, to, height)
+	if plan == null:
+		return null
+	add_task(WallTask.new(plan), false)
+	return plan
+
+
+func cancel_wall(plan: WallPlan) -> void:
+	for t in tasks.duplicate():
+		if t is WallTask and t.plan == plan:
+			remove_task(t)
+	economy.cancel_wall(plan)
+
+
 func cancel_blueprint(bp: Blueprint) -> void:
 	for t in tasks.duplicate():
 		if t is BuildTask and t.blueprint == bp:
@@ -215,6 +231,8 @@ func remove_station(st: Station) -> void:
 func remove_task(t: WorkTask) -> void:
 	for u in t.workers.duplicate():
 		unassign(u)
+	if t is WallTask and is_instance_valid(t.plan):
+		economy.cancel_wall(t.plan)   # the plan goes with its job
 	tasks.erase(t)
 	if t.overlay != null:
 		t.overlay.queue_free()

@@ -9,6 +9,7 @@ var bricks: BrickWorld
 var stockpiles: Array[Stockpile] = []
 var stations: Array = []     ## Station nodes (stump, rope machine)
 var blueprints: Array = []   ## Blueprint nodes: planned buildings waiting for what they cost
+var walls: Array = []        ## WallPlan nodes: planned walls
 var _reserved := {}          ## Stockpile -> {kind, count}: goods on their way there
 var _taking := {}            ## Stockpile -> how many of its goods someone is on the way to fetch
 
@@ -114,6 +115,48 @@ func finish_blueprint(bp: Blueprint) -> Node:
 	return made
 
 
+## Plans a wall: `from` and `to` are cells (the feet height of the ground) on one line along x or z; `height` courses. Null and the reason
+## in `last_error` if it cannot be laid there (the bottom course needs whole ground, nothing in the way).
+func place_wall(from: Vector3i, to: Vector3i, height: int) -> WallPlan:
+	var along_x := absi(to.x - from.x) >= absi(to.z - from.z)
+	var axis := 0 if along_x else 1
+	var lo := Vector3i(mini(from.x, to.x), from.y, mini(from.z, to.z)) if along_x else Vector3i(from.x, from.y, mini(from.z, to.z))
+	var length := (absi(to.x - from.x) if along_x else absi(to.z - from.z)) + 1
+	if not along_x:
+		lo.x = from.x
+	else:
+		lo.z = from.z
+	height = clampi(height, 1, WallPlan.MAX_COURSES)
+	var slots := WallPlan.layout(lo, axis, length, height)
+	last_error = ""
+	for s in slots:
+		for c in s.cells():
+			if not world.in_bounds(c) or world.get_block(c) != Blocks.AIR or bricks.occupied(c):
+				last_error = "something is in the way"
+			for p in stockpiles + blueprints + stations:
+				if p.covers(c):
+					last_error = "overlaps a building"
+			for w in walls:
+				if w.covers(c):
+					last_error = "overlaps another wall"
+		if s.course == 0 and not bricks.can_place(s.origin, s.axis, s.length):
+			last_error = "the bottom course needs flat whole ground"
+		if last_error != "":
+			return null
+	var plan := WallPlan.new()
+	add_child(plan)
+	plan.build(lo, axis, length, height)
+	walls.append(plan)
+	changed.emit()
+	return plan
+
+
+func cancel_wall(plan: WallPlan) -> void:
+	walls.erase(plan)
+	plan.queue_free()
+	changed.emit()
+
+
 func cancel_blueprint(bp: Blueprint) -> void:
 	blueprints.erase(bp)
 	bp.done = true
@@ -194,14 +237,17 @@ func deposit(s: Stockpile, kind: int, n: int) -> int:
 	return put
 
 
-## The frame goes, 4 bricks of 2x1x1 stand where it was: two layers of two bricks, side by side.
+## The frame goes, a stack of 4 stone bricks of 2x1x1 (two layers of two) stands where it was: the material of walls.
 func _pack_into_bricks(s: Stockpile) -> void:
 	var at := s.origin
 	remove_stockpile(s)
-	for layer in 2:
-		for row in 2:
-			if bricks.place(Vector3i(at.x, at.y + layer, at.z + row), 0, BrickWorld.Kind.STONE, 2) != null:
-				packed_bricks += 1
+	var was := charge_for_stockpiles
+	charge_for_stockpiles = false
+	var stack := place_stockpile(at, Stockpile.Style.STACK)
+	charge_for_stockpiles = was
+	if stack != null:
+		stack.add(Resources.Kind.BRICK, Stockpile.CAPACITY[Stockpile.Style.STACK][Resources.Kind.BRICK])
+		packed_bricks += 4
 
 
 ## Someone is on the way to fetch `n` of its goods: nobody else is promised them.
@@ -217,6 +263,8 @@ func cancel_take(s: Stockpile, n: int) -> void:
 func withdraw(s: Stockpile, kind: int, n: int) -> int:
 	cancel_take(s, n)
 	var got := s.take(kind, n)
+	if s.style == Stockpile.Style.STACK and s.count == 0 and not _reserved.has(s):
+		remove_stockpile(s)   # the last brick is gone: nothing is left standing there
 	changed.emit()
 	return got
 

@@ -81,13 +81,21 @@ func update(delta: float) -> void:
 		State.WAIT_STOCK:
 			_timer -= delta
 			if _timer <= 0.0:
-				_find_stockpile()
+				if task.persistent and task.keeps_load(unit):
+					state = State.SEEK
+				else:
+					_find_stockpile()
 		_:
 			pass   # walking: _on_arrived / _on_failed move it on
 
 
 func _leave_or_wait() -> void:
-	if task.persistent and unit.carried_amount() == 0:
+	if task.persistent and unit.carried_amount() > 0 and task.keeps_load(unit):
+		state = State.WAIT_TARGET   # the job will open up (the next course): keep the brick and wait
+		_timer = 1.0
+	elif task.persistent and unit.carried_amount() > 0 and not task.input_needed().is_empty() and state != State.WAIT_STOCK:
+		_find_stockpile()   # a leftover (half a brick) that the job cannot use now: back to a stockpile
+	elif task.persistent and unit.carried_amount() == 0:
 		board.resume_or_free(unit)   # a station with nothing to do: back to the earlier job, or a free unit
 	else:
 		state = State.WAIT_TARGET
@@ -102,7 +110,11 @@ func _seek() -> void:
 		_find_stockpile()   # still has something from before: that first
 		return
 	var need := task.input_needed()
-	if not need.is_empty() and not (unit.carried_kind() == need.kind and unit.carried_amount() >= need.amount):
+	var enough: int = need.get("min", need.get("amount", 0))   # a task can start with less than a full load (a half brick for a cube)
+	if not need.is_empty() and not (unit.carried_kind() == need.kind and unit.carried_amount() >= enough):
+		if unit.carried_amount() > 0 and unit.carried_kind() != need.kind:
+			_find_stockpile()   # something else in the hands: put it down first
+			return
 		_start_fetch(need)
 		return
 	target = task.claim(unit, unit.cell, board.now)
@@ -201,7 +213,8 @@ func _take() -> void:
 		var got := board.economy.withdraw(stockpile, _fetch.kind, _fetch.amount)
 		stockpile = null
 		if got > 0:
-			unit.carry(_fetch.kind, got)
+			var have := unit.carried_amount() if unit.carried_kind() == _fetch.kind else 0
+			unit.carry(_fetch.kind, have + got)
 		_fetch = {}
 	else:
 		_drop_stockpile_claims()

@@ -74,6 +74,12 @@ func perform(_target: Variant, _board: TaskBoard, _unit: Unit = null) -> Diction
 	return {}
 
 
+## A standing job that has nothing to do just now: should a unit keep the load in its hands and wait (a brick for a wall that is not yet
+## open at that height), rather than carry it back to a stockpile?
+func keeps_load(_unit: Unit) -> bool:
+	return false
+
+
 ## Whether a kind of thing is brought home (the rest is broken and thrown away). Only quarries filter.
 func collects(_kind: int) -> bool:
 	return true
