@@ -47,6 +47,7 @@ func _init() -> void:
 
 	_slope_report(world)
 	_check_skin_consistency(world, "generated ground")
+	_check_seams(world, "generated ground")
 
 	await _test_stages(world)
 	await _test_slope_rules(world)
@@ -95,6 +96,50 @@ func _slope_report(world: VoxelWorld) -> void:
 
 
 ## Every slope cell near the main island must be exactly what the rules give for the current ground.
+## Neighbouring slope pieces in the same layer must meet along edges of equal height (no cracks, no steps).
+func _check_seams(world: VoxelWorld, label: String, radius := 70, around: Vector2 = Vector2(-1, -1)) -> void:
+	var centre: Vector2 = world.generator.islands[0].center if around.x < 0 else around
+	var dirs := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
+	var opposite := [1, 0, 3, 2]
+	var pieces := 0
+	var seams := 0
+	var example := ""
+	for dz in range(-radius, radius + 1):
+		for dx in range(-radius, radius + 1):
+			var x := int(centre.x) + dx
+			var z := int(centre.y) + dz
+			var lv := world.terrain.level(x, z)
+			if lv < 0 or lv % 2 == 1:
+				continue
+			var cell := Vector3i(x, lv / 2, z)
+			var raw := world.get_block(cell)
+			if not Blocks.is_skin(raw):
+				continue
+			pieces += 1
+			for side in 4:
+				var qcell: Vector3i = cell + dirs[side]
+				var qraw := world.get_block(qcell)
+				if not Blocks.is_skin(qraw):
+					continue
+				var a := _edge_heights(raw, side)
+				var b := _edge_heights(qraw, opposite[side])
+				if a != b:
+					seams += 1
+					if example == "":
+						example = "%s side %d: %s vs %s" % [str(cell), side, str(a), str(b)]
+	_check(seams == 0, "%s: neighbouring slope pieces meet at equal heights (%d pieces, %d seams) %s" % [label, pieces, seams, example])
+
+
+## Heights (half-blocks) of the two top corners of a piece on one side, in a fixed order along the edge.
+func _edge_heights(raw: int, side: int) -> Array:
+	var h := Blocks.corner_heights(Blocks.shape(raw))   # corners 0:(0,0) 1:(1,0) 2:(1,1) 3:(0,1)
+	match side:
+		0: return [h[1], h[2]]   # +x
+		1: return [h[0], h[3]]   # -x
+		2: return [h[3], h[2]]   # +z
+		_: return [h[0], h[1]]   # -z
+
+
 ## `allow_missing`: after digging, slope cells may legitimately stay empty (no new slopes are created in dug pits).
 ## Cells in `_destroyed` were destroyed by the player on purpose and are skipped.
 var _destroyed := {}
@@ -154,52 +199,69 @@ func _find_step(world: VoxelWorld, avoid_border := true) -> Dictionary:
 	return {}
 
 
+## A block whose neighbouring slope piece passes through three different shapes: block whole, half dug, gone.
+## Found by running the rule on the levels, without touching the world.
+func _find_intermediate(world: VoxelWorld) -> Dictionary:
+	var c0 := world.generator.islands[0].center
+	for dz in range(-60, 61):
+		for dx in range(-60, 61):
+			var x := int(c0.x) + dx
+			var z := int(c0.y) + dz
+			if (x & 15) == 0 or (x & 15) == 15 or (z & 15) == 0 or (z & 15) == 15:
+				continue
+			var lv := world.terrain.level(x, z)
+			if lv < 4 or lv % 2 == 1:
+				continue
+			for off in Ramps.NEIGHBOURS:
+				var nx: int = x + off.x
+				var nz: int = z + off.y
+				var nlv := world.terrain.level(nx, nz)
+				if nlv < 0 or nlv % 2 == 1:
+					continue
+				var shapes := []
+				for d_level in [lv, lv - 1, lv - 2]:
+					var around := {}
+					for o2 in Ramps.NEIGHBOURS:
+						var lvl := world.terrain.level(nx + o2.x, nz + o2.y)
+						if Vector2i(nx + o2.x, nz + o2.y) == Vector2i(x, z):
+							lvl = d_level
+						around[o2] = lvl
+					shapes.append(Ramps.skin_shape(nlv, around))
+				if shapes[0] >= 0 and shapes[1] != shapes[0] and shapes[1] != shapes[2] and shapes[1] >= 0:
+					return {"x": x, "z": z, "level": lv, "nx": nx, "nz": nz, "shapes": shapes}
+	return {}
+
+
 func _test_stages(world: VoxelWorld) -> void:
-	var step := _find_step(world)
-	_check(not step.is_empty(), "found a block with lower neighbours for the stage test")
+	var step := _find_intermediate(world)
+	_check(not step.is_empty(), "found a block whose neighbour has three different states")
 	if step.is_empty():
 		return
 	var x: int = step.x
 	var z: int = step.z
 	var lv: int = step.level
 	var cell := Vector3i(x, lv / 2 - 1, z)
+	var neighbour_cell := Vector3i(step.nx, world.terrain.level(step.nx, step.nz) / 2, step.nz)
 	var raw := world.get_block(cell)
 	_check(Blocks.is_whole(raw), "the block is whole before digging")
+	_check(Blocks.shape(world.get_block(neighbour_cell)) == step.shapes[0], "the neighbouring slope starts in its first state")
 
-	# Stage 1: the block becomes half dug FIRST, and the neighbours follow that state, not "destroyed".
+	# Stage 1: the block becomes half dug FIRST, and the neighbour follows that state, not "destroyed".
 	_check(world.terrain.dig_step(cell), "dig stage 1")
 	var half := world.get_block(cell)
 	_check(Blocks.is_dug(half) and Blocks.shape(half) == Blocks.SHAPE_HALF and Blocks.mat(half) == Blocks.mat(raw), "stage 1: a half-dug block of the same material")
 	_check(world.terrain.level(x, z) == lv - 1, "stage 1: the column level dropped by half a block (%d -> %d)" % [lv, world.terrain.level(x, z)])
+	_check(Blocks.shape(world.get_block(neighbour_cell)) == step.shapes[1], "stage 1: the neighbouring slope is in the half-way state (not the 'destroyed' one)")
 	_check_skin_consistency(world, "after stage 1", 8, Vector2(x, z), true)
-	# The slope pieces around must differ from what they would be if the block were already gone.
-	var cache := {}
-	var differs := 0
-	var differ_total := 0
-	for off in Ramps.NEIGHBOURS:
-		var nx: int = x + off.x
-		var nz: int = z + off.y
-		var nlv := world.terrain.level(nx, nz, cache)
-		if nlv < 0 or nlv % 2 == 1:
-			continue
-		var around := {}
-		for o2 in Ramps.NEIGHBOURS:
-			var lvl := world.terrain.level(nx + o2.x, nz + o2.y, cache)
-			if Vector2i(nx + o2.x, nz + o2.y) == Vector2i(x, z):
-				lvl = lv - 2   # as if the block were gone
-			around[o2] = lvl
-		var if_gone := Ramps.skin_shape(nlv, around)
-		var now := Blocks.shape(world.get_block(Vector3i(nx, nlv / 2, nz))) if Blocks.is_skin(world.get_block(Vector3i(nx, nlv / 2, nz))) else -1
-		differ_total += 1
-		if now != if_gone:
-			differs += 1
-	_check(differs > 0, "stage 1: neighbours did NOT jump to the 'block destroyed' state (%d of %d differ)" % [differs, differ_total])
+	_check_seams(world, "after stage 1", 10, Vector2(x, z))
 
-	# Stage 2: the block is gone and the neighbours follow.
+	# Stage 2: the block is gone and the neighbour follows.
 	_check(world.terrain.dig_step(cell), "dig stage 2")
 	_check(world.get_block(cell) == Blocks.AIR, "stage 2: the block is gone")
 	_check(world.terrain.level(x, z) == lv - 2, "stage 2: the column level dropped by a full block")
+	_check(Blocks.shape(world.get_block(neighbour_cell)) == step.shapes[2] or world.get_block(neighbour_cell) == Blocks.AIR and step.shapes[2] < 0, "stage 2: the neighbouring slope is in its final state")
 	_check_skin_consistency(world, "after stage 2", 8, Vector2(x, z), true)
+	_check_seams(world, "after stage 2", 10, Vector2(x, z))
 	for i in 5:
 		await process_frame
 
@@ -207,6 +269,7 @@ func _test_stages(world: VoxelWorld) -> void:
 	_check(world.terrain.build(cell, Blocks.STONE), "build back into the hole")
 	_check(Blocks.is_whole(world.get_block(cell)) and world.terrain.level(x, z) == lv, "the hole is a whole block again, level restored")
 	_check_skin_consistency(world, "after rebuilding", 8, Vector2(x, z))
+	_check_seams(world, "after rebuilding", 10, Vector2(x, z))
 	for i in 5:
 		await process_frame
 
@@ -265,6 +328,7 @@ func _test_slope_rules(world: VoxelWorld) -> void:
 	_check(world.get_block(target + Vector3i(0, 1, 0)) == Blocks.AIR or Blocks.is_skin(world.get_block(target + Vector3i(0, 1, 0))), "nothing was placed above it")
 	_check(world.terrain.level(target.x, target.z) == lv_before + 2, "the column is one block higher")
 	_check_skin_consistency(world, "after building on a slope", 8, Vector2(target.x, target.z))
+	_check_seams(world, "after building on a slope", 10, Vector2(target.x, target.z))
 	for i in 5:
 		await process_frame
 

@@ -43,18 +43,18 @@ func level(x: int, z: int, cache: Dictionary = {}) -> int:
 
 
 ## What the voxel in the slope cell above a column should be right now (AIR when no slope belongs there).
+## Decided from the cells around the slope cell (Ramps.rises_from_cells), the same rule the generator follows.
 func expected_skin(x: int, z: int, cache: Dictionary = {}) -> int:
 	var lv := level(x, z, cache)
 	if lv < 0 or lv % 2 == 1:
 		return Blocks.AIR   # no ground, or the top block is half dug and is its own surface
-	var around := {}
-	for off in Ramps.NEIGHBOURS:
-		around[off] = level(x + off.x, z + off.y, cache)
-	var shape := Ramps.skin_shape(lv, around)
+	var y := lv / 2
+	var raw_at := func(dx: int, dy: int, dz: int) -> int:
+		return world.get_block(Vector3i(x + dx, y + dy, z + dz))
+	var shape := Ramps.shape_from_rises(Ramps.rises_from_cells(raw_at))
 	if shape < 0:
 		return Blocks.AIR
-	var below := world.get_block(Vector3i(x, lv / 2 - 1, z))
-	return Blocks.make(Blocks.mat(below), shape)
+	return Blocks.make(Blocks.mat(world.get_block(Vector3i(x, y - 1, z))), shape)
 
 
 func can_dig(cell: Vector3i) -> bool:

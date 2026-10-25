@@ -33,10 +33,19 @@ One int per voxel (`PackedInt32Array` per 16x16x16 chunk; an empty array is a ch
 
 A block of ground has three states: **whole -> half dug -> gone**. A half-dug block is a flat half-block with the `DUG` flag.
 
+The generator also removes features one block wide (pits, trenches, pillars, ridges), which would only produce shard-like
+rings of slopes; players may dig and build any such shape.
+
 Slope pieces (wedges, corners) are ground as well and can be dug or filled, but they are *derived*: they fill the cell above
 a column that is lower than its neighbours. The rules live in one place, `Ramps.skin_shape`, and are used by the
-generator and by `TerrainEdit`, so generated and edited ground follow the same law (checked by `tests/world_smoke_test.gd`).
+generator (from column levels) and by `TerrainEdit` (from the cells), so generated and edited ground follow the same law.
 
+- A slope piece is decided by the 3x3x3 neighbourhood of its cell: a whole block below it, the 8 neighbours in its layer
+  (a whole block that is a step top rises 1 block, a half-dug block half a block) and the same 8 columns one layer up
+  (anything natural there makes the neighbour a wall, which raises nothing). Each corner takes the highest rise among
+  the three cells that touch it (two sides and the diagonal). The corner is a vertex shared by up to four pieces, and all of
+  them compute it the same way, so neighbouring pieces always meet at equal heights (`tests/world_smoke_test.gd` checks the
+  seams after generation and after every kind of edit).
 - The **level** of a column is measured in half-blocks: `2 * (y of its highest whole cube + 1)`, plus 1 if the block on top of
   it is half dug. Slope pieces depend on the levels of the eight neighbours only.
 - Changing a natural block (whole or half dug) re-derives the slope pieces of the 3x3 columns around it **after** the block

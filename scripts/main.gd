@@ -17,6 +17,7 @@ var _rotate_button: Button
 
 var _hover: MeshInstance3D
 var _info: Label
+var _cell_info: Label
 var _mode_button: Button
 
 
@@ -133,6 +134,10 @@ func _setup_ui() -> void:
 	_info = Label.new()
 	_info.position = Vector2(12, 8)
 	layer.add_child(_info)
+	_cell_info = Label.new()
+	_cell_info.position = Vector2(12, 172)
+	_cell_info.add_theme_font_size_override("font_size", 14)
+	layer.add_child(_cell_info)
 	_mode_button = Button.new()
 	_mode_button.text = "Mode: dig"
 	_mode_button.custom_minimum_size = Vector2(190, 56)
@@ -159,6 +164,7 @@ func _update_hover() -> void:
 	var hit := _pick(get_viewport().get_mouse_position())
 	_hover.visible = not hit.is_empty() and not _is_brick_mode()
 	_ghost.visible = false
+	_cell_info.text = "" if hit.is_empty() else _describe_cell(hit.cell, hit.brick)
 	if hit.is_empty():
 		return
 	if _hover.visible:
@@ -172,6 +178,19 @@ func _update_hover() -> void:
 		_ghost.transform = Transform3D(Basis(Vector3.UP, PI * 0.5 if turned else 0.0), BrickWorld.center_for(origin, brick_axis, length))
 		var ok := bricks.can_place(origin, brick_axis, length)
 		_ghost_mat.albedo_color = Color(0.2, 0.9, 0.9, 0.45) if ok else Color(0.95, 0.2, 0.2, 0.5)
+
+
+## For bug reports: where the cursor is and what the ground there is.
+func _describe_cell(cell: Vector3i, brick: bool) -> String:
+	if brick:
+		return "cell %s: brick" % str(cell)
+	var raw := world.get_block(cell)
+	var kind := "whole"
+	if Blocks.is_dug(raw):
+		kind = "half dug"
+	elif Blocks.is_partial(raw):
+		kind = "slope " + str(Blocks.corner_heights(Blocks.shape(raw)))
+	return "cell %s: material %d, %s, column level %d" % [str(cell), Blocks.mat(raw), kind, world.terrain.level(cell.x, cell.z)]
 
 
 func _on_primary(pos: Vector2) -> void:
