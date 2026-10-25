@@ -391,11 +391,11 @@ def cren_slab():
 
 
 def cren_bracket():
-    """A bracket: a flat platform on top (15% of the height, the whole width), a back platform (35% of the length, the whole width),
-    and between them, in the free zone, half an arch: a rib 22% as wide as the block whose front is a quarter ellipse from the foot of
-    the back platform up to the front of the top platform (two of these mirrored make a whole arch)."""
-    top = box(0, 0.425, 0, 1.0, 0.15, 1.0, 0.0)
-    back = box(-0.325, 0, 0, 0.35, 1.0, 1.0, 0.0)
+    """A bracket, the whole block 22% as wide as a cell: a flat platform on top (15% of the height), a back platform (35% of the length),
+    and between them, in the free zone, half an arch whose front is a quarter ellipse from the foot of the back platform up to the front
+    of the top platform (two of these mirrored make a whole arch)."""
+    top = box(0, 0.425, 0, 1.0, 0.15, 0.22, 0.0)
+    back = box(-0.325, 0, 0, 0.35, 1.0, 0.22, 0.0)
     wall, cx, cy, ra, rb, n = -0.15, 0.5, -0.5, 0.65, 0.85, 10
     arc = [(cx - ra * math.cos(math.pi / 2 * i / n), cy + rb * math.sin(math.pi / 2 * i / n)) for i in range(n + 1)]
     rib = []
