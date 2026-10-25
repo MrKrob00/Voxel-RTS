@@ -66,17 +66,47 @@ func _emblem(c: Vector2, u: float) -> void:
 		Tools.Mode.ROPE_MACHINE:
 			draw_arc(c, 14.0 * u, 0, TAU, 20, Color(0.8, 0.7, 0.45), 4.0 * u)
 			draw_arc(c, 6.0 * u, 0, TAU, 14, Color(0.8, 0.7, 0.45), 3.0 * u)
-		Tools.Mode.WALL:
-			for row in 3:
-				for i in 2:
-					_rect(c, u, -20 + i * 20 + (row % 2) * 10, -16 + row * 11, 18, 9, STONE)
-		Tools.Mode.CUBE, Tools.Mode.STONE_CUBE, Tools.Mode.WOOD_CUBE, Tools.Mode.VOXEL:
+		Tools.Mode.STONE_CUBE, Tools.Mode.WOOD_CUBE, Tools.Mode.VOXEL:
 			_rect(c, u, -12, -12, 24, 24, WOOD if mode == Tools.Mode.WOOD_CUBE else STONE)
-		Tools.Mode.BRICK, Tools.Mode.STONE_BRICK, Tools.Mode.WOOD_BRICK:
+		Tools.Mode.STONE_BRICK, Tools.Mode.WOOD_BRICK:
 			_rect(c, u, -22, -8, 44, 18, WOOD if mode == Tools.Mode.WOOD_BRICK else STONE)
 			draw_line(c + Vector2(0, -8) * u, c + Vector2(0, 10) * u, Color(0, 0, 0, 0.35), 2.0 * u)
-		Tools.Mode.STAIRS:
-			for i in 4:
-				_rect(c, u, -22 + i * 11, 10 - i * 7, 11, 7 + i * 7, STONE)
 		_:
-			draw_circle(c, 10.0 * u, INK)
+			if Tools.is_block(mode):
+				_block_icon(c, u, Tools.block_of(mode))
+			else:
+				draw_circle(c, 10.0 * u, INK)
+
+
+## A block seen from the side: its parts as flat shapes.
+func _block_icon(c: Vector2, u: float, id: String) -> void:
+	var d := BlockCatalog.get_def(id)
+	var col := WOOD if d.material == BlockCatalog.WOOD else STONE
+	var k := 22.0 * u * (1.0 if d.length == 2 else 1.5)   # pixels per block unit: a brick is 44 wide
+	if d.parts.is_empty():   # stairs (steps of ground and a cube)
+		for i in 4:
+			_rect(c, 1.0, (-22 + i * 11) * u, (10 - i * 7) * u, 11.0 * u, (7 + i * 7) * u, col)
+		return
+	var shade := 0.0
+	for part in d.parts:
+		var p: Vector3 = part.p
+		match part.t:
+			"box":
+				var s: Vector3 = part.s
+				draw_rect(Rect2(c + Vector2(p.x - s.x * 0.5, -p.y - s.y * 0.5) * k * 0.9, Vector2(s.x, s.y) * k * 0.9), col.darkened(shade))
+			"wedge":
+				var s: Vector3 = part.s
+				var x0 := (p.x - s.x * 0.5) * k * 0.9
+				var x1 := (p.x + s.x * 0.5) * k * 0.9
+				var y0 := -(p.y - s.y * 0.5) * k * 0.9
+				var y1 := -(p.y + s.y * 0.5) * k * 0.9
+				draw_colored_polygon([c + Vector2(x0, y0), c + Vector2(x1, y0), c + Vector2(x1, y1)], col.darkened(shade))
+			"cyl":
+				var half: float = part.h * 0.5
+				var rb: float = part.r
+				var rt: float = part.r_top
+				if part.axis == "y":
+					draw_colored_polygon([c + Vector2(p.x - rb, -(p.y - half)) * k * 0.9, c + Vector2(p.x + rb, -(p.y - half)) * k * 0.9, c + Vector2(p.x + rt, -(p.y + half)) * k * 0.9, c + Vector2(p.x - rt, -(p.y + half)) * k * 0.9], col.darkened(shade))
+				else:
+					draw_rect(Rect2(c + Vector2(p.x - half, -p.y - rb) * k * 0.9, Vector2(part.h, rb * 2.0) * k * 0.9), col.darkened(shade))
+		shade += 0.08

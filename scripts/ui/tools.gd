@@ -7,11 +7,13 @@ enum Mode {
 	SELECT,
 	MARK_TREES, MARK_GRASS,
 	MARK_DIG,
-	STOCKPILE, FRAME, STUMP, ROPE_MACHINE, WALL, CUBE, BRICK, STAIRS,
+	STOCKPILE, FRAME, STUMP, ROPE_MACHINE,
 	DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE,
 }
 
-const BUILD_SECTIONS := ["Stone Blocks", "Buildings"]
+const BUILD_SECTIONS := ["Stone Blocks", "Plugs", "Round Bricks", "Crenelations", "Wood Blocks", "Buildings"]
+## The tool of the block number i of the BlockCatalog is BLOCK_BASE + i.
+const BLOCK_BASE := 1000
 ## The pseudo tool of the "Construction" tile of the task panel: it opens the panel of blocks.
 const OPEN_BLOCKS := -2
 ## Emblem of "stop" in the round menu.
@@ -21,6 +23,28 @@ const CATEGORIES := ["Harvest", "Mining", "Construction", "Sandbox"]
 
 ## Every tool except Select: {mode, category, label, hint, level (does it use the level stepper), level_name}.
 static func defs() -> Array[Dictionary]:
+	var out: Array[Dictionary] = _fixed_defs()
+	var blocks := BlockCatalog.all()
+	for i in blocks.size():
+		var b: Dictionary = blocks[i]
+		var wood: bool = b.material == BlockCatalog.WOOD
+		out.append({"mode": BLOCK_BASE + i, "category": "Construction", "section": b.section, "label": b.label, "short": b.label, "block": b.id,
+			"enabled": not wood,
+			"hint": ("Needs plugs to stand on: coming. Costs one plank." if wood else "Tap to plan one, or drag the way it should lie (the turn button turns it). Costs one block of stone, whatever its shape.")})
+	return out
+
+
+static func is_block(mode: int) -> bool:
+	return mode >= BLOCK_BASE
+
+
+static func block_of(mode: int) -> String:
+	var blocks := BlockCatalog.all()
+	var i := mode - BLOCK_BASE
+	return blocks[i].id if i >= 0 and i < blocks.size() else ""
+
+
+static func _fixed_defs() -> Array[Dictionary]:
 	return [
 		{"mode": Mode.MARK_TREES, "category": "Harvest", "label": "Fell trees", "short": "Trees", "hint": "Tap a tree or drag a box over trees. Logs are carried to a platform, or to a free stump first."},
 		{"mode": Mode.MARK_GRASS, "category": "Harvest", "label": "Cut grass", "short": "Grass", "hint": "Tap or drag over grass. The sacks go to a frame."},
@@ -29,9 +53,6 @@ static func defs() -> Array[Dictionary]:
 		{"mode": Mode.FRAME, "category": "Construction", "label": "Frame 2x2x2", "section": "Buildings", "short": "Frame", "hint": "A crate for stone and grass. Full of stone, it becomes a stack of bricks. Costs 3 planks."},
 		{"mode": Mode.STUMP, "category": "Construction", "label": "Stump with axe", "section": "Buildings", "short": "Stump", "hint": "Makes 3 planks of a log. Costs a log. Free units use it by themselves."},
 		{"mode": Mode.ROPE_MACHINE, "category": "Construction", "label": "Rope machine", "section": "Buildings", "short": "Rope", "hint": "Makes a rope of 2 sacks of grass. Costs 2 planks."},
-		{"mode": Mode.CUBE, "category": "Construction", "label": "Cube 1x1x1", "section": "Stone Blocks", "short": "Cube", "hint": "One stone cube (one half of a brick)."},
-		{"mode": Mode.BRICK, "category": "Construction", "label": "Brick 2x1x1", "section": "Stone Blocks", "short": "Brick", "hint": "One stone brick. Tap, or drag along the way it lies. Rotate with the turn button."},
-		{"mode": Mode.STAIRS, "category": "Construction", "label": "Stairs 2x1x1", "section": "Stone Blocks", "short": "Stairs", "hint": "A block of one half steps, one half whole. Drag the way it rises; tap uses the turn button."},
 		{"mode": Mode.DIG, "category": "Sandbox", "label": "Dig now", "short": "Dig now", "hint": "Dig a block at once (no units)."},
 		{"mode": Mode.VOXEL, "category": "Sandbox", "label": "Fill ground", "short": "Fill", "hint": "Fill a cell with ground at once."},
 		{"mode": Mode.STONE_BRICK, "category": "Sandbox", "label": "Free stone brick", "short": "Brick S", "hint": "Put a brick down at once."},

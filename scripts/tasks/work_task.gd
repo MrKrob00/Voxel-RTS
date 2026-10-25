@@ -17,6 +17,11 @@ func is_finished() -> bool:
 	return true
 
 
+## Whether this unit should go and fetch what the task needs (false when others already bring enough).
+func fetch_wanted(_unit: Unit) -> bool:
+	return true
+
+
 ## Whether the task has a card in the HUD's ribbon.
 func shown() -> bool:
 	return true

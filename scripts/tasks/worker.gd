@@ -36,6 +36,11 @@ func _init(u: Unit, t: WorkTask, b: TaskBoard) -> void:
 	unit.path_failed.connect(_on_failed)
 
 
+## What this worker is on its way to fetch (NONE when nothing).
+func fetching_kind() -> int:
+	return _fetch.get("kind", Resources.Kind.NONE)
+
+
 func detach() -> void:
 	if unit.arrived.is_connected(_on_arrived):
 		unit.arrived.disconnect(_on_arrived)
@@ -114,6 +119,9 @@ func _seek() -> void:
 	if not need.is_empty() and not (unit.carried_kind() == need.kind and unit.carried_amount() >= enough):
 		if unit.carried_amount() > 0 and unit.carried_kind() != need.kind:
 			_find_stockpile()   # something else in the hands: put it down first
+			return
+		if not task.fetch_wanted(unit):
+			_leave_or_wait()
 			return
 		_start_fetch(need)
 		return

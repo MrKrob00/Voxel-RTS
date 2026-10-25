@@ -181,6 +181,41 @@ func place_stairs(at: Vector3i, rise: Vector2i) -> WallPlan:
 	return plan
 
 
+## Plans one block of the catalog at `at`, lying along `dir` (a unit step in x or z; its sign is the way a slope or a stair rises).
+func place_block(id: String, at: Vector3i, dir: Vector2i) -> WallPlan:
+	last_error = ""
+	var d := BlockCatalog.get_def(id)
+	if d.is_empty():
+		last_error = "no such block"
+		return null
+	if d.get("special", "") == "stairs":
+		return place_stairs(at, dir)
+	if d.material == BlockCatalog.WOOD:
+		last_error = "wooden blocks are not built yet"
+		return null
+	var facing := 0 if dir == Vector2i(1, 0) else (1 if dir == Vector2i(0, 1) else (2 if dir == Vector2i(-1, 0) else 3))
+	var slots := WallPlan.block_layout(id, at, facing)
+	for c in slots[0].cells():
+		if not world.in_bounds(c) or Blocks.is_solid(world.get_block(c)) or bricks.occupied(c):
+			last_error = "something is in the way"
+		for p in stockpiles + blueprints + stations:
+			if p.covers(c):
+				last_error = "overlaps a building"
+		for w in walls:
+			if w.covers(c):
+				last_error = "overlaps another plan"
+	if last_error == "" and not bricks.can_place(at, slots[0].axis, d.length):
+		last_error = "needs flat whole ground or a block under it"
+	if last_error != "":
+		return null
+	var plan := WallPlan.new()
+	add_child(plan)
+	plan.build(at, slots[0].axis, d.length, 1, slots)
+	walls.append(plan)
+	changed.emit()
+	return plan
+
+
 func cancel_wall(plan: WallPlan) -> void:
 	walls.erase(plan)
 	plan.queue_free()

@@ -14,6 +14,7 @@ func _ready() -> void:
 	var task_rect: Array[int] = []        # --task=x0,z0,x1,z1[,depth]: mark an area to dig and put every unit on it (--nocollect: bring nothing home)
 	var tool_mode := -1                   # --tool=N: choose that Tools.Mode, --palette: open the tool palette
 	var palette := false
+	var demo := false                     # --demo-blocks: one of every block of the catalog on the ground near the spawn
 	var clock := -1.0                     # --time=0.75: freeze the day at that time (0 midnight, 0.5 noon)
 	var radial := false                   # --radial: the round menu of the first station
 	var blocks := false                   # --blocks: and the page of blocks
@@ -44,6 +45,8 @@ func _ready() -> void:
 			palette = true
 		elif a.begins_with("--time="):
 			clock = float(a.get_slice("=", 1))
+		elif a == "--demo-blocks":
+			demo = true
 		elif a == "--radial":
 			radial = true
 		elif a == "--blocks":
@@ -99,6 +102,21 @@ func _ready() -> void:
 		get_parent().day.day_seconds = 0.0
 		get_parent().day.time_of_day = clock
 		get_parent().day._apply()
+	if demo:
+		var main := get_parent()
+		var sp: Vector3i = main.world.spawn_point()
+		var n := 0
+		for d in BlockCatalog.all():
+			if d.parts.is_empty():
+				continue
+			var at := Vector3i(sp.x - 6 + (n % 8) * 3, sp.y + 1, sp.z + 3 + (n / 8) * 3)
+			for dz in 2:
+				for dx in 3:
+					main.world.set_block(Vector3i(at.x + dx, at.y - 1, at.z + dz), Blocks.make(Blocks.GRASS))
+			main.bricks.place(at, 0, BrickWorld.Kind.WOOD if d.material == BlockCatalog.WOOD else BrickWorld.Kind.STONE, d.length, d.id, 0)
+			n += 1
+		main.rig.focus = Vector3(sp.x + 6, sp.y, sp.z + 6)
+		main.rig.distance = 22.0
 	if radial and not get_parent().economy.stations.is_empty():
 		get_parent()._station_menu(get_parent().economy.stations[0])
 	if hud_node != null and palette:

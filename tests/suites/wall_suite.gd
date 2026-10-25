@@ -48,7 +48,7 @@ func run() -> void:
 
 	check(_board.place_wall(base + Vector3i(2, 0, 9), base + Vector3i(7, 0, 9), 3) != null, "a wall 6 cells long and 3 courses high is planned (%s)" % _economy.last_error)
 	var plan: WallPlan = _economy.walls[0]
-	check(plan.total_halves() == 18, "it needs 18 halves of stone: 3 + 4 + 3 bricks and four cubes in the offset course (%d)" % plan.total_halves())
+	check(plan.total_halves() == 20, "it needs 20 halves of stone, one block each: 3 + 4 + 3 bricks and four cubes in the offset course (%d)" % plan.total_halves())
 	check(_economy.place_wall(base + Vector3i(4, 0, 9), base + Vector3i(4, 0, 12), 1) == null and _economy.last_error.contains("overlaps"), "another wall cannot cross it (%s)" % _economy.last_error)
 	check(_economy.place_wall(base + Vector3i(2, 0, 9), base + Vector3i(2, 0, 9), 1) == null, "...nor start on the same cell")
 
@@ -94,7 +94,7 @@ func run() -> void:
 	var left := 0
 	for st in _economy.stockpiles:
 		left += st.count
-	check(left == 24 - 18, "6 of the 24 halves of stone are still in the stacks (%d)" % left)
+	check(left == 24 - 20, "4 of the 24 halves of stone are still in the stacks (%d)" % left)
 	_step(400)
 	for u in crew:
 		check(u.carried_amount() == 0 and u.is_idle() and _board.task_of(u) == null, "a unit is free and empty-handed again")
@@ -102,6 +102,7 @@ func run() -> void:
 	check(_economy.place_wall(base + Vector3i(2, 0, 13), base + Vector3i(13, 0, 13), 5) != null and _economy.walls[-1].courses == WallPlan.MAX_COURSES, "a taller wall is cut back to %d courses for now" % WallPlan.MAX_COURSES)
 
 	await _stairs_block(base, crew)
+	_catalog_blocks(base, crew)
 
 
 ## A stairs block: one 2x1x1 piece of half steps and half whole, built from two halves of stone, and walked over by a unit.
@@ -149,3 +150,32 @@ func _step(n: int) -> void:
 		_board._process(DT)
 		for u in _units.units:
 			u._process(DT)
+
+
+## The shapes of the catalog: every one has a mesh; some are planned, built and stand where they were put, each for one block of stone.
+func _catalog_blocks(base: Vector3i, crew: Array) -> void:
+	for d in BlockCatalog.all():
+		if d.parts.size() > 0:
+			var m := BlockCatalog.mesh(d.id)
+			check(m.get_surface_count() == 1 and m.surface_get_array_len(0) >= 24, "the %s has a mesh (%d vertices)" % [d.id, m.surface_get_array_len(0)])
+	for i in 2:
+		var st := _economy.place_stockpile(base + Vector3i(2 + i * 3, 0, 17), Stockpile.Style.STACK)
+		st.add(Resources.Kind.BRICK, 8)
+	var ids := ["ramp", "pillar", "plug_side", "round_brick", "merlon", "pyramid"]
+	var plans: Array[WallPlan] = []
+	for i in ids.size():
+		var plan := _board.place_block(ids[i], base + Vector3i(2 + i * 3, 0, 14), Vector2i(1, 0))
+		check(plan != null, "a %s is planned (%s)" % [ids[i], _economy.last_error])
+		if plan != null:
+			check(plan.total_halves() == 2, "...for one block of stone whatever its shape")
+			plans.append(plan)
+	check(_board.place_block("log", base + Vector3i(2, 0, 11), Vector2i(1, 0)) == null, "a wooden block is not built yet (%s)" % _economy.last_error)
+	var ticks := 0
+	while ticks < 4000 and not plans.all(func(p: WallPlan) -> bool: return p.is_done()):
+		_step(1)
+		ticks += 1
+	check(plans.all(func(p: WallPlan) -> bool: return p.is_done()), "all of them are built (%.0f s)" % (ticks * DT))
+	var ramp := _bricks.brick_at(base + Vector3i(2, 0, 14))
+	check(ramp != null and ramp.shape == "ramp" and ramp.length == 2, "the ramp stands, two cells long, with its own shape")
+	var pillar := _bricks.brick_at(base + Vector3i(5, 0, 14))
+	check(pillar != null and pillar.shape == "pillar" and pillar.length == 1, "the pillar stands, one cell")

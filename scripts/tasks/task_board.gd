@@ -227,6 +227,15 @@ func place_stairs(at: Vector3i, rise: Vector2i) -> WallPlan:
 	return plan
 
 
+## One block of the catalog as a plan with its job.
+func place_block(id: String, at: Vector3i, dir: Vector2i) -> WallPlan:
+	var plan := economy.place_block(id, at, dir)
+	if plan == null:
+		return null
+	add_task(WallTask.new(plan), false)
+	return plan
+
+
 func cancel_wall(plan: WallPlan) -> void:
 	for t in tasks.duplicate():
 		if t is WallTask and t.plan == plan:
@@ -284,6 +293,20 @@ func unassign(u: Unit) -> void:
 	w.task.workers.erase(u)
 	_workers.erase(u)
 	changed.emit()
+
+
+## How many loads of `amount` of `kind` the workers of a task already have in their hands or are on the way to fetch.
+func supplies_coming(t: WorkTask, kind: int, amount: int, except: Unit = null) -> int:
+	var n := 0
+	for u in t.workers:
+		if u == except:
+			continue
+		var w: Worker = _workers.get(u)
+		if u.carried_kind() == kind and u.carried_amount() >= amount:
+			n += 1
+		elif w != null and (w.state == Worker.State.GO_FETCH or w.state == Worker.State.TAKE) and w.fetching_kind() == kind:
+			n += 1
+	return n
 
 
 ## A stump that is free to take a log right now and has room to put the planks: its task, or null.

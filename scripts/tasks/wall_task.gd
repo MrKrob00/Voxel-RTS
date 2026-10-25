@@ -33,7 +33,16 @@ func detail() -> String:
 func input_needed() -> Dictionary:
 	if is_finished():
 		return {}
-	return {"kind": Resources.Kind.BRICK, "amount": 2, "min": 1}
+	return {"kind": Resources.Kind.BRICK, "amount": 2}
+
+
+## Nobody fetches more stone than the slots still to lay need (a leftover block would have nowhere to go once the stack is empty).
+func fetch_wanted(unit: Unit) -> bool:
+	var undone := 0
+	for s in plan.slots:
+		if not s.done:
+			undone += 1
+	return board == null or board.supplies_coming(self, Resources.Kind.BRICK, 2, unit) < undone
 
 
 ## Can this slot be laid right now: free of other claims, and something to rest on.
@@ -100,16 +109,9 @@ func claim(unit: Unit, from: Vector3i, _now: float) -> Variant:
 	return best
 
 
-## A whole brick is kept while the wall is not done (the slots above will open). A lone half only while a cube is still to be laid.
+## The block of stone is kept while the plan is not done (the slots above will open).
 func keeps_load(unit: Unit) -> bool:
-	if is_finished() or unit.carried_kind() != Resources.Kind.BRICK:
-		return false
-	if unit.carried_amount() >= 2:
-		return true
-	for s in plan.slots:
-		if not s.done and s.length == 1:
-			return true
-	return false
+	return not is_finished() and unit.carried_kind() == Resources.Kind.BRICK and unit.carried_amount() >= 2
 
 
 func release(target: Variant, retry_after := 0.0) -> void:
@@ -174,7 +176,8 @@ func perform(target: Variant, brd: TaskBoard, unit: Unit = null) -> Dictionary:
 		var rest := unit.carried_amount() - s.halves()
 		unit.carry(Resources.Kind.BRICK if rest > 0 else Resources.Kind.NONE, rest)
 		return {"done": true}
-	var placed := brd.economy.bricks.place(s.origin, s.axis, BrickWorld.Kind.STONE, s.length)
+	var wood: bool = s.shape != "" and BlockCatalog.get_def(s.shape).material == BlockCatalog.WOOD
+	var placed := brd.economy.bricks.place(s.origin, s.axis, BrickWorld.Kind.WOOD if wood else BrickWorld.Kind.STONE, s.length, s.shape, s.facing)
 	if placed == null:
 		return {"done": false}
 	plan.mark_done(s)

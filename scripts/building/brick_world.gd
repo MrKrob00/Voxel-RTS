@@ -22,6 +22,8 @@ class Brick extends RefCounted:
 	var axis: int      ## long brick only. 0: spans origin and origin + X, 1: spans origin and origin + Z
 	var length: int    ## 2 = long brick, 1 = cube
 	var kind: int
+	var shape := ""    ## the id of a BlockCatalog shape ("" for the plain brick and cube)
+	var facing := 0    ## 0..3: which way the length / the slope points (+x, +z, -x, -z)
 	var node: MeshInstance3D
 
 	func cells() -> Array[Vector3i]:
@@ -140,7 +142,7 @@ func can_place(origin: Vector3i, axis: int, length: int = 2) -> bool:
 
 # --- building ---------------------------------------------------------------------------------------
 
-func place(origin: Vector3i, axis: int, kind: int = Kind.STONE, length: int = 2) -> Brick:
+func place(origin: Vector3i, axis: int, kind: int = Kind.STONE, length: int = 2, shape := "", facing := -1) -> Brick:
 	if not can_place(origin, axis, length):
 		return null
 	var b := Brick.new()
@@ -150,11 +152,13 @@ func place(origin: Vector3i, axis: int, kind: int = Kind.STONE, length: int = 2)
 	b.axis = axis
 	b.length = length
 	b.kind = kind
+	b.shape = shape
+	b.facing = facing if facing >= 0 else axis
 	for c in b.cells():
 		_cells[c] = b
 	_bricks[b.id] = b
 	b.node = MeshInstance3D.new()
-	b.node.mesh = _meshes[length]
+	b.node.mesh = _meshes[length] if shape == "" else BlockCatalog.mesh(shape)
 	b.node.material_override = _materials[kind]
 	b.node.transform = _transform_for(b)
 	add_child(b.node)
@@ -174,6 +178,8 @@ func _trample(b: Brick) -> void:
 
 
 func _transform_for(b: Brick) -> Transform3D:
+	if b.shape != "":
+		return Transform3D(Basis(Vector3.UP, -b.facing * PI * 0.5), b.center())
 	var turned := b.length == 2 and b.axis == 1
 	return Transform3D(Basis(Vector3.UP, PI * 0.5 if turned else 0.0), b.center())
 

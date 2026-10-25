@@ -165,11 +165,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func _rotate_brick() -> void:
-	brick_axis = 1 - brick_axis
+	brick_axis = (brick_axis + 1) % 4   # 0..3: +x, +z, -x, -z (the sandbox bricks use only the axis)
 
 
 func _is_brick_mode() -> bool:
-	return mode >= Tools.Mode.STONE_BRICK
+	return mode in [Tools.Mode.STONE_BRICK, Tools.Mode.STONE_CUBE, Tools.Mode.WOOD_BRICK, Tools.Mode.WOOD_CUBE]
 
 
 func _brick_length() -> int:
@@ -306,9 +306,9 @@ func _update_hover() -> void:
 		_ghost.visible = true
 		var length := _brick_length()
 		(_ghost.mesh as BoxMesh).size = Vector3(length, 1, 1) * 1.02
-		var turned := length == 2 and brick_axis == 1
-		_ghost.transform = Transform3D(Basis(Vector3.UP, PI * 0.5 if turned else 0.0), BrickWorld.center_for(origin, brick_axis, length))
-		var ok := bricks.can_place(origin, brick_axis, length)
+		var turned := length == 2 and brick_axis % 2 == 1
+		_ghost.transform = Transform3D(Basis(Vector3.UP, PI * 0.5 if turned else 0.0), BrickWorld.center_for(origin, brick_axis % 2, length))
+		var ok := bricks.can_place(origin, brick_axis % 2, length)
 		_ghost_mat.albedo_color = Color(0.2, 0.9, 0.9, 0.45) if ok else Color(0.95, 0.2, 0.2, 0.5)
 
 
@@ -363,6 +363,9 @@ func _on_primary(pos: Vector2) -> void:
 	var hit := _pick(pos)
 	if hit.is_empty():
 		return
+	if Tools.is_block(mode):
+		_plan_block(hit, _axis_step())
+		return
 	match mode:
 		Tools.Mode.SELECT:
 			var st := _station_at(hit)
@@ -380,14 +383,6 @@ func _on_primary(pos: Vector2) -> void:
 			_place_stockpile(hit)
 		Tools.Mode.STUMP, Tools.Mode.ROPE_MACHINE:
 			_place_station(hit)
-		Tools.Mode.WALL:
-			_plan_wall(hit, hit)
-		Tools.Mode.CUBE:
-			_plan_wall(hit, hit, 1)
-		Tools.Mode.BRICK:
-			_plan_brick(hit, _axis_step())
-		Tools.Mode.STAIRS:
-			_plan_stairs(hit, _axis_step())
 		Tools.Mode.DIG:
 			if hit.brick:
 				bricks.remove(bricks.brick_at(hit.cell))
@@ -398,7 +393,7 @@ func _on_primary(pos: Vector2) -> void:
 			var target: Vector3i = hit.cell if not Blocks.is_whole(world.get_block(hit.cell)) else hit.cell + hit.normal
 			world.terrain.build(target, Blocks.STONE)
 		_:
-			bricks.place(hit.cell + hit.normal, brick_axis, _brick_kind(), _brick_length())
+			bricks.place(hit.cell + hit.normal, brick_axis % 2, _brick_kind(), _brick_length())
 
 
 ## Long press / right click: the command. Move the selection there; with nothing selected, in any tool mode, remove what is there.
@@ -435,7 +430,7 @@ func _on_box(rect: Rect2) -> void:
 
 ## Tools that are aimed by dragging from one point on the ground to another (the camera is moved with two fingers meanwhile).
 func _is_aim_tool() -> bool:
-	return mode in [Tools.Mode.MARK_DIG, Tools.Mode.MARK_TREES, Tools.Mode.MARK_GRASS, Tools.Mode.WALL, Tools.Mode.BRICK, Tools.Mode.STAIRS]
+	return Tools.is_block(mode) or mode in [Tools.Mode.MARK_DIG, Tools.Mode.MARK_TREES, Tools.Mode.MARK_GRASS]
 
 
 ## The finger moves: what the order would be, drawn through the blocks.
@@ -464,6 +459,12 @@ func _on_aim_finished(from: Vector2, to: Vector2) -> void:
 	var b := _pick(to)
 	if a.is_empty() or b.is_empty():
 		return
+	if Tools.is_block(mode):
+		# The way of the drag, along the longer side, says how the block lies / which way it rises.
+		var d := Vector2i(b.cell.x - a.cell.x, b.cell.z - a.cell.z)
+		var dir := (Vector2i(signi(d.x), 0) if absi(d.x) >= absi(d.y) else Vector2i(0, signi(d.y)))
+		_plan_block(a, _axis_step() if dir == Vector2i.ZERO else dir)
+		return
 	match mode:
 		Tools.Mode.MARK_DIG:
 			_mark_dig(mini(a.cell.x, b.cell.x), mini(a.cell.z, b.cell.z), maxi(a.cell.x, b.cell.x), maxi(a.cell.z, b.cell.z))
@@ -471,18 +472,6 @@ func _on_aim_finished(from: Vector2, to: Vector2) -> void:
 			_mark_harvest(HarvestTask.Kind.TREES, Vector2(a.cell.x + 0.5, a.cell.z + 0.5), _aim_radius(a, b))
 		Tools.Mode.MARK_GRASS:
 			_mark_harvest(HarvestTask.Kind.GRASS, Vector2(a.cell.x + 0.5, a.cell.z + 0.5), _aim_radius(a, b))
-		Tools.Mode.WALL:
-			_plan_wall(a, b)
-		Tools.Mode.BRICK, Tools.Mode.STAIRS:
-			# The way of the drag, along the longer side, says how the brick lies / which way the stairs rise.
-			var d := Vector2i(b.cell.x - a.cell.x, b.cell.z - a.cell.z)
-			var dir := (Vector2i(signi(d.x), 0) if absi(d.x) >= absi(d.y) else Vector2i(0, signi(d.y)))
-			if dir == Vector2i.ZERO:
-				dir = _axis_step()
-			if mode == Tools.Mode.BRICK:
-				_plan_brick(a, dir)
-			else:
-				_plan_stairs(a, dir)
 
 
 ## A standing harvest job over a circle: idle units come to it by themselves, and it stays until it is closed.
@@ -499,45 +488,26 @@ func _place_station(hit: Dictionary) -> void:
 
 
 func _set_depth(d: int) -> void:
-	var top := WallPlan.MAX_COURSES if mode == Tools.Mode.WALL else 12
-	_dig_depth = clampi(d, 1, top)
+	_dig_depth = clampi(d, 1, 12)
 	hud.set_level(_dig_depth)
 
 
 ## Plans a wall from the cell above the first point to the cell above the second, as many courses high as the level says (at most 3).
 func _axis_step() -> Vector2i:
-	return Vector2i(1, 0) if brick_axis == 0 else Vector2i(0, 1)
+	return [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)][brick_axis]
 
 
 func _cell_above(hit: Dictionary) -> Vector3i:
 	return hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
 
 
-## One stone brick 2 x 1 x 1, lying along `dir` (a unit step in x or z) from the cell above the point.
-func _plan_brick(a: Dictionary, dir: Vector2i) -> void:
-	if a.brick:
+## One block of the catalog on the cell above the point, lying along `dir`.
+func _plan_block(a: Dictionary, dir: Vector2i) -> void:
+	if a.brick and not Tools.is_block(mode):
 		return
-	var from := _cell_above(a)
-	if board.place_wall(from, from + Vector3i(dir.x, 0, dir.y), 1) == null:
-		hud.show_message("Cannot plan a brick here: " + economy.last_error)
-
-
-## A stair block 2 x 1 x 1: steps in the cell above the point, rising `dir` towards a whole stone cube.
-func _plan_stairs(a: Dictionary, dir: Vector2i) -> void:
-	if a.brick:
-		return
-	if board.place_stairs(_cell_above(a), dir) == null:
-		hud.show_message("Cannot plan stairs here: " + economy.last_error)
-
-
-func _plan_wall(a: Dictionary, b: Dictionary, height := -1) -> void:
-	if a.brick or b.brick:
-		return
-	var from: Vector3i = a.cell + a.normal if not Blocks.is_partial(world.get_block(a.cell)) else a.cell
-	var to_cell: Vector3i = b.cell + b.normal if not Blocks.is_partial(world.get_block(b.cell)) else b.cell
-	to_cell.y = from.y
-	if board.place_wall(from, to_cell, _dig_depth if height < 0 else height) == null:
-		hud.show_message("Cannot plan a wall here: " + economy.last_error)
+	var id := Tools.block_of(mode)
+	if board.place_block(id, _cell_above(a), dir) == null:
+		hud.show_message("Cannot plan it here: " + economy.last_error)
 
 
 func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:

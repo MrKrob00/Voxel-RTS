@@ -10,6 +10,8 @@ class Slot extends RefCounted:
 	var axis: int          # 0: the brick spans origin and origin + X, 1: origin and origin + Z
 	var length: int        # 2 (a brick) or 1 (a cube)
 	var kind := "brick"    # "brick" (a brick or cube) or "stairs" (a stair piece in `origin` rising towards a cube next to it)
+	var shape := ""        # a BlockCatalog shape ("" is a plain brick or cube)
+	var facing := -1       # 0..3 (+x, +z, -x, -z); -1: along the axis
 	var rise := Vector2i.ZERO
 	var course: int
 	var col := 0           # how many cells from the start of the wall (the entry end) its first cell is
@@ -18,8 +20,9 @@ class Slot extends RefCounted:
 	var blocked_until := 0.0   ## nobody could get to it: not tried again before this time
 	var ghost: MeshInstance3D
 
+	## What it costs, in halves of a brick: one whole block of stone, whatever the shape (a cube costs as much as a brick).
 	func halves() -> int:
-		return 2 if kind == "stairs" else length
+		return 2
 
 	func cells() -> Array[Vector3i]:
 		if kind == "stairs":
@@ -66,6 +69,16 @@ static func stairs_layout(at: Vector3i, rise: Vector2i) -> Array[Slot]:
 	var s := _slot(at, 0 if rise.x != 0 else 1, 2, 0)
 	s.kind = "stairs"
 	s.rise = rise
+	var out: Array[Slot] = [s]
+	return out
+
+
+## One block of the catalog.
+static func block_layout(id: String, origin_cell: Vector3i, facing: int) -> Array[Slot]:
+	var d := BlockCatalog.get_def(id)
+	var s := _slot(origin_cell, 0 if facing % 2 == 0 else 1, d.length, 0)
+	s.shape = id
+	s.facing = facing
 	var out: Array[Slot] = [s]
 	return out
 
@@ -122,9 +135,13 @@ func build(first_cell: Vector3i, axis: int, length: int, height: int, prepared: 
 	m.albedo_color = Color(0.35, 0.65, 1.0, 0.38)
 	for s in slots:
 		var g := MeshInstance3D.new()
-		var box := BoxMesh.new()
-		box.size = (Vector3(2, 1, 1) if s.axis == 0 else Vector3(1, 1, 2)) * 0.96 if s.length == 2 else Vector3.ONE * 0.96
-		g.mesh = box
+		if s.shape != "":
+			g.mesh = BlockCatalog.mesh(s.shape)
+			g.basis = Basis(Vector3.UP, -s.facing * PI * 0.5)
+		else:
+			var box := BoxMesh.new()
+			box.size = (Vector3(2, 1, 1) if s.axis == 0 else Vector3(1, 1, 2)) * 0.96 if s.length == 2 else Vector3.ONE * 0.96
+			g.mesh = box
 		g.material_override = m
 		var cs := s.cells()
 		g.position = (Vector3(cs[0]) + Vector3(cs[-1]) + Vector3(1, 1, 1)) * 0.5 - position

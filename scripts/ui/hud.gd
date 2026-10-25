@@ -146,7 +146,7 @@ func set_tasks(tasks: Array) -> void:
 		_ribbon.add_child(_task_card(t))
 	if tasks.is_empty():
 		var hint := Label.new()
-		hint.text = "No tasks. Pick a category at the left edge."
+		hint.text = "No tasks. Press + to start one."
 		hint.modulate = Color(1, 1, 1, 0.55)
 		_ribbon.add_child(hint)
 
@@ -163,10 +163,10 @@ func set_tool(mode: int) -> void:
 	_level_row.visible = false          # the level is chosen on the picker at the screen edge
 	_picker.visible = d.get("level", false)
 	_picker.caption = d.get("level_name", "level").capitalize()
-	_picker.levels = 3 if mode == Tools.Mode.WALL else 12
+	_picker.levels = 12
 	_level_name = d.get("level_name", "level")
 	_refresh_level()
-	_turn_button.visible = mode in [Tools.Mode.BRICK, Tools.Mode.STAIRS, Tools.Mode.STONE_BRICK, Tools.Mode.WOOD_BRICK]
+	_turn_button.visible = Tools.is_block(mode) or mode in [Tools.Mode.STONE_BRICK, Tools.Mode.WOOD_BRICK]
 	_set_palette(false)
 	_relayout()
 	_relayout.call_deferred()   # the labels settle their height one frame later
@@ -355,6 +355,7 @@ func _tile(d: Dictionary) -> ToolTile:
 	var b := ToolTile.new().setup(d.mode, d.get("short", d.label))
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.tooltip_text = d.label + ": " + d.hint
+	b.disabled = not d.get("enabled", true)
 	b.pressed.connect(func() -> void: tool_chosen.emit(d.mode))
 	return b
 
