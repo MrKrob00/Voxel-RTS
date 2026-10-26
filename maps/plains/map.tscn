@@ -307,1226 +307,1226 @@
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_12_2_2.res" id="305_36o3o"]
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_11_2_2.res" id="306_82vrw"]
 
-[node name="BakedMap" type="Node3D" unique_id=1278094864]
+[node name="BakedMap" type="Node3D" unique_id=936735237]
 
-[node name="Chunk_14_3_15" type="MeshInstance3D" parent="." unique_id=1506504812]
+[node name="Chunk_14_3_15" type="MeshInstance3D" parent="." unique_id=148990299]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 48, 240)
 mesh = ExtResource("1_x58nt")
 
-[node name="Chunk_14_2_14" type="MeshInstance3D" parent="." unique_id=1984902318]
+[node name="Chunk_14_2_14" type="MeshInstance3D" parent="." unique_id=1252793678]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 224)
 mesh = ExtResource("2_6r3mu")
 
-[node name="Chunk_15_3_13" type="MeshInstance3D" parent="." unique_id=830389030]
+[node name="Chunk_15_3_13" type="MeshInstance3D" parent="." unique_id=1107760502]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 208)
 mesh = ExtResource("3_qum1s")
 
-[node name="Chunk_13_3_15" type="MeshInstance3D" parent="." unique_id=1837665889]
+[node name="Chunk_13_3_15" type="MeshInstance3D" parent="." unique_id=248991741]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 240)
 mesh = ExtResource("4_wofuo")
 
-[node name="Chunk_15_3_15" type="MeshInstance3D" parent="." unique_id=1408583394]
+[node name="Chunk_15_3_15" type="MeshInstance3D" parent="." unique_id=866455875]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 240)
 mesh = ExtResource("5_1n1qk")
 
-[node name="Chunk_13_2_14" type="MeshInstance3D" parent="." unique_id=1470194519]
+[node name="Chunk_13_2_14" type="MeshInstance3D" parent="." unique_id=1060151888]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 224)
 mesh = ExtResource("6_a68t7")
 
-[node name="Chunk_14_2_13" type="MeshInstance3D" parent="." unique_id=1682852994]
+[node name="Chunk_14_2_13" type="MeshInstance3D" parent="." unique_id=1230453511]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 208)
 mesh = ExtResource("7_4rtwr")
 
-[node name="Chunk_14_2_15" type="MeshInstance3D" parent="." unique_id=117030615]
+[node name="Chunk_14_2_15" type="MeshInstance3D" parent="." unique_id=1745187549]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 240)
 mesh = ExtResource("8_to153")
 
-[node name="Chunk_15_2_14" type="MeshInstance3D" parent="." unique_id=1154577466]
+[node name="Chunk_15_2_14" type="MeshInstance3D" parent="." unique_id=1811732867]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 224)
 mesh = ExtResource("9_fme73")
 
-[node name="Chunk_12_3_14" type="MeshInstance3D" parent="." unique_id=724656972]
+[node name="Chunk_12_3_14" type="MeshInstance3D" parent="." unique_id=486153749]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 224)
 mesh = ExtResource("10_xjls8")
 
-[node name="Chunk_14_3_16" type="MeshInstance3D" parent="." unique_id=1320208349]
+[node name="Chunk_14_3_16" type="MeshInstance3D" parent="." unique_id=312428133]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 48, 256)
 mesh = ExtResource("11_k4aah")
 
-[node name="Chunk_14_3_12" type="MeshInstance3D" parent="." unique_id=1990811316]
+[node name="Chunk_14_3_12" type="MeshInstance3D" parent="." unique_id=675504779]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 48, 192)
 mesh = ExtResource("12_brhqh")
 
-[node name="Chunk_13_2_15" type="MeshInstance3D" parent="." unique_id=2048087536]
+[node name="Chunk_13_2_15" type="MeshInstance3D" parent="." unique_id=21460885]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 240)
 mesh = ExtResource("13_w3fcm")
 
-[node name="Chunk_15_2_15" type="MeshInstance3D" parent="." unique_id=1344090674]
+[node name="Chunk_15_2_15" type="MeshInstance3D" parent="." unique_id=68662552]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 240)
 mesh = ExtResource("14_gru6k")
 
-[node name="Chunk_15_2_13" type="MeshInstance3D" parent="." unique_id=1812456620]
+[node name="Chunk_15_2_13" type="MeshInstance3D" parent="." unique_id=1632288200]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 208)
 mesh = ExtResource("15_ccefu")
 
-[node name="Chunk_13_2_13" type="MeshInstance3D" parent="." unique_id=338415778]
+[node name="Chunk_13_2_13" type="MeshInstance3D" parent="." unique_id=256331465]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 208)
 mesh = ExtResource("16_1hemr")
 
-[node name="Chunk_14_0_14" type="MeshInstance3D" parent="." unique_id=204881642]
+[node name="Chunk_14_0_14" type="MeshInstance3D" parent="." unique_id=2143796244]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 0, 224)
 mesh = ExtResource("17_qu0p5")
 
-[node name="Chunk_14_1_14" type="MeshInstance3D" parent="." unique_id=2042208532]
+[node name="Chunk_14_1_14" type="MeshInstance3D" parent="." unique_id=1525457590]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 224)
 mesh = ExtResource("18_sdkl2")
 
-[node name="Chunk_15_3_16" type="MeshInstance3D" parent="." unique_id=1452674280]
+[node name="Chunk_15_3_16" type="MeshInstance3D" parent="." unique_id=643000081]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 256)
 mesh = ExtResource("19_ndwoa")
 
-[node name="Chunk_12_3_13" type="MeshInstance3D" parent="." unique_id=1070326375]
+[node name="Chunk_12_3_13" type="MeshInstance3D" parent="." unique_id=1007895500]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 208)
 mesh = ExtResource("20_fci00")
 
-[node name="Chunk_15_3_12" type="MeshInstance3D" parent="." unique_id=178514882]
+[node name="Chunk_15_3_12" type="MeshInstance3D" parent="." unique_id=49019472]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 192)
 mesh = ExtResource("21_hw6qy")
 
-[node name="Chunk_13_3_12" type="MeshInstance3D" parent="." unique_id=1272523393]
+[node name="Chunk_13_3_12" type="MeshInstance3D" parent="." unique_id=1495187214]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 192)
 mesh = ExtResource("22_uf30i")
 
-[node name="Chunk_16_3_13" type="MeshInstance3D" parent="." unique_id=750906016]
+[node name="Chunk_16_3_13" type="MeshInstance3D" parent="." unique_id=740352655]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 48, 208)
 mesh = ExtResource("23_8d2r4")
 
-[node name="Chunk_12_3_15" type="MeshInstance3D" parent="." unique_id=132526677]
+[node name="Chunk_12_3_15" type="MeshInstance3D" parent="." unique_id=404926332]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 240)
 mesh = ExtResource("24_b8ce0")
 
-[node name="Chunk_13_3_16" type="MeshInstance3D" parent="." unique_id=726891598]
+[node name="Chunk_13_3_16" type="MeshInstance3D" parent="." unique_id=934438713]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 256)
 mesh = ExtResource("25_y5ip3")
 
-[node name="Chunk_16_3_15" type="MeshInstance3D" parent="." unique_id=493112802]
+[node name="Chunk_16_3_15" type="MeshInstance3D" parent="." unique_id=887805310]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 48, 240)
 mesh = ExtResource("26_f0jm8")
 
-[node name="Chunk_14_2_16" type="MeshInstance3D" parent="." unique_id=1322823105]
+[node name="Chunk_14_2_16" type="MeshInstance3D" parent="." unique_id=115753483]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 256)
 mesh = ExtResource("27_tg5tb")
 
-[node name="Chunk_16_2_14" type="MeshInstance3D" parent="." unique_id=1586842556]
+[node name="Chunk_16_2_14" type="MeshInstance3D" parent="." unique_id=1270545262]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 224)
 mesh = ExtResource("28_3xafv")
 
-[node name="Chunk_12_2_14" type="MeshInstance3D" parent="." unique_id=445721066]
+[node name="Chunk_12_2_14" type="MeshInstance3D" parent="." unique_id=1009850056]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 224)
 mesh = ExtResource("29_cn64b")
 
-[node name="Chunk_14_2_12" type="MeshInstance3D" parent="." unique_id=119511262]
+[node name="Chunk_14_2_12" type="MeshInstance3D" parent="." unique_id=1608338212]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 192)
 mesh = ExtResource("30_j0qxy")
 
-[node name="Chunk_15_1_14" type="MeshInstance3D" parent="." unique_id=532049051]
+[node name="Chunk_15_1_14" type="MeshInstance3D" parent="." unique_id=1293002584]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 16, 224)
 mesh = ExtResource("31_443i2")
 
-[node name="Chunk_14_1_15" type="MeshInstance3D" parent="." unique_id=842494337]
+[node name="Chunk_14_1_15" type="MeshInstance3D" parent="." unique_id=1798146520]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 240)
 mesh = ExtResource("32_bnqls")
 
-[node name="Chunk_13_0_14" type="MeshInstance3D" parent="." unique_id=844998709]
+[node name="Chunk_13_0_14" type="MeshInstance3D" parent="." unique_id=15123970]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 0, 224)
 mesh = ExtResource("33_wosnc")
 
-[node name="Chunk_13_1_14" type="MeshInstance3D" parent="." unique_id=234203450]
+[node name="Chunk_13_1_14" type="MeshInstance3D" parent="." unique_id=602286809]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 224)
 mesh = ExtResource("34_j8gig")
 
-[node name="Chunk_14_0_13" type="MeshInstance3D" parent="." unique_id=2095008261]
+[node name="Chunk_14_0_13" type="MeshInstance3D" parent="." unique_id=1760184745]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 0, 208)
 mesh = ExtResource("35_rgx8k")
 
-[node name="Chunk_14_1_13" type="MeshInstance3D" parent="." unique_id=1474472184]
+[node name="Chunk_14_1_13" type="MeshInstance3D" parent="." unique_id=1469098451]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 208)
 mesh = ExtResource("36_30xdm")
 
-[node name="Chunk_14_3_17" type="MeshInstance3D" parent="." unique_id=952886226]
+[node name="Chunk_14_3_17" type="MeshInstance3D" parent="." unique_id=331266889]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 48, 272)
 mesh = ExtResource("37_aataj")
 
-[node name="Chunk_11_3_14" type="MeshInstance3D" parent="." unique_id=1840881025]
+[node name="Chunk_11_3_14" type="MeshInstance3D" parent="." unique_id=1198905132]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 224)
 mesh = ExtResource("38_va51g")
 
-[node name="Chunk_17_3_14" type="MeshInstance3D" parent="." unique_id=1624629133]
+[node name="Chunk_17_3_14" type="MeshInstance3D" parent="." unique_id=840758534]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 48, 224)
 mesh = ExtResource("39_8mxp2")
 
-[node name="Chunk_15_2_16" type="MeshInstance3D" parent="." unique_id=1389175087]
+[node name="Chunk_15_2_16" type="MeshInstance3D" parent="." unique_id=1791525869]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 256)
 mesh = ExtResource("40_qfiso")
 
-[node name="Chunk_13_2_16" type="MeshInstance3D" parent="." unique_id=675742968]
+[node name="Chunk_13_2_16" type="MeshInstance3D" parent="." unique_id=1185520307]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 256)
 mesh = ExtResource("41_w8a25")
 
-[node name="Chunk_16_2_15" type="MeshInstance3D" parent="." unique_id=1197554928]
+[node name="Chunk_16_2_15" type="MeshInstance3D" parent="." unique_id=1855297492]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 240)
 mesh = ExtResource("42_eejif")
 
-[node name="Chunk_12_2_15" type="MeshInstance3D" parent="." unique_id=1819848207]
+[node name="Chunk_12_2_15" type="MeshInstance3D" parent="." unique_id=702729792]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 240)
 mesh = ExtResource("43_v5ny7")
 
-[node name="Chunk_13_2_12" type="MeshInstance3D" parent="." unique_id=64838930]
+[node name="Chunk_13_2_12" type="MeshInstance3D" parent="." unique_id=438198059]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 192)
 mesh = ExtResource("44_3u4nx")
 
-[node name="Chunk_12_2_13" type="MeshInstance3D" parent="." unique_id=1252768956]
+[node name="Chunk_12_2_13" type="MeshInstance3D" parent="." unique_id=176411392]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 208)
 mesh = ExtResource("45_t6in1")
 
-[node name="Chunk_14_3_11" type="MeshInstance3D" parent="." unique_id=821591686]
+[node name="Chunk_14_3_11" type="MeshInstance3D" parent="." unique_id=541143517]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 48, 176)
 mesh = ExtResource("46_0bdp5")
 
-[node name="Chunk_15_2_12" type="MeshInstance3D" parent="." unique_id=1778898683]
+[node name="Chunk_15_2_12" type="MeshInstance3D" parent="." unique_id=1271631388]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 192)
 mesh = ExtResource("47_j4qq6")
 
-[node name="Chunk_16_2_13" type="MeshInstance3D" parent="." unique_id=1648474125]
+[node name="Chunk_16_2_13" type="MeshInstance3D" parent="." unique_id=464637222]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 208)
 mesh = ExtResource("48_p7xqg")
 
-[node name="Chunk_15_1_15" type="MeshInstance3D" parent="." unique_id=786998687]
+[node name="Chunk_15_1_15" type="MeshInstance3D" parent="." unique_id=1163161837]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 16, 240)
 mesh = ExtResource("49_x6gkr")
 
-[node name="Chunk_12_3_12" type="MeshInstance3D" parent="." unique_id=80350495]
+[node name="Chunk_12_3_12" type="MeshInstance3D" parent="." unique_id=1650977712]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 192)
 mesh = ExtResource("50_6lo1r")
 
-[node name="Chunk_16_3_12" type="MeshInstance3D" parent="." unique_id=1016232799]
+[node name="Chunk_16_3_12" type="MeshInstance3D" parent="." unique_id=1611345986]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 48, 192)
 mesh = ExtResource("51_qkrtk")
 
-[node name="Chunk_13_1_15" type="MeshInstance3D" parent="." unique_id=1930564876]
+[node name="Chunk_13_1_15" type="MeshInstance3D" parent="." unique_id=1115719566]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 240)
 mesh = ExtResource("52_fml8l")
 
-[node name="Chunk_16_3_16" type="MeshInstance3D" parent="." unique_id=1893112642]
+[node name="Chunk_16_3_16" type="MeshInstance3D" parent="." unique_id=338422933]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 48, 256)
 mesh = ExtResource("53_7erup")
 
-[node name="Chunk_12_3_16" type="MeshInstance3D" parent="." unique_id=1872773240]
+[node name="Chunk_12_3_16" type="MeshInstance3D" parent="." unique_id=1175726693]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 256)
 mesh = ExtResource("54_6e8vs")
 
-[node name="Chunk_15_1_13" type="MeshInstance3D" parent="." unique_id=1152285591]
+[node name="Chunk_15_1_13" type="MeshInstance3D" parent="." unique_id=761810884]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 16, 208)
 mesh = ExtResource("55_uorus")
 
-[node name="Chunk_13_0_13" type="MeshInstance3D" parent="." unique_id=705952368]
+[node name="Chunk_13_0_13" type="MeshInstance3D" parent="." unique_id=476558173]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 0, 208)
 mesh = ExtResource("56_rgjyx")
 
-[node name="Chunk_13_1_13" type="MeshInstance3D" parent="." unique_id=40136023]
+[node name="Chunk_13_1_13" type="MeshInstance3D" parent="." unique_id=990943019]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 208)
 mesh = ExtResource("57_r7j4v")
 
-[node name="Chunk_15_3_11" type="MeshInstance3D" parent="." unique_id=832361126]
+[node name="Chunk_15_3_11" type="MeshInstance3D" parent="." unique_id=891903986]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 176)
 mesh = ExtResource("58_xuyfk")
 
-[node name="Chunk_11_3_13" type="MeshInstance3D" parent="." unique_id=1355728278]
+[node name="Chunk_11_3_13" type="MeshInstance3D" parent="." unique_id=2121617429]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 208)
 mesh = ExtResource("59_iec4n")
 
-[node name="Chunk_13_3_11" type="MeshInstance3D" parent="." unique_id=1731553608]
+[node name="Chunk_13_3_11" type="MeshInstance3D" parent="." unique_id=308990955]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 176)
 mesh = ExtResource("60_43csy")
 
-[node name="Chunk_17_3_13" type="MeshInstance3D" parent="." unique_id=1770385973]
+[node name="Chunk_17_3_13" type="MeshInstance3D" parent="." unique_id=421686825]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 48, 208)
 mesh = ExtResource("61_8oye2")
 
-[node name="Chunk_11_3_15" type="MeshInstance3D" parent="." unique_id=1252228533]
+[node name="Chunk_11_3_15" type="MeshInstance3D" parent="." unique_id=75417002]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 240)
 mesh = ExtResource("62_r3q5a")
 
-[node name="Chunk_17_3_15" type="MeshInstance3D" parent="." unique_id=1874165471]
+[node name="Chunk_17_3_15" type="MeshInstance3D" parent="." unique_id=757255682]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 48, 240)
 mesh = ExtResource("63_nqaxg")
 
-[node name="Chunk_13_3_17" type="MeshInstance3D" parent="." unique_id=666190134]
+[node name="Chunk_13_3_17" type="MeshInstance3D" parent="." unique_id=1424197020]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 272)
 mesh = ExtResource("64_r1cil")
 
-[node name="Chunk_15_3_17" type="MeshInstance3D" parent="." unique_id=1578908201]
+[node name="Chunk_15_3_17" type="MeshInstance3D" parent="." unique_id=1715801076]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 272)
 mesh = ExtResource("65_rdefd")
 
-[node name="Chunk_14_1_16" type="MeshInstance3D" parent="." unique_id=2112185004]
+[node name="Chunk_14_1_16" type="MeshInstance3D" parent="." unique_id=1390415603]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 256)
 mesh = ExtResource("66_qdwtr")
 
-[node name="Chunk_16_1_14" type="MeshInstance3D" parent="." unique_id=900322853]
+[node name="Chunk_16_1_14" type="MeshInstance3D" parent="." unique_id=292634922]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 16, 224)
 mesh = ExtResource("67_7gmfw")
 
-[node name="Chunk_12_1_14" type="MeshInstance3D" parent="." unique_id=458169809]
+[node name="Chunk_12_1_14" type="MeshInstance3D" parent="." unique_id=202194496]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 224)
 mesh = ExtResource("68_kqkfc")
 
-[node name="Chunk_14_1_12" type="MeshInstance3D" parent="." unique_id=1349574423]
+[node name="Chunk_14_1_12" type="MeshInstance3D" parent="." unique_id=1341853196]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 192)
 mesh = ExtResource("69_qcesl")
 
-[node name="Chunk_14_2_17" type="MeshInstance3D" parent="." unique_id=276378962]
+[node name="Chunk_14_2_17" type="MeshInstance3D" parent="." unique_id=657015774]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 272)
 mesh = ExtResource("70_mkltw")
 
-[node name="Chunk_17_2_14" type="MeshInstance3D" parent="." unique_id=2111172257]
+[node name="Chunk_17_2_14" type="MeshInstance3D" parent="." unique_id=181507420]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 32, 224)
 mesh = ExtResource("71_yjxs1")
 
-[node name="Chunk_14_2_11" type="MeshInstance3D" parent="." unique_id=1030687688]
+[node name="Chunk_14_2_11" type="MeshInstance3D" parent="." unique_id=131270275]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 176)
 mesh = ExtResource("72_5okcl")
 
-[node name="Chunk_11_2_14" type="MeshInstance3D" parent="." unique_id=529741763]
+[node name="Chunk_11_2_14" type="MeshInstance3D" parent="." unique_id=140894177]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 224)
 mesh = ExtResource("73_0td3q")
 
-[node name="Chunk_12_2_16" type="MeshInstance3D" parent="." unique_id=1929553530]
+[node name="Chunk_12_2_16" type="MeshInstance3D" parent="." unique_id=979156650]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 256)
 mesh = ExtResource("74_yajwk")
 
-[node name="Chunk_16_2_16" type="MeshInstance3D" parent="." unique_id=1046432466]
+[node name="Chunk_16_2_16" type="MeshInstance3D" parent="." unique_id=1426605616]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 256)
 mesh = ExtResource("75_mtstp")
 
-[node name="Chunk_16_2_12" type="MeshInstance3D" parent="." unique_id=1913748423]
+[node name="Chunk_16_2_12" type="MeshInstance3D" parent="." unique_id=753758394]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 192)
 mesh = ExtResource("76_qbroy")
 
-[node name="Chunk_12_2_12" type="MeshInstance3D" parent="." unique_id=560937751]
+[node name="Chunk_12_2_12" type="MeshInstance3D" parent="." unique_id=909714153]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 192)
 mesh = ExtResource("77_3ppl4")
 
-[node name="Chunk_16_1_13" type="MeshInstance3D" parent="." unique_id=1687969137]
+[node name="Chunk_16_1_13" type="MeshInstance3D" parent="." unique_id=1944832142]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 16, 208)
 mesh = ExtResource("78_s8q3x")
 
-[node name="Chunk_16_1_15" type="MeshInstance3D" parent="." unique_id=729234208]
+[node name="Chunk_16_1_15" type="MeshInstance3D" parent="." unique_id=1157103627]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 16, 240)
 mesh = ExtResource("79_jmiks")
 
-[node name="Chunk_15_1_12" type="MeshInstance3D" parent="." unique_id=1544874188]
+[node name="Chunk_15_1_12" type="MeshInstance3D" parent="." unique_id=139652413]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 16, 192)
 mesh = ExtResource("80_w3mko")
 
-[node name="Chunk_12_1_15" type="MeshInstance3D" parent="." unique_id=499773285]
+[node name="Chunk_12_1_15" type="MeshInstance3D" parent="." unique_id=2079342834]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 240)
 mesh = ExtResource("81_8w8cm")
 
-[node name="Chunk_13_1_12" type="MeshInstance3D" parent="." unique_id=701804891]
+[node name="Chunk_13_1_12" type="MeshInstance3D" parent="." unique_id=4598760]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 192)
 mesh = ExtResource("82_8i167")
 
-[node name="Chunk_13_1_16" type="MeshInstance3D" parent="." unique_id=1774490277]
+[node name="Chunk_13_1_16" type="MeshInstance3D" parent="." unique_id=376734496]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 256)
 mesh = ExtResource("83_4487s")
 
-[node name="Chunk_12_1_13" type="MeshInstance3D" parent="." unique_id=1733293799]
+[node name="Chunk_12_1_13" type="MeshInstance3D" parent="." unique_id=1110792008]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 208)
 mesh = ExtResource("84_i2ha6")
 
-[node name="Chunk_15_1_16" type="MeshInstance3D" parent="." unique_id=664571213]
+[node name="Chunk_15_1_16" type="MeshInstance3D" parent="." unique_id=1559529651]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 16, 256)
 mesh = ExtResource("85_7gj22")
 
-[node name="Chunk_15_2_17" type="MeshInstance3D" parent="." unique_id=268573553]
+[node name="Chunk_15_2_17" type="MeshInstance3D" parent="." unique_id=1038674142]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 272)
 mesh = ExtResource("86_t5bju")
 
-[node name="Chunk_13_2_17" type="MeshInstance3D" parent="." unique_id=1441479421]
+[node name="Chunk_13_2_17" type="MeshInstance3D" parent="." unique_id=1263423958]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 272)
 mesh = ExtResource("87_atq70")
 
-[node name="Chunk_17_2_15" type="MeshInstance3D" parent="." unique_id=1473391591]
+[node name="Chunk_17_2_15" type="MeshInstance3D" parent="." unique_id=492205344]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 32, 240)
 mesh = ExtResource("88_ft04m")
 
-[node name="Chunk_11_2_15" type="MeshInstance3D" parent="." unique_id=501225014]
+[node name="Chunk_11_2_15" type="MeshInstance3D" parent="." unique_id=2042878130]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 240)
 mesh = ExtResource("89_jfpqc")
 
-[node name="Chunk_17_2_13" type="MeshInstance3D" parent="." unique_id=502160079]
+[node name="Chunk_17_2_13" type="MeshInstance3D" parent="." unique_id=1895633091]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 32, 208)
 mesh = ExtResource("90_rbcl0")
 
-[node name="Chunk_11_2_13" type="MeshInstance3D" parent="." unique_id=251346136]
+[node name="Chunk_11_2_13" type="MeshInstance3D" parent="." unique_id=2133786244]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 208)
 mesh = ExtResource("91_un7t2")
 
-[node name="Chunk_13_2_11" type="MeshInstance3D" parent="." unique_id=1490160746]
+[node name="Chunk_13_2_11" type="MeshInstance3D" parent="." unique_id=969988486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 176)
 mesh = ExtResource("92_254qp")
 
-[node name="Chunk_15_2_11" type="MeshInstance3D" parent="." unique_id=317723095]
+[node name="Chunk_15_2_11" type="MeshInstance3D" parent="." unique_id=389422556]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 176)
 mesh = ExtResource("93_7c4fx")
 
-[node name="Chunk_17_3_16" type="MeshInstance3D" parent="." unique_id=28587721]
+[node name="Chunk_17_3_16" type="MeshInstance3D" parent="." unique_id=36993211]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 48, 256)
 mesh = ExtResource("94_gxr2r")
 
-[node name="Chunk_12_3_17" type="MeshInstance3D" parent="." unique_id=1564180030]
+[node name="Chunk_12_3_17" type="MeshInstance3D" parent="." unique_id=863612752]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 272)
 mesh = ExtResource("95_ncbil")
 
-[node name="Chunk_16_3_17" type="MeshInstance3D" parent="." unique_id=1495706056]
+[node name="Chunk_16_3_17" type="MeshInstance3D" parent="." unique_id=1732801996]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 48, 272)
 mesh = ExtResource("96_0d4mj")
 
-[node name="Chunk_11_3_12" type="MeshInstance3D" parent="." unique_id=1066709957]
+[node name="Chunk_11_3_12" type="MeshInstance3D" parent="." unique_id=75264172]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 192)
 mesh = ExtResource("97_ldudr")
 
-[node name="Chunk_16_3_11" type="MeshInstance3D" parent="." unique_id=1461137544]
+[node name="Chunk_16_3_11" type="MeshInstance3D" parent="." unique_id=1645159757]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 48, 176)
 mesh = ExtResource("98_82dbh")
 
-[node name="Chunk_12_3_11" type="MeshInstance3D" parent="." unique_id=12073761]
+[node name="Chunk_12_3_11" type="MeshInstance3D" parent="." unique_id=755189859]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 176)
 mesh = ExtResource("99_k7uom")
 
-[node name="Chunk_11_3_16" type="MeshInstance3D" parent="." unique_id=1909999904]
+[node name="Chunk_11_3_16" type="MeshInstance3D" parent="." unique_id=1539772324]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 256)
 mesh = ExtResource("100_s66lk")
 
-[node name="Chunk_14_3_10" type="MeshInstance3D" parent="." unique_id=1946701107]
+[node name="Chunk_14_3_10" type="MeshInstance3D" parent="." unique_id=579025378]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 48, 160)
 mesh = ExtResource("101_4x8l8")
 
-[node name="Chunk_10_3_14" type="MeshInstance3D" parent="." unique_id=1897921675]
+[node name="Chunk_10_3_14" type="MeshInstance3D" parent="." unique_id=2012266554]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 48, 224)
 mesh = ExtResource("102_0ndsh")
 
-[node name="Chunk_18_3_14" type="MeshInstance3D" parent="." unique_id=1170522914]
+[node name="Chunk_18_3_14" type="MeshInstance3D" parent="." unique_id=812050195]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 288, 48, 224)
 mesh = ExtResource("103_yqnpk")
 
-[node name="Chunk_17_1_14" type="MeshInstance3D" parent="." unique_id=1573747197]
+[node name="Chunk_17_1_14" type="MeshInstance3D" parent="." unique_id=1275076157]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 16, 224)
 mesh = ExtResource("104_utti6")
 
-[node name="Chunk_14_1_17" type="MeshInstance3D" parent="." unique_id=1991930464]
+[node name="Chunk_14_1_17" type="MeshInstance3D" parent="." unique_id=1384628024]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 272)
 mesh = ExtResource("105_n2i8v")
 
-[node name="Chunk_14_1_11" type="MeshInstance3D" parent="." unique_id=893456813]
+[node name="Chunk_14_1_11" type="MeshInstance3D" parent="." unique_id=2001442722]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 176)
 mesh = ExtResource("106_lg2bv")
 
-[node name="Chunk_11_1_14" type="MeshInstance3D" parent="." unique_id=1510668462]
+[node name="Chunk_11_1_14" type="MeshInstance3D" parent="." unique_id=700015086]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 16, 224)
 mesh = ExtResource("107_fthko")
 
-[node name="Chunk_16_1_12" type="MeshInstance3D" parent="." unique_id=2064733705]
+[node name="Chunk_16_1_12" type="MeshInstance3D" parent="." unique_id=1165281233]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 16, 192)
 mesh = ExtResource("108_fd7ou")
 
-[node name="Chunk_16_1_16" type="MeshInstance3D" parent="." unique_id=968796601]
+[node name="Chunk_16_1_16" type="MeshInstance3D" parent="." unique_id=988844246]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 16, 256)
 mesh = ExtResource("109_rnbrc")
 
-[node name="Chunk_12_1_12" type="MeshInstance3D" parent="." unique_id=1236022806]
+[node name="Chunk_12_1_12" type="MeshInstance3D" parent="." unique_id=339636264]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 192)
 mesh = ExtResource("110_rurto")
 
-[node name="Chunk_12_1_16" type="MeshInstance3D" parent="." unique_id=2111357181]
+[node name="Chunk_12_1_16" type="MeshInstance3D" parent="." unique_id=1319627978]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 256)
 mesh = ExtResource("111_xiv7v")
 
-[node name="Chunk_11_2_16" type="MeshInstance3D" parent="." unique_id=1553182921]
+[node name="Chunk_11_2_16" type="MeshInstance3D" parent="." unique_id=1338621587]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 256)
 mesh = ExtResource("112_1esc8")
 
-[node name="Chunk_17_2_16" type="MeshInstance3D" parent="." unique_id=1917736185]
+[node name="Chunk_17_2_16" type="MeshInstance3D" parent="." unique_id=2040268242]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 32, 256)
 mesh = ExtResource("113_8g8v1")
 
-[node name="Chunk_12_2_17" type="MeshInstance3D" parent="." unique_id=345224153]
+[node name="Chunk_12_2_17" type="MeshInstance3D" parent="." unique_id=1865552082]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 272)
 mesh = ExtResource("114_1xjqi")
 
-[node name="Chunk_16_2_17" type="MeshInstance3D" parent="." unique_id=413980406]
+[node name="Chunk_16_2_17" type="MeshInstance3D" parent="." unique_id=764738296]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 272)
 mesh = ExtResource("115_5gabf")
 
-[node name="Chunk_13_3_10" type="MeshInstance3D" parent="." unique_id=1168652650]
+[node name="Chunk_13_3_10" type="MeshInstance3D" parent="." unique_id=2077309493]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 160)
 mesh = ExtResource("116_hy2b8")
 
-[node name="Chunk_15_3_10" type="MeshInstance3D" parent="." unique_id=1034459196]
+[node name="Chunk_15_3_10" type="MeshInstance3D" parent="." unique_id=776989564]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 160)
 mesh = ExtResource("117_g7orq")
 
-[node name="Chunk_12_2_11" type="MeshInstance3D" parent="." unique_id=187222094]
+[node name="Chunk_12_2_11" type="MeshInstance3D" parent="." unique_id=399278062]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 176)
 mesh = ExtResource("118_i5dt6")
 
-[node name="Chunk_13_3_18" type="MeshInstance3D" parent="." unique_id=245429721]
+[node name="Chunk_13_3_18" type="MeshInstance3D" parent="." unique_id=371398730]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 288)
 mesh = ExtResource("119_6w4cp")
 surface_material_override/0 = ExtResource("120_s3gfg")
 
-[node name="Chunk_16_2_11" type="MeshInstance3D" parent="." unique_id=1890410386]
+[node name="Chunk_16_2_11" type="MeshInstance3D" parent="." unique_id=820585911]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 176)
 mesh = ExtResource("121_82cd1")
 
-[node name="Chunk_10_3_15" type="MeshInstance3D" parent="." unique_id=1029301795]
+[node name="Chunk_10_3_15" type="MeshInstance3D" parent="." unique_id=923467546]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 48, 240)
 mesh = ExtResource("122_krqgj")
 
-[node name="Chunk_11_2_12" type="MeshInstance3D" parent="." unique_id=332473148]
+[node name="Chunk_11_2_12" type="MeshInstance3D" parent="." unique_id=1202913712]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 192)
 mesh = ExtResource("123_g77wq")
 
-[node name="Chunk_18_3_13" type="MeshInstance3D" parent="." unique_id=1628666311]
+[node name="Chunk_18_3_13" type="MeshInstance3D" parent="." unique_id=1611444321]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 288, 48, 208)
 mesh = ExtResource("124_dht0q")
 
-[node name="Chunk_10_3_13" type="MeshInstance3D" parent="." unique_id=1180408759]
+[node name="Chunk_10_3_13" type="MeshInstance3D" parent="." unique_id=551866633]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 48, 208)
 mesh = ExtResource("125_cafn3")
 
-[node name="Chunk_17_2_12" type="MeshInstance3D" parent="." unique_id=1149569721]
+[node name="Chunk_17_2_12" type="MeshInstance3D" parent="." unique_id=1271344851]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 32, 192)
 mesh = ExtResource("126_6vskx")
 
-[node name="Chunk_11_1_13" type="MeshInstance3D" parent="." unique_id=1184941883]
+[node name="Chunk_11_1_13" type="MeshInstance3D" parent="." unique_id=1351220542]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 16, 208)
 mesh = ExtResource("127_ain4s")
 
-[node name="Chunk_14_2_10" type="MeshInstance3D" parent="." unique_id=490217780]
+[node name="Chunk_14_2_10" type="MeshInstance3D" parent="." unique_id=1466116343]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 160)
 mesh = ExtResource("128_xv5d8")
 
-[node name="Chunk_17_1_13" type="MeshInstance3D" parent="." unique_id=200150478]
+[node name="Chunk_17_1_13" type="MeshInstance3D" parent="." unique_id=2096005221]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 16, 208)
 mesh = ExtResource("129_rrw1k")
 
-[node name="Chunk_14_2_18" type="MeshInstance3D" parent="." unique_id=1082260371]
+[node name="Chunk_14_2_18" type="MeshInstance3D" parent="." unique_id=946428384]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 288)
 mesh = ExtResource("130_hkc2g")
 
-[node name="Chunk_13_1_11" type="MeshInstance3D" parent="." unique_id=2056836662]
+[node name="Chunk_13_1_11" type="MeshInstance3D" parent="." unique_id=1517442572]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 176)
 mesh = ExtResource("131_30kgg")
 
-[node name="Chunk_13_1_17" type="MeshInstance3D" parent="." unique_id=1719241104]
+[node name="Chunk_13_1_17" type="MeshInstance3D" parent="." unique_id=765640759]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 272)
 mesh = ExtResource("132_bosq2")
 
-[node name="Chunk_17_1_15" type="MeshInstance3D" parent="." unique_id=432745743]
+[node name="Chunk_17_1_15" type="MeshInstance3D" parent="." unique_id=1411098551]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 16, 240)
 mesh = ExtResource("133_a1c0c")
 
-[node name="Chunk_15_1_17" type="MeshInstance3D" parent="." unique_id=956301817]
+[node name="Chunk_15_1_17" type="MeshInstance3D" parent="." unique_id=1273029327]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 16, 272)
 mesh = ExtResource("134_qnhfy")
 
-[node name="Chunk_11_1_15" type="MeshInstance3D" parent="." unique_id=1708419150]
+[node name="Chunk_11_1_15" type="MeshInstance3D" parent="." unique_id=1812642744]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 16, 240)
 mesh = ExtResource("135_840bm")
 
-[node name="Chunk_15_1_11" type="MeshInstance3D" parent="." unique_id=1087771322]
+[node name="Chunk_15_1_11" type="MeshInstance3D" parent="." unique_id=245265572]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 16, 176)
 mesh = ExtResource("136_idoqy")
 
-[node name="Chunk_18_2_14" type="MeshInstance3D" parent="." unique_id=952318995]
+[node name="Chunk_18_2_14" type="MeshInstance3D" parent="." unique_id=74004575]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 288, 32, 224)
 mesh = ExtResource("137_t3300")
 
-[node name="Chunk_10_2_14" type="MeshInstance3D" parent="." unique_id=1900771919]
+[node name="Chunk_10_2_14" type="MeshInstance3D" parent="." unique_id=1359682362]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 224)
 mesh = ExtResource("138_r5d71")
 
-[node name="Chunk_17_3_17" type="MeshInstance3D" parent="." unique_id=57536737]
+[node name="Chunk_17_3_17" type="MeshInstance3D" parent="." unique_id=379598854]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 48, 272)
 mesh = ExtResource("139_mlinc")
 
-[node name="Chunk_11_3_11" type="MeshInstance3D" parent="." unique_id=1228753154]
+[node name="Chunk_11_3_11" type="MeshInstance3D" parent="." unique_id=374391387]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 176)
 mesh = ExtResource("140_wj4r6")
 
-[node name="Chunk_18_2_13" type="MeshInstance3D" parent="." unique_id=583680507]
+[node name="Chunk_18_2_13" type="MeshInstance3D" parent="." unique_id=752587601]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 288, 32, 208)
 mesh = ExtResource("141_qi201")
 
-[node name="Chunk_13_2_10" type="MeshInstance3D" parent="." unique_id=1277793442]
+[node name="Chunk_13_2_10" type="MeshInstance3D" parent="." unique_id=276803972]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 160)
 mesh = ExtResource("142_ww5r8")
 
-[node name="Chunk_13_2_18" type="MeshInstance3D" parent="." unique_id=964469129]
+[node name="Chunk_13_2_18" type="MeshInstance3D" parent="." unique_id=68819765]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 288)
 mesh = ExtResource("143_ej0b2")
 
-[node name="Chunk_10_2_15" type="MeshInstance3D" parent="." unique_id=1622748595]
+[node name="Chunk_10_2_15" type="MeshInstance3D" parent="." unique_id=367910924]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 240)
 mesh = ExtResource("144_hdgk2")
 
-[node name="Chunk_15_2_10" type="MeshInstance3D" parent="." unique_id=781892508]
+[node name="Chunk_15_2_10" type="MeshInstance3D" parent="." unique_id=113756918]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 160)
 mesh = ExtResource("145_sw1j4")
 
-[node name="Chunk_10_2_13" type="MeshInstance3D" parent="." unique_id=388355093]
+[node name="Chunk_10_2_13" type="MeshInstance3D" parent="." unique_id=1926563664]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 208)
 mesh = ExtResource("146_egs6e")
 
-[node name="Chunk_15_2_18" type="MeshInstance3D" parent="." unique_id=447995300]
+[node name="Chunk_15_2_18" type="MeshInstance3D" parent="." unique_id=1518734543]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 288)
 mesh = ExtResource("147_fpfcg")
 
-[node name="Chunk_18_2_15" type="MeshInstance3D" parent="." unique_id=102485756]
+[node name="Chunk_18_2_15" type="MeshInstance3D" parent="." unique_id=579503167]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 288, 32, 240)
 mesh = ExtResource("148_ppilh")
 
-[node name="Chunk_16_3_10" type="MeshInstance3D" parent="." unique_id=1814368540]
+[node name="Chunk_16_3_10" type="MeshInstance3D" parent="." unique_id=2126670604]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 48, 160)
 mesh = ExtResource("149_4rwf6")
 
-[node name="Chunk_12_3_10" type="MeshInstance3D" parent="." unique_id=500453268]
+[node name="Chunk_12_3_10" type="MeshInstance3D" parent="." unique_id=413160058]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 160)
 mesh = ExtResource("150_xkn72")
 
-[node name="Chunk_10_3_12" type="MeshInstance3D" parent="." unique_id=618100705]
+[node name="Chunk_10_3_12" type="MeshInstance3D" parent="." unique_id=46774700]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 48, 192)
 mesh = ExtResource("151_fv7oq")
 
-[node name="Chunk_11_1_16" type="MeshInstance3D" parent="." unique_id=2101673999]
+[node name="Chunk_11_1_16" type="MeshInstance3D" parent="." unique_id=1882034025]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 16, 256)
 mesh = ExtResource("152_xrjog")
 
-[node name="Chunk_12_1_11" type="MeshInstance3D" parent="." unique_id=1640981042]
+[node name="Chunk_12_1_11" type="MeshInstance3D" parent="." unique_id=1268900844]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 176)
 mesh = ExtResource("153_8017b")
 
-[node name="Chunk_12_1_17" type="MeshInstance3D" parent="." unique_id=1852503994]
+[node name="Chunk_12_1_17" type="MeshInstance3D" parent="." unique_id=1352544847]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 272)
 mesh = ExtResource("154_3clqx")
 
-[node name="Chunk_17_1_16" type="MeshInstance3D" parent="." unique_id=1702264831]
+[node name="Chunk_17_1_16" type="MeshInstance3D" parent="." unique_id=1522421393]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 16, 256)
 mesh = ExtResource("155_aj6ql")
 
-[node name="Chunk_11_1_12" type="MeshInstance3D" parent="." unique_id=1537259850]
+[node name="Chunk_11_1_12" type="MeshInstance3D" parent="." unique_id=1133267904]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 16, 192)
 mesh = ExtResource("156_ofak1")
 
-[node name="Chunk_16_1_11" type="MeshInstance3D" parent="." unique_id=1053165853]
+[node name="Chunk_16_1_11" type="MeshInstance3D" parent="." unique_id=936302870]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 16, 176)
 mesh = ExtResource("157_2esd8")
 
-[node name="Chunk_17_1_12" type="MeshInstance3D" parent="." unique_id=1902340487]
+[node name="Chunk_17_1_12" type="MeshInstance3D" parent="." unique_id=338079899]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 16, 192)
 mesh = ExtResource("158_qxboa")
 
-[node name="Chunk_11_2_11" type="MeshInstance3D" parent="." unique_id=565824164]
+[node name="Chunk_11_2_11" type="MeshInstance3D" parent="." unique_id=126757978]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 176)
 mesh = ExtResource("159_yjrii")
 
-[node name="Chunk_17_2_11" type="MeshInstance3D" parent="." unique_id=1989595538]
+[node name="Chunk_17_2_11" type="MeshInstance3D" parent="." unique_id=1194928740]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 32, 176)
 mesh = ExtResource("160_ie82k")
 
-[node name="Chunk_11_2_17" type="MeshInstance3D" parent="." unique_id=718289046]
+[node name="Chunk_11_2_17" type="MeshInstance3D" parent="." unique_id=2018345512]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 272)
 mesh = ExtResource("161_t137r")
 
-[node name="Chunk_17_2_17" type="MeshInstance3D" parent="." unique_id=2042421494]
+[node name="Chunk_17_2_17" type="MeshInstance3D" parent="." unique_id=1738836325]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 32, 272)
 mesh = ExtResource("162_hefgy")
 
-[node name="Chunk_14_1_10" type="MeshInstance3D" parent="." unique_id=385400193]
+[node name="Chunk_14_1_10" type="MeshInstance3D" parent="." unique_id=1625615014]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 160)
 mesh = ExtResource("163_8hbi8")
 
-[node name="Chunk_10_1_14" type="MeshInstance3D" parent="." unique_id=2012733540]
+[node name="Chunk_10_1_14" type="MeshInstance3D" parent="." unique_id=1222848194]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 16, 224)
 mesh = ExtResource("164_bjlcb")
 
-[node name="Chunk_18_2_16" type="MeshInstance3D" parent="." unique_id=1421998691]
+[node name="Chunk_18_2_16" type="MeshInstance3D" parent="." unique_id=1535338053]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 288, 32, 256)
 mesh = ExtResource("165_21ash")
 
-[node name="Chunk_12_2_10" type="MeshInstance3D" parent="." unique_id=524660682]
+[node name="Chunk_12_2_10" type="MeshInstance3D" parent="." unique_id=2033728896]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 160)
 mesh = ExtResource("166_tn262")
 
-[node name="Chunk_10_2_16" type="MeshInstance3D" parent="." unique_id=1652735883]
+[node name="Chunk_10_2_16" type="MeshInstance3D" parent="." unique_id=293016888]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 256)
 mesh = ExtResource("167_gvhma")
 
-[node name="Chunk_10_2_12" type="MeshInstance3D" parent="." unique_id=1093483022]
+[node name="Chunk_10_2_12" type="MeshInstance3D" parent="." unique_id=30576623]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 192)
 mesh = ExtResource("168_rohr2")
 
-[node name="Chunk_18_2_12" type="MeshInstance3D" parent="." unique_id=577526401]
+[node name="Chunk_18_2_12" type="MeshInstance3D" parent="." unique_id=1231035947]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 288, 32, 192)
 mesh = ExtResource("169_7ac8x")
 
-[node name="Chunk_16_2_18" type="MeshInstance3D" parent="." unique_id=1088392572]
+[node name="Chunk_16_2_18" type="MeshInstance3D" parent="." unique_id=479514968]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 288)
 mesh = ExtResource("170_tc60j")
 
-[node name="Chunk_12_2_18" type="MeshInstance3D" parent="." unique_id=880645388]
+[node name="Chunk_12_2_18" type="MeshInstance3D" parent="." unique_id=224294001]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 288)
 mesh = ExtResource("171_bo4lv")
 
-[node name="Chunk_16_2_10" type="MeshInstance3D" parent="." unique_id=916480088]
+[node name="Chunk_16_2_10" type="MeshInstance3D" parent="." unique_id=1491504247]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 160)
 mesh = ExtResource("172_piopf")
 
-[node name="Chunk_10_1_15" type="MeshInstance3D" parent="." unique_id=2044293533]
+[node name="Chunk_10_1_15" type="MeshInstance3D" parent="." unique_id=888757194]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 16, 240)
 mesh = ExtResource("173_8fiib")
 
-[node name="Chunk_10_1_13" type="MeshInstance3D" parent="." unique_id=1351395760]
+[node name="Chunk_10_1_13" type="MeshInstance3D" parent="." unique_id=1701412339]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 16, 208)
 mesh = ExtResource("174_y7wv8")
 
-[node name="Chunk_13_1_10" type="MeshInstance3D" parent="." unique_id=1898499127]
+[node name="Chunk_13_1_10" type="MeshInstance3D" parent="." unique_id=1557982071]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 160)
 mesh = ExtResource("175_ks8mt")
 
-[node name="Chunk_9_3_15" type="MeshInstance3D" parent="." unique_id=929681773]
+[node name="Chunk_9_3_15" type="MeshInstance3D" parent="." unique_id=25990389]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 48, 240)
 mesh = ExtResource("176_hwjd3")
 
-[node name="Chunk_15_3_9" type="MeshInstance3D" parent="." unique_id=264671909]
+[node name="Chunk_15_3_9" type="MeshInstance3D" parent="." unique_id=549000208]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 144)
 mesh = ExtResource("177_5o32v")
 
-[node name="Chunk_13_3_9" type="MeshInstance3D" parent="." unique_id=1713216905]
+[node name="Chunk_13_3_9" type="MeshInstance3D" parent="." unique_id=508336783]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 144)
 mesh = ExtResource("178_mdcx3")
 
-[node name="Chunk_10_3_11" type="MeshInstance3D" parent="." unique_id=1702767369]
+[node name="Chunk_10_3_11" type="MeshInstance3D" parent="." unique_id=1944300250]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 48, 176)
 mesh = ExtResource("179_3dkss")
 
-[node name="Chunk_14_2_9" type="MeshInstance3D" parent="." unique_id=670157056]
+[node name="Chunk_14_2_9" type="MeshInstance3D" parent="." unique_id=1311602173]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 144)
 mesh = ExtResource("180_o7vp6")
 
-[node name="Chunk_9_2_14" type="MeshInstance3D" parent="." unique_id=373301740]
+[node name="Chunk_9_2_14" type="MeshInstance3D" parent="." unique_id=1489004723]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 32, 224)
 mesh = ExtResource("181_yyqgv")
 
-[node name="Chunk_11_3_10" type="MeshInstance3D" parent="." unique_id=2035538606]
+[node name="Chunk_11_3_10" type="MeshInstance3D" parent="." unique_id=1050987007]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 160)
 mesh = ExtResource("182_17aim")
 
-[node name="Chunk_11_1_17" type="MeshInstance3D" parent="." unique_id=412635878]
+[node name="Chunk_11_1_17" type="MeshInstance3D" parent="." unique_id=1415982862]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 16, 272)
 mesh = ExtResource("183_74sg2")
 
-[node name="Chunk_17_1_11" type="MeshInstance3D" parent="." unique_id=736480409]
+[node name="Chunk_17_1_11" type="MeshInstance3D" parent="." unique_id=1406514084]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 16, 176)
 mesh = ExtResource("184_da0xl")
 
-[node name="Chunk_9_2_15" type="MeshInstance3D" parent="." unique_id=373406148]
+[node name="Chunk_9_2_15" type="MeshInstance3D" parent="." unique_id=688835323]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 32, 240)
 mesh = ExtResource("185_746s1")
 
-[node name="Chunk_13_2_9" type="MeshInstance3D" parent="." unique_id=390851893]
+[node name="Chunk_13_2_9" type="MeshInstance3D" parent="." unique_id=2040394063]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 144)
 mesh = ExtResource("186_wobiq")
 
-[node name="Chunk_15_2_9" type="MeshInstance3D" parent="." unique_id=1865452382]
+[node name="Chunk_15_2_9" type="MeshInstance3D" parent="." unique_id=1870736436]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 144)
 mesh = ExtResource("187_mx3o6")
 
-[node name="Chunk_9_2_13" type="MeshInstance3D" parent="." unique_id=273412929]
+[node name="Chunk_9_2_13" type="MeshInstance3D" parent="." unique_id=569576475]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 32, 208)
 mesh = ExtResource("188_reqjw")
 
-[node name="Chunk_13_2_19" type="MeshInstance3D" parent="." unique_id=173066271]
+[node name="Chunk_13_2_19" type="MeshInstance3D" parent="." unique_id=1025723662]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 304)
 mesh = ExtResource("189_fb6k8")
 
-[node name="Chunk_16_1_10" type="MeshInstance3D" parent="." unique_id=517010207]
+[node name="Chunk_16_1_10" type="MeshInstance3D" parent="." unique_id=259293269]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 16, 160)
 mesh = ExtResource("190_j3en4")
 
-[node name="Chunk_12_1_10" type="MeshInstance3D" parent="." unique_id=976753066]
+[node name="Chunk_12_1_10" type="MeshInstance3D" parent="." unique_id=1573992731]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 160)
 mesh = ExtResource("191_uef2s")
 
-[node name="Chunk_10_1_16" type="MeshInstance3D" parent="." unique_id=1776842215]
+[node name="Chunk_10_1_16" type="MeshInstance3D" parent="." unique_id=829694801]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 16, 256)
 mesh = ExtResource("192_2peg8")
 
-[node name="Chunk_10_1_12" type="MeshInstance3D" parent="." unique_id=428670524]
+[node name="Chunk_10_1_12" type="MeshInstance3D" parent="." unique_id=1902128498]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 16, 192)
 mesh = ExtResource("193_ygu5o")
 
-[node name="Chunk_19_2_15" type="MeshInstance3D" parent="." unique_id=751559639]
+[node name="Chunk_19_2_15" type="MeshInstance3D" parent="." unique_id=319729475]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 304, 32, 240)
 mesh = ExtResource("194_mow16")
 
-[node name="Chunk_10_2_11" type="MeshInstance3D" parent="." unique_id=1244277342]
+[node name="Chunk_10_2_11" type="MeshInstance3D" parent="." unique_id=396591133]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 176)
 mesh = ExtResource("195_ntm7y")
 
-[node name="Chunk_10_2_17" type="MeshInstance3D" parent="." unique_id=1363626247]
+[node name="Chunk_10_2_17" type="MeshInstance3D" parent="." unique_id=532828202]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 272)
 mesh = ExtResource("196_yjvpg")
 
-[node name="Chunk_16_3_9" type="MeshInstance3D" parent="." unique_id=937219589]
+[node name="Chunk_16_3_9" type="MeshInstance3D" parent="." unique_id=1596904799]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 48, 144)
 mesh = ExtResource("197_bs0k0")
 
-[node name="Chunk_11_2_18" type="MeshInstance3D" parent="." unique_id=63089778]
+[node name="Chunk_11_2_18" type="MeshInstance3D" parent="." unique_id=273347553]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 288)
 mesh = ExtResource("198_7h7r2")
 
-[node name="Chunk_17_2_10" type="MeshInstance3D" parent="." unique_id=1407492702]
+[node name="Chunk_17_2_10" type="MeshInstance3D" parent="." unique_id=1160228495]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 32, 160)
 mesh = ExtResource("199_l4r4o")
 
-[node name="Chunk_18_2_17" type="MeshInstance3D" parent="." unique_id=2005891172]
+[node name="Chunk_18_2_17" type="MeshInstance3D" parent="." unique_id=1635884915]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 288, 32, 272)
 mesh = ExtResource("200_1vhbo")
 
-[node name="Chunk_11_2_10" type="MeshInstance3D" parent="." unique_id=1609529200]
+[node name="Chunk_11_2_10" type="MeshInstance3D" parent="." unique_id=268603945]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 160)
 mesh = ExtResource("201_oq1jg")
 
-[node name="Chunk_18_2_11" type="MeshInstance3D" parent="." unique_id=481762998]
+[node name="Chunk_18_2_11" type="MeshInstance3D" parent="." unique_id=1070648199]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 288, 32, 176)
 mesh = ExtResource("202_hjvyt")
 
-[node name="Chunk_16_2_9" type="MeshInstance3D" parent="." unique_id=1791949059]
+[node name="Chunk_16_2_9" type="MeshInstance3D" parent="." unique_id=443000467]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 144)
 mesh = ExtResource("203_8jk5q")
 
-[node name="Chunk_12_2_9" type="MeshInstance3D" parent="." unique_id=2044796744]
+[node name="Chunk_12_2_9" type="MeshInstance3D" parent="." unique_id=2129651697]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 144)
 mesh = ExtResource("204_hhe6d")
 
-[node name="Chunk_9_2_16" type="MeshInstance3D" parent="." unique_id=2060527810]
+[node name="Chunk_9_2_16" type="MeshInstance3D" parent="." unique_id=1048792644]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 32, 256)
 mesh = ExtResource("205_0axkh")
 
-[node name="Chunk_9_2_12" type="MeshInstance3D" parent="." unique_id=1458574595]
+[node name="Chunk_9_2_12" type="MeshInstance3D" parent="." unique_id=1513594547]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 32, 192)
 mesh = ExtResource("206_1s2ag")
 
-[node name="Chunk_19_2_12" type="MeshInstance3D" parent="." unique_id=1654621064]
+[node name="Chunk_19_2_12" type="MeshInstance3D" parent="." unique_id=550792119]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 304, 32, 192)
 mesh = ExtResource("207_t3uut")
 
-[node name="Chunk_19_2_16" type="MeshInstance3D" parent="." unique_id=710594148]
+[node name="Chunk_19_2_16" type="MeshInstance3D" parent="." unique_id=312818439]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 304, 32, 256)
 mesh = ExtResource("208_04jwm")
 
-[node name="Chunk_12_2_19" type="MeshInstance3D" parent="." unique_id=1524160319]
+[node name="Chunk_12_2_19" type="MeshInstance3D" parent="." unique_id=1874533044]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 304)
 mesh = ExtResource("209_4nam8")
 
-[node name="Chunk_10_3_10" type="MeshInstance3D" parent="." unique_id=508899467]
+[node name="Chunk_10_3_10" type="MeshInstance3D" parent="." unique_id=2015422061]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 48, 160)
 mesh = ExtResource("210_2absy")
 
-[node name="Chunk_9_1_13" type="MeshInstance3D" parent="." unique_id=1598238227]
+[node name="Chunk_9_1_13" type="MeshInstance3D" parent="." unique_id=2118192547]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 16, 208)
 mesh = ExtResource("211_hk83g")
 
-[node name="Chunk_11_1_18" type="MeshInstance3D" parent="." unique_id=322905909]
+[node name="Chunk_11_1_18" type="MeshInstance3D" parent="." unique_id=2067316300]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 16, 288)
 mesh = ExtResource("212_o0wha")
 
-[node name="Chunk_10_1_17" type="MeshInstance3D" parent="." unique_id=1699720707]
+[node name="Chunk_10_1_17" type="MeshInstance3D" parent="." unique_id=1289365685]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 16, 272)
 mesh = ExtResource("213_wxb5k")
 
-[node name="Chunk_11_1_10" type="MeshInstance3D" parent="." unique_id=1851684751]
+[node name="Chunk_11_1_10" type="MeshInstance3D" parent="." unique_id=385566370]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 16, 160)
 mesh = ExtResource("214_astip")
 
-[node name="Chunk_17_3_9" type="MeshInstance3D" parent="." unique_id=1288725146]
+[node name="Chunk_17_3_9" type="MeshInstance3D" parent="." unique_id=1300346938]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 48, 144)
 mesh = ExtResource("215_ycmnt")
 
-[node name="Chunk_13_3_8" type="MeshInstance3D" parent="." unique_id=931424397]
+[node name="Chunk_13_3_8" type="MeshInstance3D" parent="." unique_id=900903]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 128)
 mesh = ExtResource("216_i35ep")
 
-[node name="Chunk_15_3_8" type="MeshInstance3D" parent="." unique_id=1562337668]
+[node name="Chunk_15_3_8" type="MeshInstance3D" parent="." unique_id=1868012229]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 128)
 mesh = ExtResource("217_giibc")
 surface_material_override/0 = ExtResource("120_s3gfg")
 
-[node name="Chunk_14_2_8" type="MeshInstance3D" parent="." unique_id=262157009]
+[node name="Chunk_14_2_8" type="MeshInstance3D" parent="." unique_id=184362788]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 128)
 mesh = ExtResource("218_ftwbb")
 
-[node name="Chunk_8_2_14" type="MeshInstance3D" parent="." unique_id=1650480034]
+[node name="Chunk_8_2_14" type="MeshInstance3D" parent="." unique_id=1456025896]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 128, 32, 224)
 mesh = ExtResource("219_ltyu0")
 
-[node name="Chunk_10_2_10" type="MeshInstance3D" parent="." unique_id=585665923]
+[node name="Chunk_10_2_10" type="MeshInstance3D" parent="." unique_id=1529988157]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 160)
 mesh = ExtResource("220_v8rjw")
 
-[node name="Chunk_10_2_18" type="MeshInstance3D" parent="." unique_id=708830183]
+[node name="Chunk_10_2_18" type="MeshInstance3D" parent="." unique_id=1371209146]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 288)
 mesh = ExtResource("221_ng8kn")
 
-[node name="Chunk_12_1_9" type="MeshInstance3D" parent="." unique_id=120435967]
+[node name="Chunk_12_1_9" type="MeshInstance3D" parent="." unique_id=2045389430]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 144)
 mesh = ExtResource("222_imndv")
 
-[node name="Chunk_17_2_9" type="MeshInstance3D" parent="." unique_id=1996279237]
+[node name="Chunk_17_2_9" type="MeshInstance3D" parent="." unique_id=248482968]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 272, 32, 144)
 mesh = ExtResource("223_mae41")
 
-[node name="Chunk_11_2_9" type="MeshInstance3D" parent="." unique_id=1057720415]
+[node name="Chunk_11_2_9" type="MeshInstance3D" parent="." unique_id=1048169825]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 144)
 mesh = ExtResource("224_yxt0w")
 
-[node name="Chunk_9_2_11" type="MeshInstance3D" parent="." unique_id=205775578]
+[node name="Chunk_9_2_11" type="MeshInstance3D" parent="." unique_id=143008945]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 32, 176)
 mesh = ExtResource("225_tp7wg")
 
-[node name="Chunk_19_2_11" type="MeshInstance3D" parent="." unique_id=265298165]
+[node name="Chunk_19_2_11" type="MeshInstance3D" parent="." unique_id=1892473888]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 304, 32, 176)
 mesh = ExtResource("226_qqryh")
 
-[node name="Chunk_13_2_8" type="MeshInstance3D" parent="." unique_id=1125640028]
+[node name="Chunk_13_2_8" type="MeshInstance3D" parent="." unique_id=728248314]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 128)
 mesh = ExtResource("227_j81fl")
 
-[node name="Chunk_15_2_8" type="MeshInstance3D" parent="." unique_id=1169647744]
+[node name="Chunk_15_2_8" type="MeshInstance3D" parent="." unique_id=1625825790]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 128)
 mesh = ExtResource("228_ld8uc")
 
-[node name="Chunk_8_2_13" type="MeshInstance3D" parent="." unique_id=540360078]
+[node name="Chunk_8_2_13" type="MeshInstance3D" parent="." unique_id=1759969770]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 128, 32, 208)
 mesh = ExtResource("229_ef0ve")
 
-[node name="Chunk_8_2_12" type="MeshInstance3D" parent="." unique_id=1251612502]
+[node name="Chunk_8_2_12" type="MeshInstance3D" parent="." unique_id=1655730678]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 128, 32, 192)
 mesh = ExtResource("230_1d5ne")
 
-[node name="Chunk_14_3_7" type="MeshInstance3D" parent="." unique_id=242746937]
+[node name="Chunk_14_3_7" type="MeshInstance3D" parent="." unique_id=421898584]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 48, 112)
 mesh = ExtResource("231_m3lo4")
 
-[node name="Chunk_10_2_9" type="MeshInstance3D" parent="." unique_id=1501412646]
+[node name="Chunk_10_2_9" type="MeshInstance3D" parent="." unique_id=2120490439]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 144)
 mesh = ExtResource("232_o3twj")
 
-[node name="Chunk_13_3_7" type="MeshInstance3D" parent="." unique_id=794387665]
+[node name="Chunk_13_3_7" type="MeshInstance3D" parent="." unique_id=1395391109]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 112)
 mesh = ExtResource("233_2ne2w")
 
-[node name="Chunk_8_2_11" type="MeshInstance3D" parent="." unique_id=1846055898]
+[node name="Chunk_8_2_11" type="MeshInstance3D" parent="." unique_id=471585757]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 128, 32, 176)
 mesh = ExtResource("234_sorgl")
 
-[node name="Chunk_14_2_7" type="MeshInstance3D" parent="." unique_id=54058331]
+[node name="Chunk_14_2_7" type="MeshInstance3D" parent="." unique_id=62952039]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 112)
 mesh = ExtResource("235_vogsx")
 
-[node name="Chunk_13_2_7" type="MeshInstance3D" parent="." unique_id=1784814642]
+[node name="Chunk_13_2_7" type="MeshInstance3D" parent="." unique_id=247011226]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 112)
 mesh = ExtResource("236_oyr84")
 
-[node name="Chunk_12_3_7" type="MeshInstance3D" parent="." unique_id=1424838628]
+[node name="Chunk_12_3_7" type="MeshInstance3D" parent="." unique_id=488832998]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 112)
 mesh = ExtResource("237_iqerb")
 
-[node name="Chunk_12_2_7" type="MeshInstance3D" parent="." unique_id=790393163]
+[node name="Chunk_12_2_7" type="MeshInstance3D" parent="." unique_id=1744337538]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 112)
 mesh = ExtResource("238_up8wu")
 
-[node name="Chunk_11_3_7" type="MeshInstance3D" parent="." unique_id=278292623]
+[node name="Chunk_11_3_7" type="MeshInstance3D" parent="." unique_id=1670530061]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 112)
 mesh = ExtResource("239_mi2kd")
 
-[node name="Chunk_14_3_6" type="MeshInstance3D" parent="." unique_id=1925574227]
+[node name="Chunk_14_3_6" type="MeshInstance3D" parent="." unique_id=291756168]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 48, 96)
 mesh = ExtResource("240_wbba6")
 
-[node name="Chunk_11_2_7" type="MeshInstance3D" parent="." unique_id=453742461]
+[node name="Chunk_11_2_7" type="MeshInstance3D" parent="." unique_id=562732551]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 112)
 mesh = ExtResource("241_wmx7f")
 
-[node name="Chunk_15_3_6" type="MeshInstance3D" parent="." unique_id=1559691506]
+[node name="Chunk_15_3_6" type="MeshInstance3D" parent="." unique_id=2120371802]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 96)
 mesh = ExtResource("242_t16pb")
 
-[node name="Chunk_13_3_6" type="MeshInstance3D" parent="." unique_id=377454186]
+[node name="Chunk_13_3_6" type="MeshInstance3D" parent="." unique_id=1855756417]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 96)
 mesh = ExtResource("243_u28yc")
 
-[node name="Chunk_14_2_6" type="MeshInstance3D" parent="." unique_id=411119548]
+[node name="Chunk_14_2_6" type="MeshInstance3D" parent="." unique_id=1415640169]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 96)
 mesh = ExtResource("244_ahi0s")
 
-[node name="Chunk_13_2_6" type="MeshInstance3D" parent="." unique_id=363170355]
+[node name="Chunk_13_2_6" type="MeshInstance3D" parent="." unique_id=53264499]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 96)
 mesh = ExtResource("245_pw0dd")
 
-[node name="Chunk_15_2_6" type="MeshInstance3D" parent="." unique_id=946333124]
+[node name="Chunk_15_2_6" type="MeshInstance3D" parent="." unique_id=864937187]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 96)
 mesh = ExtResource("246_yxahw")
 
-[node name="Chunk_12_3_6" type="MeshInstance3D" parent="." unique_id=739020595]
+[node name="Chunk_12_3_6" type="MeshInstance3D" parent="." unique_id=151497612]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 96)
 mesh = ExtResource("247_aud48")
 
-[node name="Chunk_14_1_6" type="MeshInstance3D" parent="." unique_id=1749063499]
+[node name="Chunk_14_1_6" type="MeshInstance3D" parent="." unique_id=738265770]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 96)
 mesh = ExtResource("248_xo65a")
 
-[node name="Chunk_10_2_7" type="MeshInstance3D" parent="." unique_id=799666704]
+[node name="Chunk_10_2_7" type="MeshInstance3D" parent="." unique_id=1836705428]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 112)
 mesh = ExtResource("249_gsvtv")
 
-[node name="Chunk_12_2_6" type="MeshInstance3D" parent="." unique_id=384859286]
+[node name="Chunk_12_2_6" type="MeshInstance3D" parent="." unique_id=1161731485]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 96)
 mesh = ExtResource("250_clowo")
 
-[node name="Chunk_13_1_6" type="MeshInstance3D" parent="." unique_id=1566694947]
+[node name="Chunk_13_1_6" type="MeshInstance3D" parent="." unique_id=696510118]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 96)
 mesh = ExtResource("251_exhdm")
 
-[node name="Chunk_11_3_6" type="MeshInstance3D" parent="." unique_id=2107432278]
+[node name="Chunk_11_3_6" type="MeshInstance3D" parent="." unique_id=96959239]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 96)
 mesh = ExtResource("252_rb4ho")
 
-[node name="Chunk_11_2_6" type="MeshInstance3D" parent="." unique_id=250824913]
+[node name="Chunk_11_2_6" type="MeshInstance3D" parent="." unique_id=101996312]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 96)
 mesh = ExtResource("253_q4cbb")
 
-[node name="Chunk_14_3_5" type="MeshInstance3D" parent="." unique_id=1899377337]
+[node name="Chunk_14_3_5" type="MeshInstance3D" parent="." unique_id=732762634]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 48, 80)
 mesh = ExtResource("254_dvl41")
 
-[node name="Chunk_13_3_5" type="MeshInstance3D" parent="." unique_id=66739865]
+[node name="Chunk_13_3_5" type="MeshInstance3D" parent="." unique_id=166154235]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 80)
 mesh = ExtResource("255_65l8g")
 
-[node name="Chunk_15_3_5" type="MeshInstance3D" parent="." unique_id=1775065131]
+[node name="Chunk_15_3_5" type="MeshInstance3D" parent="." unique_id=1772679429]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 48, 80)
 mesh = ExtResource("256_3b5gn")
 
-[node name="Chunk_14_2_5" type="MeshInstance3D" parent="." unique_id=1408771086]
+[node name="Chunk_14_2_5" type="MeshInstance3D" parent="." unique_id=1477555168]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 80)
 mesh = ExtResource("257_dlik5")
 
-[node name="Chunk_15_2_5" type="MeshInstance3D" parent="." unique_id=237314947]
+[node name="Chunk_15_2_5" type="MeshInstance3D" parent="." unique_id=1943586475]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 80)
 mesh = ExtResource("258_u8sb7")
 
-[node name="Chunk_13_2_5" type="MeshInstance3D" parent="." unique_id=1518223060]
+[node name="Chunk_13_2_5" type="MeshInstance3D" parent="." unique_id=1052403977]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 80)
 mesh = ExtResource("259_u8nla")
 
-[node name="Chunk_12_3_5" type="MeshInstance3D" parent="." unique_id=511609335]
+[node name="Chunk_12_3_5" type="MeshInstance3D" parent="." unique_id=845954103]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 80)
 mesh = ExtResource("260_mrfnn")
 
-[node name="Chunk_10_2_6" type="MeshInstance3D" parent="." unique_id=962527109]
+[node name="Chunk_10_2_6" type="MeshInstance3D" parent="." unique_id=1654767510]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 96)
 mesh = ExtResource("261_r0y0g")
 
-[node name="Chunk_14_1_5" type="MeshInstance3D" parent="." unique_id=2060110772]
+[node name="Chunk_14_1_5" type="MeshInstance3D" parent="." unique_id=683772098]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 80)
 mesh = ExtResource("262_6y3en")
 
-[node name="Chunk_12_2_5" type="MeshInstance3D" parent="." unique_id=229421795]
+[node name="Chunk_12_2_5" type="MeshInstance3D" parent="." unique_id=959381970]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 80)
 mesh = ExtResource("263_y0hk2")
 
-[node name="Chunk_16_2_5" type="MeshInstance3D" parent="." unique_id=955116324]
+[node name="Chunk_16_2_5" type="MeshInstance3D" parent="." unique_id=330696190]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 80)
 mesh = ExtResource("264_cooxc")
 
-[node name="Chunk_15_1_5" type="MeshInstance3D" parent="." unique_id=2105236777]
+[node name="Chunk_15_1_5" type="MeshInstance3D" parent="." unique_id=1752933178]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 16, 80)
 mesh = ExtResource("265_n8mup")
 
-[node name="Chunk_13_1_5" type="MeshInstance3D" parent="." unique_id=348286189]
+[node name="Chunk_13_1_5" type="MeshInstance3D" parent="." unique_id=1942786238]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 80)
 mesh = ExtResource("266_wpywo")
 
-[node name="Chunk_11_3_5" type="MeshInstance3D" parent="." unique_id=39091970]
+[node name="Chunk_11_3_5" type="MeshInstance3D" parent="." unique_id=547372577]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 80)
 mesh = ExtResource("267_mgr6j")
 
-[node name="Chunk_10_1_6" type="MeshInstance3D" parent="." unique_id=1747290350]
+[node name="Chunk_10_1_6" type="MeshInstance3D" parent="." unique_id=421871380]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 16, 96)
 mesh = ExtResource("268_la8cg")
 
-[node name="Chunk_12_1_5" type="MeshInstance3D" parent="." unique_id=251814288]
+[node name="Chunk_12_1_5" type="MeshInstance3D" parent="." unique_id=2067785776]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 80)
 mesh = ExtResource("269_gn28a")
 
-[node name="Chunk_11_2_5" type="MeshInstance3D" parent="." unique_id=1851561364]
+[node name="Chunk_11_2_5" type="MeshInstance3D" parent="." unique_id=676750034]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 80)
 mesh = ExtResource("270_slyf6")
 
-[node name="Chunk_9_2_6" type="MeshInstance3D" parent="." unique_id=1519349829]
+[node name="Chunk_9_2_6" type="MeshInstance3D" parent="." unique_id=601564582]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 32, 96)
 mesh = ExtResource("271_bk328")
 
-[node name="Chunk_14_3_4" type="MeshInstance3D" parent="." unique_id=1666815653]
+[node name="Chunk_14_3_4" type="MeshInstance3D" parent="." unique_id=402349160]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 48, 64)
 mesh = ExtResource("272_73ueo")
 
-[node name="Chunk_10_3_5" type="MeshInstance3D" parent="." unique_id=1432904649]
+[node name="Chunk_10_3_5" type="MeshInstance3D" parent="." unique_id=77212731]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 48, 80)
 mesh = ExtResource("273_2dtgy")
 
-[node name="Chunk_13_3_4" type="MeshInstance3D" parent="." unique_id=1902626481]
+[node name="Chunk_13_3_4" type="MeshInstance3D" parent="." unique_id=1951914371]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 48, 64)
 mesh = ExtResource("274_5wjy6")
 
-[node name="Chunk_11_1_5" type="MeshInstance3D" parent="." unique_id=1200225514]
+[node name="Chunk_11_1_5" type="MeshInstance3D" parent="." unique_id=1715335288]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 16, 80)
 mesh = ExtResource("275_nh536")
 
-[node name="Chunk_14_2_4" type="MeshInstance3D" parent="." unique_id=2035078231]
+[node name="Chunk_14_2_4" type="MeshInstance3D" parent="." unique_id=300094956]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 64)
 mesh = ExtResource("276_yg5yx")
 
-[node name="Chunk_15_2_4" type="MeshInstance3D" parent="." unique_id=1032297909]
+[node name="Chunk_15_2_4" type="MeshInstance3D" parent="." unique_id=1087826998]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 64)
 mesh = ExtResource("277_drf8h")
 
-[node name="Chunk_13_2_4" type="MeshInstance3D" parent="." unique_id=1286061041]
+[node name="Chunk_13_2_4" type="MeshInstance3D" parent="." unique_id=212403931]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 64)
 mesh = ExtResource("278_dhkyi")
 
-[node name="Chunk_10_2_5" type="MeshInstance3D" parent="." unique_id=599935531]
+[node name="Chunk_10_2_5" type="MeshInstance3D" parent="." unique_id=718626372]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 80)
 mesh = ExtResource("279_rtrd7")
 
-[node name="Chunk_12_3_4" type="MeshInstance3D" parent="." unique_id=1032494114]
+[node name="Chunk_12_3_4" type="MeshInstance3D" parent="." unique_id=334155685]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 64)
 mesh = ExtResource("280_msccq")
 
-[node name="Chunk_14_1_4" type="MeshInstance3D" parent="." unique_id=1565291909]
+[node name="Chunk_14_1_4" type="MeshInstance3D" parent="." unique_id=310770683]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 64)
 mesh = ExtResource("281_i6bjk")
 
-[node name="Chunk_12_2_4" type="MeshInstance3D" parent="." unique_id=2042294557]
+[node name="Chunk_12_2_4" type="MeshInstance3D" parent="." unique_id=1615123135]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 64)
 mesh = ExtResource("282_34wpm")
 
-[node name="Chunk_16_2_4" type="MeshInstance3D" parent="." unique_id=177849471]
+[node name="Chunk_16_2_4" type="MeshInstance3D" parent="." unique_id=562702102]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 32, 64)
 mesh = ExtResource("283_av51q")
 
-[node name="Chunk_13_1_4" type="MeshInstance3D" parent="." unique_id=1637410724]
+[node name="Chunk_13_1_4" type="MeshInstance3D" parent="." unique_id=1701373334]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 64)
 mesh = ExtResource("284_xsjvl")
 
-[node name="Chunk_15_1_4" type="MeshInstance3D" parent="." unique_id=795520512]
+[node name="Chunk_15_1_4" type="MeshInstance3D" parent="." unique_id=624951640]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 16, 64)
 mesh = ExtResource("285_tkuy5")
 
-[node name="Chunk_10_1_5" type="MeshInstance3D" parent="." unique_id=375273398]
+[node name="Chunk_10_1_5" type="MeshInstance3D" parent="." unique_id=35084096]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 16, 80)
 mesh = ExtResource("286_gtxio")
 
-[node name="Chunk_11_3_4" type="MeshInstance3D" parent="." unique_id=1401557868]
+[node name="Chunk_11_3_4" type="MeshInstance3D" parent="." unique_id=1441425073]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 64)
 mesh = ExtResource("287_rvl2a")
 
-[node name="Chunk_9_2_5" type="MeshInstance3D" parent="." unique_id=362068282]
+[node name="Chunk_9_2_5" type="MeshInstance3D" parent="." unique_id=2146703868]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 32, 80)
 mesh = ExtResource("288_6xq21")
 
-[node name="Chunk_12_1_4" type="MeshInstance3D" parent="." unique_id=508717693]
+[node name="Chunk_12_1_4" type="MeshInstance3D" parent="." unique_id=749632305]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 16, 64)
 mesh = ExtResource("289_4c374")
 
-[node name="Chunk_11_2_4" type="MeshInstance3D" parent="." unique_id=889949071]
+[node name="Chunk_11_2_4" type="MeshInstance3D" parent="." unique_id=1435739884]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 64)
 mesh = ExtResource("290_vd800")
 
-[node name="Chunk_14_2_3" type="MeshInstance3D" parent="." unique_id=706378932]
+[node name="Chunk_14_2_3" type="MeshInstance3D" parent="." unique_id=454769361]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 48)
 mesh = ExtResource("291_h3nij")
 
-[node name="Chunk_10_2_4" type="MeshInstance3D" parent="." unique_id=1620837118]
+[node name="Chunk_10_2_4" type="MeshInstance3D" parent="." unique_id=558666406]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 64)
 mesh = ExtResource("292_46maw")
 
-[node name="Chunk_15_2_3" type="MeshInstance3D" parent="." unique_id=1088327141]
+[node name="Chunk_15_2_3" type="MeshInstance3D" parent="." unique_id=759966632]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 240, 32, 48)
 mesh = ExtResource("293_pjno0")
 
-[node name="Chunk_13_2_3" type="MeshInstance3D" parent="." unique_id=1377092146]
+[node name="Chunk_13_2_3" type="MeshInstance3D" parent="." unique_id=671901536]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 48)
 mesh = ExtResource("294_xuwu0")
 
-[node name="Chunk_12_3_3" type="MeshInstance3D" parent="." unique_id=149037706]
+[node name="Chunk_12_3_3" type="MeshInstance3D" parent="." unique_id=1282436019]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 48, 48)
 mesh = ExtResource("295_4x531")
 
-[node name="Chunk_14_1_3" type="MeshInstance3D" parent="." unique_id=240524003]
+[node name="Chunk_14_1_3" type="MeshInstance3D" parent="." unique_id=1765625154]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 16, 48)
 mesh = ExtResource("296_rxbq8")
 
-[node name="Chunk_12_2_3" type="MeshInstance3D" parent="." unique_id=623659073]
+[node name="Chunk_12_2_3" type="MeshInstance3D" parent="." unique_id=2095431452]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 48)
 mesh = ExtResource("297_1muip")
 
-[node name="Chunk_13_1_3" type="MeshInstance3D" parent="." unique_id=267942709]
+[node name="Chunk_13_1_3" type="MeshInstance3D" parent="." unique_id=96453531]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 16, 48)
 mesh = ExtResource("298_fq0u8")
 
-[node name="Chunk_11_3_3" type="MeshInstance3D" parent="." unique_id=698810443]
+[node name="Chunk_11_3_3" type="MeshInstance3D" parent="." unique_id=866888759]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 48, 48)
 mesh = ExtResource("299_qel10")
 
-[node name="Chunk_9_2_4" type="MeshInstance3D" parent="." unique_id=575291432]
+[node name="Chunk_9_2_4" type="MeshInstance3D" parent="." unique_id=1715449557]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 144, 32, 64)
 mesh = ExtResource("300_66rlk")
 
-[node name="Chunk_11_2_3" type="MeshInstance3D" parent="." unique_id=840827052]
+[node name="Chunk_11_2_3" type="MeshInstance3D" parent="." unique_id=1745333863]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 48)
 mesh = ExtResource("301_eu6nn")
 
-[node name="Chunk_10_2_3" type="MeshInstance3D" parent="." unique_id=1369306495]
+[node name="Chunk_10_2_3" type="MeshInstance3D" parent="." unique_id=1571934587]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 160, 32, 48)
 mesh = ExtResource("302_w5rr5")
 
-[node name="Chunk_14_2_2" type="MeshInstance3D" parent="." unique_id=1706656582]
+[node name="Chunk_14_2_2" type="MeshInstance3D" parent="." unique_id=851656394]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 224, 32, 32)
 mesh = ExtResource("303_peeka")
 
-[node name="Chunk_13_2_2" type="MeshInstance3D" parent="." unique_id=1746444162]
+[node name="Chunk_13_2_2" type="MeshInstance3D" parent="." unique_id=406636102]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 208, 32, 32)
 mesh = ExtResource("304_be3nh")
 
-[node name="Chunk_12_2_2" type="MeshInstance3D" parent="." unique_id=173438015]
+[node name="Chunk_12_2_2" type="MeshInstance3D" parent="." unique_id=1847675507]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 192, 32, 32)
 mesh = ExtResource("305_36o3o")
 
-[node name="Chunk_11_2_2" type="MeshInstance3D" parent="." unique_id=1617004049]
+[node name="Chunk_11_2_2" type="MeshInstance3D" parent="." unique_id=577849186]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 176, 32, 32)
 mesh = ExtResource("306_82vrw")

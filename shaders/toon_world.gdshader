@@ -15,18 +15,26 @@ uniform float steps = 3.0;             // bands of light
 uniform vec3 tint = vec3(1.0);        // multiplies the colour (lumps of ore are the grey rock, tinted)
 uniform float alpha = 1.0;
 uniform float sparkle = 0.0;           // water: pixels that flicker
-// The ground (ChunkMesher merges whole stretches of flat faces into one quad, so what varied per block and per corner is done here):
-// UV.x: 1 = a face of the grass top, coloured by blobs of three greens from the world position (MapPreset.blob);
-//       2 = the light in the corners of the block comes from ao_tex (the 4 corners x 6 faces of every block of the chunk, 2 bits each);
+// The ground (ChunkMesher merges whole stretches of flat faces into one quad, so what varied per block and per corner is done here).
+// UV.x is a sum of flags:
+//   1 = a face of the grass top: coloured by blobs of three greens from the world position (MapPreset.blob), worn to bare earth where
+//       cover_tex says (a ragged edge of single pixels, not a gradient);
+//   2 = the light in the corners of the block comes from ao_tex (the 4 corners x 6 faces of every block of the chunk, 2 bits each);
+//   4 = a slope of grass (colours are baked, COLOR.a is how much of the grass is worn away);
+//   8 = the side of a grass block: earth with a lip of grass hanging over its top edge.
 // UV.y = how much each block of the face differs from the next (cobble on cliffs).
 uniform bool terrain = false;
 uniform sampler3D ao_tex : filter_nearest, repeat_disable;
 uniform sampler2D cover_tex : hint_default_black, filter_linear, repeat_disable;   // how much of the grass is worn away (GroundCover.slice of the chunk)
 uniform vec2 cover_size = vec2(18.0, 1.0);                                         // its width in columns and the border of columns around the chunk
 uniform vec3 bare_color = vec3(0.5412, 0.4157, 0.2627);
+uniform vec3 side_earth = vec3(0.4784, 0.3529, 0.2275);      // the side of a grass block under its lip (Blocks earth)
 uniform vec3 surface_dark = vec3(0.3098, 0.6039, 0.2039);    // MapPreset colours as the vertex colours carry them (no sRGB conversion)
 uniform vec3 surface_light = vec3(0.4157, 0.6588, 0.2353);
 uniform vec3 surface_deep = vec3(0.2392, 0.5176, 0.2039);
+// The shade the relief throws (ReliefShadow): one texel per block of the map, 0 = lit .. 1 = in the shadow of higher ground.
+uniform sampler2D relief_tex : hint_default_black, filter_linear, repeat_disable;
+uniform vec2 relief_size = vec2(448.0, 448.0);
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -44,6 +52,12 @@ float blob(vec2 p, float sc) {
 	float b = sin(p.y * 0.11 * sc + sin(p.x * 0.05 * sc) * 2.3);
 	float c = sin((p.x + p.y) * 0.045 * sc);
 	return clamp((a + b + c * 1.3) / 3.3 * 0.5 + 0.5, 0.0, 1.0);
+}
+
+// The green of the grass at a place (three blobs of colour).
+vec3 grass_green(vec2 p) {
+	vec3 g = mix(surface_dark, surface_light, blob(p, 1.0));
+	return mix(g, surface_deep, smoothstep(0.58, 0.72, blob(p + vec2(-90.0, 55.0), 0.55)) * 0.75);
 }
 
 void vertex() {
@@ -90,15 +104,31 @@ void fragment() {
 	float r = hash13(cell);
 	vec3 base = COLOR.rgb;
 	if (terrain) {
-		float flags = floor(UV.x + 0.5);   // the UV is the same on every vertex of a quad, but interpolated it is not exact
-		if (flags > 1.5) {
+		int fl = int(floor(UV.x + 0.5));   // the UV is the same on every vertex of a quad, but interpolated it is not exact
+		if ((fl & 2) != 0) {
 			base *= corner_light(local_pos, normalize(round(local_normal)));
 		}
-		if (mod(flags, 2.0) > 0.5) {
-			vec3 g = mix(surface_dark, surface_light, blob(world_pos.xz, 1.0));
-			g = mix(g, surface_deep, smoothstep(0.58, 0.72, blob(world_pos.xz + vec2(-90.0, 55.0), 0.55)) * 0.75);
-			g = mix(g, bare_color, texture(cover_tex, (local_pos.xz + cover_size.y) / cover_size.x).r);
-			base *= g;
+		// where the grass is worn the earth shows through in single pixels: a pixel is earth when the wear is more than its own noise
+		float worn = 0.0;
+		if ((fl & 1) != 0) {
+			worn = textureLod(cover_tex, (local_pos.xz + cover_size.y) / cover_size.x, 0.0).r;
+		} else if ((fl & 4) != 0) {
+			worn = COLOR.a;
+		}
+		worn = smoothstep(0.3, 0.85, worn);   // a faint wear shows nothing, only the stronger one wears the grass pixel by pixel
+		float dither = mix(hash13(cell), hash13(floor(cell * 0.5) + 17.0), 0.35);
+		bool bare = worn > dither;
+		if ((fl & 1) != 0) {
+			base *= bare ? bare_color : grass_green(world_pos.xz);
+		} else if ((fl & 4) != 0 && bare) {
+			base = bare_color;
+		}
+		if ((fl & 8) != 0) {
+			// the lip: a few pixels of grass along the top edge of the wall, each column a different length
+			float row = (floor(world_pos.y / pixel_size + 0.002) + 0.5) * pixel_size;
+			float depth = floor(row) + 1.0 - row;
+			float lip = 0.2 + 0.3 * hash13(vec3(cell.x, 3.0, cell.z));
+			base *= depth < lip ? grass_green(world_pos.xz) : side_earth;
 		}
 		if (UV.y > 0.0) {
 			base *= 1.0 + (hash13(floor(world_pos - n * 0.01)) - 0.5) * 2.0 * UV.y;
@@ -109,7 +139,8 @@ void fragment() {
 	float t = clamp(dot(n, -sun_direction) * 0.5 + 0.5, 0.0, 1.0);
 	float band = clamp(floor(t * steps + 0.5) / steps, 0.0, 1.0);
 	vec3 ambient = mix(ground_ambient, sky_ambient, n.y * 0.5 + 0.5);
-	vec3 col = albedo * (ambient + sun_color * band * 0.62);
+	float shade = terrain ? textureLod(relief_tex, world_pos.xz / relief_size, 0.0).r * smoothstep(0.3, 0.7, n.y) : 0.0;   // high ground in the way of the sun
+	vec3 col = albedo * (ambient + sun_color * band * 0.62 * (1.0 - shade));
 	if (sparkle > 0.0) {
 		float s = hash13(vec3(cell.xz, floor(TIME * 1.5)));
 		col += vec3(0.18) * step(0.93, s) * sparkle;

@@ -96,6 +96,10 @@ func hour_text() -> String:
 	return "%02d:%02d" % [minutes / 60, minutes % 60]
 
 
+## The unit vector towards whatever lights the ground now (the sun by day, the moon by night).
+var light_to_sun := Vector3(0.4, 0.8, 0.4).normalized()
+
+
 func _apply() -> void:
 	_last_push = time_of_day
 	var angle := -cos(time_of_day * TAU)            # -1 at midnight, +1 at noon
@@ -109,6 +113,7 @@ func _apply() -> void:
 	var strength := lerpf(0.35, 1.0, day)
 	var sky_amb := SKY_AMB_NIGHT.lerp(SKY_AMB_DAY, day).lerp(SKY_AMB_DAY.lerp(SKY_DUSK, 0.35), low * day)
 	var ground_amb := GROUND_AMB_NIGHT.lerp(GROUND_AMB_DAY, day)
+	light_to_sun = light_from.normalized()
 	_push("sun_direction", -light_from.normalized())
 	_push("sun_color", Vector3(sun_col.r, sun_col.g, sun_col.b) * strength)
 	_push("sky_ambient", Vector3(sky_amb.r, sky_amb.g, sky_amb.b))

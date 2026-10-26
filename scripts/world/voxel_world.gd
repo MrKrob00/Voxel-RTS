@@ -74,12 +74,16 @@ var _mesh_holds := 0                ## meshing waits while anything (the cliff p
 
 var _solid_material: ShaderMaterial
 var _water_material: ShaderMaterial
+var relief_texture: ImageTexture   ## the shade of the high ground on the low (ReliefShadow); every ground material shows it
 
 
 func _ready() -> void:
 	_solid_material = DayCycle.world_material()
 	_solid_material.set_shader_parameter("terrain", true)   # the ground: the shader finishes what the mesher merged
 	_water_material = DayCycle.world_material(false, true)
+	relief_texture = ImageTexture.create_from_image(Image.create(size_blocks().x, size_blocks().z, false, Image.FORMAT_R8))
+	_solid_material.set_shader_parameter("relief_tex", relief_texture)
+	_solid_material.set_shader_parameter("relief_size", Vector2(size_blocks().x, size_blocks().z))
 	terrain = TerrainEdit.new(self)
 	cover = GroundCover.new(size_blocks().x, size_blocks().z)
 	start()
@@ -247,6 +251,33 @@ func surface_y(x: int, z: int) -> int:
 		if Blocks.is_solid(get_block(Vector3i(x, y, z))):
 			return y
 	return -1
+
+
+## For every column (x + z * width): y + 1 of its highest solid block, 0 when there is none. Reads the chunks directly; call it from a
+## thread only while nothing is being generated.
+func fill_column_tops(out: PackedInt32Array) -> void:
+	var cs := Blocks.CHUNK_SIZE
+	for cz in size_chunks.z:
+		for cx in size_chunks.x:
+			var found := PackedByteArray()
+			found.resize(cs * cs)
+			var open := cs * cs
+			for cy in range(size_chunks.y - 1, -1, -1):
+				if open == 0:
+					break
+				var c: Chunk = _grid[cx + cz * size_chunks.x + cy * _cxz]
+				if c == null or c.data.is_empty():
+					continue
+				for lz in cs:
+					for lx in cs:
+						if found[lx + lz * cs] != 0:
+							continue
+						for ly in range(cs - 1, -1, -1):
+							if Blocks.is_solid(c.data[lx + (lz << 4) + (ly << 8)]):
+								out[(cx * cs + lx) + (cz * cs + lz) * _wx] = cy * cs + ly + 1
+								found[lx + lz * cs] = 1
+								open -= 1
+								break
 
 
 ## Voxel DDA ray. Returns {} on a miss, else {cell, normal, id, brick, distance}.

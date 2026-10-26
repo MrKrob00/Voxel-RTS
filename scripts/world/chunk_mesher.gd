@@ -315,6 +315,7 @@ static func _shape_tri(buf: Buffers, pts: Array, outward: Vector3, id: int, face
 		if not top_colors.is_empty():
 			top_colors = [top_colors[0], top_colors[2], top_colors[1]]
 	var start := buf.verts.size()
+	var grass_slope := false
 	var i := -1
 	for p in [a, b, c]:
 		i += 1
@@ -322,15 +323,23 @@ static func _shape_tri(buf: Buffers, pts: Array, outward: Vector3, id: int, face
 		if face_kind == Blocks.FACE_TOP and not top_colors.is_empty():
 			col = top_colors[i]
 		elif face_kind == Blocks.FACE_TOP:
-			col = preset.vertex_color(id, Blocks.FACE_TOP, origin.x + p.x, origin.z + p.z, buf.bare(p.x, p.z))
+			col = preset.vertex_color(id, Blocks.FACE_TOP, origin.x + p.x, origin.z + p.z)
+			if id == preset.top_block:
+				col.a = buf.bare(p.x, p.z)   # how worn the grass is: the shader shows the earth in single pixels
+				grass_slope = true
 		elif face_kind == Blocks.FACE_SIDE:
 			col = Blocks.color_of(id, Blocks.FACE_SIDE) * 0.78
 		else:
 			col = Blocks.color_of(id, Blocks.FACE_BOTTOM) * 0.55
-		col.a = 1.0
+		if not grass_slope:
+			col.a = 1.0
 		buf.verts.append(p)
 		buf.normals.append(nrm)
 		buf.colors.append(col)
+	if grass_slope:
+		buf.uvs.resize(start)
+		for k in 3:
+			buf.uvs.append(Vector2(4.0, 0.0))
 	buf.indices.append_array([start, start + 2, start + 1])
 
 
@@ -413,7 +422,9 @@ static func _emit_rect(buf: Buffers, at: int, w: int, h: int, key: int, f: int, 
 	var base := Vector3(at & 15, at >> 8, (at >> 4) & 15) + Vector3(maxi(n.x, 0), maxi(n.y, 0), maxi(n.z, 0))
 	var mul: float = FACE_SHADE[f]
 	var grass_top := id == preset.top_block and face_kind == Blocks.FACE_TOP
-	var colour := Color(1.0, 1.0, 1.0, 1.0) if grass_top else Blocks.color_of(id, face_kind)
+	var grass_side := id == preset.top_block and face_kind == Blocks.FACE_SIDE
+	var flags := 2.0 + (1.0 if grass_top else 0.0) + (8.0 if grass_side else 0.0)   # see toon_world.gdshader
+	var colour := Color(1.0, 1.0, 1.0, 1.0) if (grass_top or grass_side) else Blocks.color_of(id, face_kind)
 	var jitter := FLAT_JITTER
 	if face_kind == Blocks.FACE_SIDE and id != Blocks.GRASS and id != Blocks.DIRT:
 		jitter = COBBLE_JITTER
@@ -424,7 +435,7 @@ static func _emit_rect(buf: Buffers, at: int, w: int, h: int, key: int, f: int, 
 		buf.verts.append(corners[k])
 		buf.normals.append(Vector3(n))
 		buf.colors.append(Color(colour.r * mul, colour.g * mul, colour.b * mul, colour.a))
-		buf.uvs.append(Vector2(3.0 if grass_top else 2.0, jitter))   # x: 1 grass top | 2 light from the texture
+		buf.uvs.append(Vector2(flags, jitter))
 	buf.indices.append_array([start, start + 3, start + 1, start + 1, start + 3, start + 2])   # the diagonal of an evenly lit face
 
 

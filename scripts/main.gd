@@ -14,6 +14,7 @@ extends Node3D
 @onready var _aim: AimPreview = $AimPreview
 @onready var hud: Hud = $Hud
 @onready var day: DayCycle = $DayCycle
+@onready var relief: ReliefShadow = $ReliefShadow
 var props: PropField          # null when started with --noprops
 const START_UNITS := 5
 
@@ -49,6 +50,7 @@ func _ready() -> void:
 		props = $Props
 		props.setup(world)
 	colliders.setup(world)
+	relief.setup(world, day)
 	bricks.setup(world, colliders)
 	loose.setup(world, colliders)
 
