@@ -16,6 +16,7 @@ enum State { SEEK, GO_FETCH, TAKE, GO_WORK, WORK, GO_STOCK, PUT, WAIT_STOCK, WAI
 
 const TAKE_TIME := 0.4
 const PUT_TIME := 0.45
+const STUCK_AFTER := 1.5   ## seconds a unit may "walk" while it stands still before the walk counts as failed
 const RETRY := 4.0       ## seconds before a target that could not be reached is tried again
 
 var unit: Unit
@@ -27,6 +28,7 @@ var stockpile: Stockpile
 var _fetch := {}
 var _timer := 0.0
 var _moving := false
+var _stuck := 0.0                ## how long it has been "walking" without a way to walk (see update)
 var _log: LooseLog               ## the log lying on the ground this worker is on its way to
 
 
@@ -69,6 +71,16 @@ func _drop_stockpile_claims() -> void:
 
 
 func update(delta: float) -> void:
+	# On its way (or so it thinks) but the unit stands without a path and without looking for one: whatever went wrong, it must not
+	# stand there for ever holding a block that another unit could dig.
+	if _moving and unit.is_idle():
+		_stuck += delta
+		if _stuck > STUCK_AFTER:
+			_stuck = 0.0
+			_on_failed()
+			return
+	else:
+		_stuck = 0.0
 	match state:
 		State.SEEK:
 			_seek()

@@ -59,6 +59,7 @@ var islands: Array[Island] = []   ## [0] is the main (start) island
 var bridges: Array[Bridge] = []
 var extra_count := 0
 var cave_depth := 6
+var caves := false   ## carve caves in the rock (off: the ground is solid under the surface, nothing hollow to look into)
 var preset: MapPreset
 
 ## Heights above the island's base_top where bare rock and then snow start (set from the world height).
@@ -393,7 +394,7 @@ func block_at(wx: int, wy: int, wz: int, top: int, bottom: int, style := -1) -> 
 				return Blocks.IRON
 			return Blocks.STONE
 		return preset.sub_block
-	if wy > bottom + 3 and depth > cave_depth and _cave.get_noise_3d(wx, wy * 1.6, wz) > 0.55:
+	if caves and wy > bottom + 3 and depth > cave_depth and _cave.get_noise_3d(wx, wy * 1.6, wz) > 0.55:
 		return Blocks.AIR
 	if depth > 2 and _orange.get_noise_3d(wx, wy, wz) > 0.76:
 		return Blocks.ORANGE_ORE

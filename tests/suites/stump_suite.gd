@@ -77,6 +77,17 @@ func run() -> void:
 	planks_pile.take(Resources.Kind.PLANK, 12)
 	_until(func() -> bool: return stump.waiting == 0 and _economy.stock_of(Resources.Kind.PLANK) == 3, 60 * 40)
 	check(stump.waiting == 0 and _economy.stock_of(Resources.Kind.PLANK) == 3, "when there is room a unit took the planks from the stump to the stockpile (%d there)" % _economy.stock_of(Resources.Kind.PLANK))
+	await _already_there()
+
+
+func _already_there() -> void:
+	# A unit told to go where it already stands is told that it came, and a worker that "walks" without moving gives up.
+	var u := _units.spawn_squad(_world.spawn_point() + Vector3i(0, 1, 0), 1, 0)[0]
+	var came := [false]
+	u.arrived.connect(func() -> void: came[0] = true)
+	u.walk_to(u.cell)
+	await ctx.tree.process_frame   # the signal is sent at the end of the frame
+	check(came[0], "a unit sent to the cell it stands in is told it arrived")
 
 
 func _step(n: int) -> void:

@@ -181,7 +181,10 @@ func _use(s: PathSearch) -> bool:
 	var found := s.path
 	if found.size() < 2:
 		path.clear()
-		return found.size() == 1 and s.reached
+		if found.size() == 1 and s.reached:
+			arrived.emit.call_deferred()   # already there: whoever sent it is waiting to be told it came
+			return true
+		return false
 	path = found
 	path.remove_at(0)   # the first cell is where it stands
 	_begin_segment()
