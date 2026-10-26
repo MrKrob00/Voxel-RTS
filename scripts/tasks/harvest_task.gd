@@ -102,7 +102,7 @@ func update(board: TaskBoard) -> void:
 
 ## Somebody can work now: something is free to take (a log only when it can be carried somewhere).
 func wants_workers(board: TaskBoard) -> bool:
-	if not is_circle() or workers.size() >= max_workers:
+	if workers.size() >= max_workers:
 		return false
 	for t in targets:
 		if t.claimed == null and t.blocked_until <= board.now and t.failures < MAX_FAILURES:

@@ -64,6 +64,16 @@ func update(board: TaskBoard) -> void:
 			break
 
 
+## Is there a block nobody has claimed and that is not being left alone after a failed try? Then a free unit should come and help.
+func wants_workers(brd: TaskBoard) -> bool:
+	if workers.size() >= max_workers:
+		return false
+	for c in cells:
+		if cells[c] == null and blocked.get(c, 0.0) <= brd.now:
+			return true
+	return false
+
+
 func has_free_cell() -> bool:
 	for c in cells:
 		if cells[c] == null:
@@ -111,6 +121,11 @@ func stand_cells(target: Variant, board: TaskBoard) -> Array[Vector3i]:
 
 
 func face_point(target: Variant) -> Vector3:
+	if target == null:
+		# Where the job is, for the unit that comes to help: its first block.
+		for first in cells:
+			return Vector3(first.x + 0.5, first.y + 0.5, first.z + 0.5)
+		return Vector3.ZERO
 	var c: Vector3i = target
 	return Vector3(c.x + 0.5, c.y + 0.5, c.z + 0.5)
 

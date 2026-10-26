@@ -39,6 +39,7 @@ func run() -> void:
 				_world.set_block(p, Blocks.make(Blocks.STONE) if y <= _top_y else Blocks.AIR)
 	_straight()
 	_corner_case()
+	_free_units_help()
 	var waited := 0
 	while not _world.is_settled() and waited < 3000:
 		await tree.process_frame
@@ -131,6 +132,28 @@ func _straight() -> void:
 		if c.z == z0 and c.x > x0 and c.x <= x0 + 3:
 			via_stairs = true
 	check(via_stairs, "the way out goes up the staircase")
+
+
+func _free_units_help() -> void:
+	print("-- 4 x 4 columns, 1 layer: free units come to help by themselves")
+	var x0 := _corner.x + 4
+	var z0 := _corner.z + 10
+	var task := _board.create_dig(x0, z0, x0 + 3, z0 + 3, 1)
+	task.collect = {}
+	var crew := _units.spawn_squad(Vector3i(x0 - 2, _top_y + 1, z0 - 2), 3, 1)   # nobody is told to dig
+	var most := 0
+	var frames := 0
+	while _board.tasks.has(task) and frames < 40000:
+		_board._process(0.05)
+		for u in crew:
+			u._process(0.05)
+		most = maxi(most, task.workers.size())
+		frames += 1
+	check(not _board.tasks.has(task), "the quarry was dug although nobody was told to (%d frames)" % frames)
+	check(most == 3, "all three free units came to help (at most %d at once)" % most)
+	for u in crew:
+		_units.units.erase(u)
+		u.queue_free()
 
 
 func _corner_case() -> void:

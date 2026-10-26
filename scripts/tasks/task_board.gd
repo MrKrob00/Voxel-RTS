@@ -412,12 +412,13 @@ func resume_or_free(u: Unit) -> void:
 		assign(u, back)
 
 
-## Idle units (no job, no order) join a station that has something to make: the nearest unit to each.
+## Idle units (no job, no order) join a task that has something to do, the oldest task first: a station that has something to make, a
+## quarry with a block free to dig, trees to fell. One unit at a time to each task, the nearest to it.
 func _auto_assign() -> void:
 	if units == null:
 		return
 	for t in tasks:
-		if not t.persistent or t.workers.size() >= t.max_workers or not t.wants_workers(self):
+		if t.workers.size() >= t.max_workers or not t.wants_workers(self):
 			continue
 		var best: Unit = null
 		var best_d := INF
