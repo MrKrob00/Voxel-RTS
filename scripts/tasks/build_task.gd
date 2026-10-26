@@ -14,6 +14,18 @@ func _init(bp: Blueprint) -> void:
 	max_workers = 2
 
 
+## Every frame: a log in somebody's hands that is on its way to this plan hangs over it as a ghost log (the place is taken, the work not begun).
+func update(_brd: TaskBoard) -> void:
+	if blueprint == null or not is_instance_valid(blueprint) or blueprint.done:
+		return
+	var coming := false
+	if blueprint.remaining().has(Resources.Kind.LOG):
+		for u in workers:
+			if is_instance_valid(u) and u.carried_kind() == Resources.Kind.LOG and u.carried_amount() > 0:
+				coming = true
+	blueprint.show_incoming_log(coming)
+
+
 func is_finished() -> bool:
 	return blueprint == null or not is_instance_valid(blueprint) or blueprint.done
 

@@ -13,6 +13,7 @@ var delivered := {}              ## Resources.Kind -> how many have arrived
 var done := false
 var title := ""
 var _label: Label3D
+var _ghost_log: MeshInstance3D
 
 
 func covers(c: Vector3i) -> bool:
@@ -73,18 +74,7 @@ func build(type: String, k: int, at: Vector3i, sz: Vector2i, price: Dictionary, 
 	title = name_text
 	name = "Blueprint_%d_%d" % [at.x, at.z]
 	position = Vector3(at.x, at.y, at.z)
-	var ghost := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	var height := 0.5
-	box.size = Vector3(sz.x - 0.1, height, sz.y - 0.1)
-	ghost.mesh = box
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = Color(0.35, 0.65, 1.0, 0.45)
-	ghost.material_override = m
-	ghost.position = Vector3(sz.x * 0.5, height * 0.5, sz.y * 0.5)
-	add_child(ghost)
+	var height := _make_ghost()
 	_label = Label3D.new()
 	_label.font_size = 22
 	_label.pixel_size = 0.0045
@@ -94,6 +84,57 @@ func build(type: String, k: int, at: Vector3i, sz: Vector2i, price: Dictionary, 
 	_label.position = Vector3(sz.x * 0.5, height + 0.7, sz.y * 0.5)
 	add_child(_label)
 	_refresh()
+
+
+## The picture of the plan: the real building (a stockpile platform, the stump with its axe, the rope machine) drawn translucent, with no
+## label and no goods. Returns how high it stands.
+func _make_ghost() -> float:
+	var model: Node3D
+	if kind_type == "station":
+		var st := Station.new()
+		add_child(st)
+		st.build(kind, Vector3i.ZERO)
+		model = st
+	else:
+		var sp := Stockpile.new()
+		add_child(sp)
+		sp.build(Vector3i.ZERO)
+		model = sp
+	model.set_process(false)
+	model.set_physics_process(false)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(0.35, 0.65, 1.0, 0.45)
+	var top := 0.5
+	for n in model.find_children("*", "", true, false):
+		if n is MeshInstance3D:
+			(n as MeshInstance3D).material_override = m
+			top = maxf(top, (n as MeshInstance3D).get_aabb().end.y * (n as MeshInstance3D).scale.y + (n as MeshInstance3D).position.y)
+		elif n is Label3D:
+			n.queue_free()
+	return top
+
+
+## A log is on its way here in somebody's hands: it hangs over the plan as a translucent log until it is put in.
+func show_incoming_log(on: bool) -> void:
+	if on and _ghost_log == null:
+		_ghost_log = MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = LooseLog.RADIUS
+		cyl.bottom_radius = LooseLog.RADIUS
+		cyl.height = LooseLog.LENGTH
+		_ghost_log.mesh = cyl
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color = Color(0.7, 0.5, 0.25, 0.55)
+		_ghost_log.material_override = m
+		_ghost_log.rotation = Vector3(0.0, 0.0, deg_to_rad(90.0))
+		_ghost_log.position = Vector3(size.x * 0.5, 0.75, size.y * 0.5)
+		add_child(_ghost_log)
+	if _ghost_log != null:
+		_ghost_log.visible = on
 
 
 func _refresh() -> void:
