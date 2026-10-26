@@ -57,6 +57,11 @@ float blob(vec2 p, float sc) {
 	return clamp((a + b + c * 1.3) / 3.3 * 0.5 + 0.5, 0.0, 1.0);
 }
 
+// The noise a pixel is worn by: lumps of 2 x 2 pixels on top of single pixels.
+float wear_noise(vec3 cell) {
+	return mix(hash13(cell), hash13(floor(cell * 0.5) + 17.0), 0.35);
+}
+
 // The green of the grass at a place (three blobs of colour).
 vec3 grass_green(vec2 p) {
 	vec3 g = mix(surface_dark, surface_light, blob(p, 1.0));
@@ -119,9 +124,12 @@ void fragment() {
 			worn = COLOR.a;
 		}
 		// a faint wear shows nothing (no sparse dots over a wide field); the edge itself is ragged, pixel by pixel
-		worn = smoothstep(0.42, 0.85, worn);
-		float dither = mix(hash13(cell), hash13(floor(cell * 0.5) + 17.0), 0.35);
-		bool bare = worn > dither;
+		worn = worn < 0.5 ? 0.0 : mix(0.4, 1.0, smoothstep(0.5, 0.85, worn));   // no thin sparse dots: the edge starts at a dense scatter
+		bool bare = worn > wear_noise(cell);
+		if (bare && worn < 0.97) {
+			// a pixel of earth needs a neighbour of earth: no lone dots
+			bare = worn > wear_noise(cell + vec3(1.0, 0.0, 0.0)) || worn > wear_noise(cell - vec3(1.0, 0.0, 0.0)) || worn > wear_noise(cell + vec3(0.0, 0.0, 1.0)) || worn > wear_noise(cell - vec3(0.0, 0.0, 1.0));
+		}
 		if ((fl & 1) != 0) {
 			base *= bare ? bare_color : grass_green(world_pos.xz);
 		} else if ((fl & 4) != 0 && bare) {
