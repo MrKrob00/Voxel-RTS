@@ -128,6 +128,11 @@ func run() -> void:
 	gone.free()
 	check(job.is_finished() and job.input_needed().is_empty(), "a finished building job with a freed blueprint asks for nothing")
 
+	# The ghost before a block is planned asks the same question the plan does, without planning anything.
+	var spot := base + Vector3i(14, 0, 9)
+	check(_economy.block_error("brick", spot, Vector2i(1, 0)) == "" and _economy.walls.is_empty(), "a free flat spot has no error and nothing is planned by asking")
+	check(_economy.block_error("brick", base + Vector3i(3, 0, 3), Vector2i(1, 0)).contains("overlaps"), "the ghost over a stockpile is refused")
+
 
 func _step(n: int) -> void:
 	for i in n:

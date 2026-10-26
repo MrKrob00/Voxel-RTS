@@ -181,31 +181,39 @@ func place_stairs(at: Vector3i, rise: Vector2i) -> WallPlan:
 	return plan
 
 
-## Plans one block of the catalog at `at`, lying along `dir` (a unit step in x or z; its sign is the way a slope or a stair rises).
-func place_block(id: String, at: Vector3i, dir: Vector2i) -> WallPlan:
-	last_error = ""
+## Why the block cannot be planned on `at` lying along `dir` ("" when it can).
+func block_error(id: String, at: Vector3i, dir: Vector2i) -> String:
 	var d := BlockCatalog.get_def(id)
 	if d.is_empty():
-		last_error = "no such block"
-		return null
+		return "no such block"
 	if d.material == BlockCatalog.WOOD:
-		last_error = "wooden blocks are not built yet"
-		return null
-	var facing := 0 if dir == Vector2i(1, 0) else (1 if dir == Vector2i(0, 1) else (2 if dir == Vector2i(-1, 0) else 3))
-	var slots := WallPlan.block_layout(id, at, facing)
+		return "wooden blocks are not built yet"
+	var slots := WallPlan.block_layout(id, at, _facing_of(dir))
 	for c in slots[0].cells():
 		if not world.in_bounds(c) or Blocks.is_solid(world.get_block(c)) or bricks.occupied(c):
-			last_error = "something is in the way"
+			return "something is in the way"
 		for p in stockpiles + blueprints + stations:
 			if p.covers(c):
-				last_error = "overlaps a building"
+				return "overlaps a building"
 		for w in walls:
 			if w.covers(c):
-				last_error = "overlaps another plan"
-	if last_error == "" and not bricks.can_place(at, slots[0].axis, d.length):
-		last_error = "needs flat whole ground or a block under it"
+				return "overlaps another plan"
+	if not bricks.can_place(at, slots[0].axis, d.length):
+		return "needs flat whole ground or a block under it"
+	return ""
+
+
+static func _facing_of(dir: Vector2i) -> int:
+	return 0 if dir == Vector2i(1, 0) else (1 if dir == Vector2i(0, 1) else (2 if dir == Vector2i(-1, 0) else 3))
+
+
+## Plans one block of the catalog at `at`, lying along `dir` (a unit step in x or z; its sign is the way a slope or a stair rises).
+func place_block(id: String, at: Vector3i, dir: Vector2i) -> WallPlan:
+	last_error = block_error(id, at, dir)
 	if last_error != "":
 		return null
+	var d := BlockCatalog.get_def(id)
+	var slots := WallPlan.block_layout(id, at, _facing_of(dir))
 	var plan := WallPlan.new()
 	add_child(plan)
 	plan.build(at, slots[0].axis, d.length, 1, slots)

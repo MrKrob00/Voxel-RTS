@@ -26,6 +26,8 @@ var _ghost: MeshInstance3D
 var _ghost_mat: StandardMaterial3D
 
 var _hover: MeshInstance3D
+var _pending := {}              ## the placement shown as a ghost, waiting for the second tap: {"mode", "origin", "dir"}
+var _pending_ghost: Node3D
 
 
 ## Debug switches for the command line (after `--`): --extras=0..4 more islands, --seed=N, --noprops. Applied before the world starts.
@@ -128,6 +130,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func _rotate_brick() -> void:
 	brick_axis = (brick_axis + 1) % 4   # 0..3: +x, +z, -x, -z (the sandbox bricks use only the axis)
+	if not _pending.is_empty() and Tools.is_block(mode):
+		_show_block_ghost(_pending.origin, _axis_step())   # the ghost turns with it
 
 
 func _is_brick_mode() -> bool:
@@ -194,6 +198,7 @@ func _setup_ui() -> void:
 func _choose_tool(m: int) -> void:
 	mode = m
 	_editing = null
+	_clear_pending()
 	rig.drag_mode = _is_aim_tool()
 	_aim.clear()
 	hud.set_tool(m)
@@ -353,6 +358,9 @@ func _on_primary(pos: Vector2) -> void:
 
 ## Long press / right click: the command. Move the selection there; with nothing selected, in any tool mode, remove what is there.
 func _on_secondary(pos: Vector2) -> void:
+	if not _pending.is_empty():
+		_clear_pending()   # the ghost is taken back
+		return
 	var hit := _pick(pos)
 	if hit.is_empty():
 		return
@@ -465,10 +473,21 @@ func _mark_harvest(kind: int, center: Vector2, radius: float) -> void:
 
 
 func _place_station(hit: Dictionary) -> void:
-	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
+	var origin: Vector3i = _cell_above(hit)
 	var kind := Station.Kind.STUMP if mode == Tools.Mode.STUMP else Station.Kind.ROPE_MACHINE
-	if not hit.brick and board.place_blueprint("station", kind, origin) == null:
-		hud.show_message("Cannot plan it here: " + economy.last_error)
+	if hit.brick:
+		return
+	if _confirm(origin, Vector2i.ZERO):
+		if board.place_blueprint("station", kind, origin) == null:
+			hud.show_message("Cannot plan it here: " + economy.last_error)
+		return
+	var why := Station.can_place(world, bricks, kind, origin, economy.stockpiles + economy.blueprints, economy.stations)
+	if why != "":
+		_clear_pending()
+		hud.show_message("Cannot plan it here: " + why)
+		return
+	_pending = {"mode": mode, "origin": origin, "dir": Vector2i.ZERO}
+	_show_structure_ghost("station", kind, origin, Station.DEFS[kind])
 
 
 func _set_depth(d: int) -> void:
@@ -485,13 +504,24 @@ func _cell_above(hit: Dictionary) -> Vector3i:
 	return hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
 
 
-## One block of the catalog on the cell above the point, lying along `dir`.
+## One block of the catalog on the cell above the point, lying along `dir`: the first tap shows how it will stand, the second one
+## on the same place and the same way plans it.
 func _plan_block(a: Dictionary, dir: Vector2i) -> void:
 	if a.brick and not Tools.is_block(mode):
 		return
 	var id := Tools.block_of(mode)
-	if board.place_block(id, _cell_above(a), dir) == null:
-		hud.show_message("Cannot plan it here: " + economy.last_error)
+	var at := _cell_above(a)
+	if _confirm(at, dir):
+		if board.place_block(id, at, dir) == null:
+			hud.show_message("Cannot plan it here: " + economy.last_error)
+		return
+	var why := economy.block_error(id, at, dir)
+	if why != "":
+		_clear_pending()
+		hud.show_message("Cannot plan it here: " + why)
+		return
+	_pending = {"mode": mode, "origin": at, "dir": dir}
+	_show_block_ghost(at, dir)
 
 
 func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
@@ -504,9 +534,74 @@ func _mark_dig(x0: int, z0: int, x1: int, z1: int) -> void:
 
 
 func _place_stockpile(hit: Dictionary) -> void:
-	var origin: Vector3i = hit.cell + hit.normal if not Blocks.is_partial(world.get_block(hit.cell)) else hit.cell
-	if not hit.brick and board.place_blueprint("stockpile", 0, origin) == null:
-		hud.show_message("Cannot plan a stockpile here: " + economy.last_error)
+	var origin: Vector3i = _cell_above(hit)
+	if hit.brick:
+		return
+	if _confirm(origin, Vector2i.ZERO):
+		if board.place_blueprint("stockpile", 0, origin) == null:
+			hud.show_message("Cannot plan a stockpile here: " + economy.last_error)
+		return
+	var why := Stockpile.can_place(world, bricks, origin, economy.stockpiles + economy.blueprints)
+	if why != "":
+		_clear_pending()
+		hud.show_message("Cannot plan a stockpile here: " + why)
+		return
+	_pending = {"mode": mode, "origin": origin, "dir": Vector2i.ZERO}
+	_show_structure_ghost("stockpile", 0, origin, {"size": Vector2i(Stockpile.SIZE, Stockpile.SIZE), "cost": Stockpile.COST, "name": "Stockpile"})
+
+
+## True when this is the second tap on the placement already shown as a ghost (it is taken away then, the caller plans it).
+func _confirm(origin: Vector3i, dir: Vector2i) -> bool:
+	var same: bool = not _pending.is_empty() and _pending.mode == mode and _pending.origin == origin and _pending.dir == dir
+	if same:
+		_clear_pending()
+	return same
+
+
+func _clear_pending() -> void:
+	_pending = {}
+	if _pending_ghost != null:
+		_pending_ghost.queue_free()
+		_pending_ghost = null
+
+
+func _ghost_material() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(0.3, 0.9, 0.4, 0.5)
+	return m
+
+
+## The block as it will stand (the model of the plan), translucent green.
+func _show_block_ghost(at: Vector3i, dir: Vector2i) -> void:
+	if _pending_ghost != null:
+		_pending_ghost.queue_free()
+	var id := Tools.block_of(mode)
+	var facing := Economy._facing_of(dir)
+	var slot := WallPlan.block_layout(id, at, facing)[0]
+	var g := MeshInstance3D.new()
+	g.mesh = BlockCatalog.mesh(id)
+	g.basis = Basis(Vector3.UP, -facing * PI * 0.5) * 0.98
+	g.material_override = _ghost_material()
+	var cs := slot.cells()
+	g.position = (Vector3(cs[0]) + Vector3(cs[-1]) + Vector3(1, 1, 1)) * 0.5
+	add_child(g)
+	_pending_ghost = g
+	_pending.dir = dir
+
+
+## A stockpile or a station as it will stand (the model of its blueprint), translucent green.
+func _show_structure_ghost(type: String, kind: int, origin: Vector3i, def: Dictionary) -> void:
+	if _pending_ghost != null:
+		_pending_ghost.queue_free()
+	var bp := Blueprint.new()
+	add_child(bp)
+	bp.build(type, kind, origin, def.size, def.cost, def.name)
+	var m := _ghost_material()
+	for n in bp.find_children("*", "MeshInstance3D", true, false):
+		(n as MeshInstance3D).material_override = m
+	_pending_ghost = bp
 
 
 func _refresh_tasks_panel() -> void:
