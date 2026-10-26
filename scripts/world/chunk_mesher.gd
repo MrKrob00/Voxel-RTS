@@ -77,12 +77,22 @@ static func build(snap: Array, origin: Vector3i, preset: MapPreset, cover := Pac
 				var is_water := id == Blocks.WATER
 				for f in 6:
 					var n := FACE_NORMALS[f]
-					var nraw := _voxel(snap, x + n.x, y + n.y, z + n.z)
+					var nx := x + n.x
+					var ny := y + n.y
+					var nz := z + n.z
+					# Inside this chunk the neighbour is read straight from it; only the edge looks into the other chunks.
+					var nraw: int
+					if nx >= 0 and nx < 16 and ny >= 0 and ny < 16 and nz >= 0 and nz < 16:
+						nraw = center[nx + (nz << 4) + (ny << 8)]
+					else:
+						nraw = _voxel(snap, nx, ny, nz)
 					if is_water:
 						if nraw != Blocks.AIR:
 							continue
-					elif Blocks.is_opaque(nraw):
-						continue
+					else:
+						var nm := nraw & Blocks.MAT_MASK   # is_opaque, by hand: this line runs for every face of every block
+						if nm != Blocks.AIR and nm != Blocks.WATER and (nraw >> Blocks.SHAPE_SHIFT) & Blocks.SHAPE_MASK == Blocks.SHAPE_CUBE:
+							continue
 					_emit_face(water if is_water else solid, snap, x, y, z, f, id, origin, is_water, preset)
 	var out := [null, null]
 	if not solid.indices.is_empty():

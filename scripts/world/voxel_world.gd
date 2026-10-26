@@ -48,6 +48,13 @@ class Chunk extends RefCounted:
 
 
 var _chunks := {}
+## The same chunks in a flat array (x + z * cx + y * cx * cz) and the size of the world in blocks: get_block is the most called function
+## of the game (every path search, every mesh), so it does no dictionary lookup and builds no vectors.
+var _grid: Array[Chunk] = []
+var _wx := 0
+var _wy := 0
+var _wz := 0
+var _cxz := 0
 var _gen_queue: Array[Chunk] = []
 var _gen_in_flight := 0
 var _gen_total := 0
@@ -85,6 +92,11 @@ func size_blocks() -> Vector3i:
 func start() -> void:
 	generator = WorldGen.new(world_seed, size_blocks(), preset, extra_islands)
 	_gen_total = size_chunks.x * size_chunks.y * size_chunks.z
+	_wx = size_chunks.x * Blocks.CHUNK_SIZE
+	_wy = size_chunks.y * Blocks.CHUNK_SIZE
+	_wz = size_chunks.z * Blocks.CHUNK_SIZE
+	_cxz = size_chunks.x * size_chunks.z
+	_grid.resize(_gen_total)
 	hold_meshing()
 	WorkerThreadPool.add_task(_cliff_cover_task)
 	# Generate from the middle of the map outwards so the visible area appears first.
@@ -95,6 +107,7 @@ func start() -> void:
 			for cx in size_chunks.x:
 				var c := Chunk.new(Vector3i(cx, cy, cz))
 				_chunks[c.cpos] = c
+				_grid[cx + cz * size_chunks.x + cy * _cxz] = c
 				list.append(c)
 	list.sort_custom(func(a: Chunk, b: Chunk) -> bool:
 		return (Vector3(a.cpos) - centre).length_squared() < (Vector3(b.cpos) - centre).length_squared())
@@ -162,12 +175,18 @@ func in_bounds(p: Vector3i) -> bool:
 
 ## The voxel at a position (see Blocks for the format); AIR outside the world and in chunks not generated yet.
 func get_block(p: Vector3i) -> int:
-	if not in_bounds(p):
+	var x := p.x
+	var y := p.y
+	var z := p.z
+	if x < 0 or y < 0 or z < 0 or x >= _wx or y >= _wy or z >= _wz:
 		return Blocks.AIR
-	var c: Chunk = _chunks.get(Vector3i(p.x >> 4, p.y >> 4, p.z >> 4))
-	if c == null or not c.generated or c.data.is_empty():
+	var c: Chunk = _grid[(x >> 4) + (z >> 4) * size_chunks.x + (y >> 4) * _cxz]
+	if c == null or not c.generated:
 		return Blocks.AIR
-	return c.data[(p.x & 15) + ((p.z & 15) << 4) + ((p.y & 15) << 8)]
+	var d := c.data
+	if d.is_empty():
+		return Blocks.AIR
+	return d[(x & 15) + ((z & 15) << 4) + ((y & 15) << 8)]
 
 
 ## Writes one voxel and schedules the remesh of every chunk that can see it. Pure storage: the rules of digging and

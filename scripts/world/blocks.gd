@@ -231,7 +231,7 @@ static func max_height(shape_id: int) -> int:
 ## Hides the faces of neighbours: only full cubes do.
 static func is_opaque(raw: int) -> bool:
 	var m := raw & MAT_MASK
-	return m != AIR and m != WATER and shape(raw) == SHAPE_CUBE
+	return m != AIR and m != WATER and (raw >> SHAPE_SHIFT) & SHAPE_MASK == SHAPE_CUBE
 
 
 static func is_solid(raw: int) -> bool:
