@@ -108,6 +108,11 @@ func steps_at(cell: Vector3i) -> Dictionary:
 	return {"rise": rise, "steps": FLIGHTS[b.shape]}
 
 
+## The set of the cells the bricks fill (the dictionary itself, not a copy: Navigation asks it directly).
+func cell_set() -> Dictionary:
+	return _cells
+
+
 ## A copy of what Navigation asks about the bricks, for a thread to read while the main thread goes on changing them.
 func snapshot() -> BrickSnapshot:
 	var snap := BrickSnapshot.new()

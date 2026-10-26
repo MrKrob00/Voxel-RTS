@@ -25,12 +25,27 @@ const DIRS: Array[Vector2i] = [
 ]
 
 var world: VoxelWorld
-var bricks   ## optional: bricks are obstacles and floors (a BrickWorld, or a BrickSnapshot in the copy a thread reads)
+var bricks:   ## optional: bricks are obstacles and floors (a BrickWorld, or a BrickSnapshot in the copy a thread reads)
+	set(value):
+		bricks = value
+		_brick_cells = value.cell_set() if value != null else {}
 var obstacle := Callable()   ## optional (cell) -> bool: other things that fill a cell (a stockpile frame, a station)
 ## optional: whoever the cells of `obstacle` come from, with blocked_cells() -> Dictionary and obstacle_signature() -> int (the Economy);
-## a thread reads a copy of them.
+## the cells are then kept in a set (and the search asks the set, not the buildings). A thread reads a copy of it.
 var obstacle_source: Object
 var _size: Vector3i
+var _brick_cells := {}              ## the cells the bricks fill (the very dictionary of the BrickWorld, or the copy of it)
+var _obstacle_cells := {}           ## the cells of the buildings, when `obstacle_source` is known
+var _obstacle_signature := -1
+const MAX_COMPONENTS := 6          ## sets of reachable cells remembered (see PathSearch.component)
+var _components: Array[PackedInt32Array] = []
+var _components_signature := -1
+## The ways walked to a goal lately ({goal, path, t}): a search to a goal near one of them joins it where it meets it.
+const MAX_ROUTES := 24
+const ROUTE_GOAL_RADIUS := 3.0   ## columns between the goal of a way and the new goal for the way to be of use
+const ROUTE_AGE_MSEC := 90000
+const ROUTES_PER_SEARCH := 6
+var _routes: Array[Dictionary] = []
 
 ## Result of the last find_path: false when the goal could not be reached and the path only gets as near as it could.
 var last_reached := false
@@ -45,37 +60,65 @@ func _init(w: VoxelWorld, b = null) -> void:
 
 # --- cells ------------------------------------------------------------------------------------------
 
+## What the ground says about standing in a cell (NavBits), -1 when that is not known (yet).
+func _bits_of(c: Vector3i) -> int:
+	var nb := world.nav_bits
+	return nb.get_bits(c.x, c.y, c.z) if nb != null else -1
+
+
+## Takes the cells of the buildings again if any of them changed (when `obstacle_source` is known).
+func refresh_obstacles() -> void:
+	if obstacle_source == null:
+		return
+	var sig: int = obstacle_source.call("obstacle_signature")
+	if sig != _obstacle_signature:
+		_obstacle_signature = sig
+		_obstacle_cells = obstacle_source.call("blocked_cells")
+
+
+func _obstacle(c: Vector3i) -> bool:
+	if obstacle_source != null:
+		return _obstacle_cells.has(c)
+	return obstacle.is_valid() and obstacle.call(c)
+
+
 func _brick(c: Vector3i) -> bool:
-	return (bricks != null and bricks.occupied(c)) or (obstacle.is_valid() and obstacle.call(c))
+	return _brick_cells.has(c) or _obstacle(c)
 
 
 ## The flight of steps in a cell ({} if none): the unit stands IN that cell and walks up the steps.
 func _flight(c: Vector3i) -> Dictionary:
-	return bricks.steps_at(c) if bricks != null else {}
+	return bricks.steps_at(c) if bricks != null and _brick_cells.has(c) else {}
 
 
 ## A brick or other thing that carries the feet of someone standing on top of it. A flight of steps does not: its top is only reached
 ## by walking up it.
 func _floor_brick(c: Vector3i) -> bool:
-	if obstacle.is_valid() and obstacle.call(c):
+	if _obstacle(c):
 		return true
-	return bricks != null and bricks.occupied(c) and bricks.steps_at(c).is_empty()
+	return _brick_cells.has(c) and bricks.steps_at(c).is_empty()
 
 
 ## Blocks a body: any solid ground, whole or partial, a brick, or water.
 func blocked(c: Vector3i) -> bool:
 	if _brick(c):
 		return true
+	var bits := _bits_of(c)
+	if bits >= 0:
+		return bits & NavBits.SOLID != 0
 	var raw := world.get_block(c)
 	return Blocks.is_solid(raw) or Blocks.mat(raw) == Blocks.WATER
 
 
 ## A ground piece (slope or half-dug block) is a floor the unit stands in: free for feet, not for a head.
 func _feet_free(c: Vector3i) -> bool:
-	if obstacle.is_valid() and obstacle.call(c):
+	if _obstacle(c):
 		return false
-	if bricks != null and bricks.occupied(c) and bricks.steps_at(c).is_empty():
+	if _brick_cells.has(c) and bricks.steps_at(c).is_empty():
 		return false
+	var bits := _bits_of(c)
+	if bits >= 0:
+		return bits & NavBits.FEET != 0
 	var raw := world.get_block(c)
 	if Blocks.mat(raw) == Blocks.WATER:
 		return false
@@ -85,12 +128,48 @@ func _feet_free(c: Vector3i) -> bool:
 func standable(c: Vector3i) -> bool:
 	if c.x < 0 or c.z < 0 or c.y < 1 or c.x >= _size.x or c.z >= _size.z or c.y + 2 >= _size.y:
 		return false
-	if not _feet_free(c):
+	var bits := _bits_of(c)
+	if bits < 0:
+		return _standable_by_blocks(c)   # the bits of the ground are not worked out yet
+	# the same rules as _standable_by_blocks, with the part that only the ground decides read from `bits` (see NavBits)
+	if bits & NavBits.FEET == 0:
 		return false
-	if blocked(c + Vector3i(0, 1, 0)):
+	var flight := false
+	if _brick_cells.has(c):
+		if bricks.steps_at(c).is_empty():
+			return false
+		flight = true
+	if _obstacle(c):
 		return false
-	var raw := world.get_block(c)
-	if Blocks.is_partial(raw) or not _flight(c).is_empty():
+	if bits & NavBits.HEAD == 0:
+		return false
+	var up := Vector3i(c.x, c.y + 1, c.z)
+	if _brick_cells.has(up) or _obstacle(up):
+		return false
+	if bits & NavBits.PIECE != 0 or flight:
+		return true
+	if bits & NavBits.FLOOR != 0:
+		return true
+	return _floor_brick(Vector3i(c.x, c.y - 1, c.z))
+
+
+## The same question answered from the blocks themselves (what `standable` does, slower; used while NavBits is not ready, and by tests
+## that check one against the other).
+func _standable_by_blocks(c: Vector3i) -> bool:
+	if c.x < 0 or c.z < 0 or c.y < 1 or c.x >= _size.x or c.z >= _size.z or c.y + 2 >= _size.y:
+		return false
+	if _obstacle(c):
+		return false
+	if _brick_cells.has(c) and bricks.steps_at(c).is_empty():
+		return false
+	var feet := world.get_block(c)
+	if Blocks.mat(feet) == Blocks.WATER or (Blocks.is_solid(feet) and not Blocks.is_partial(feet)):
+		return false
+	var head := c + Vector3i(0, 1, 0)
+	var head_raw := world.get_block(head)
+	if _brick(head) or Blocks.is_solid(head_raw) or Blocks.mat(head_raw) == Blocks.WATER:
+		return false
+	if Blocks.is_partial(feet) or not _flight(c).is_empty():
 		return true
 	var below := c + Vector3i(0, -1, 0)
 	return Blocks.is_whole(world.get_block(below)) or _floor_brick(below)
@@ -279,8 +358,9 @@ static func _heuristic(a: Vector3i, b: Vector3i) -> float:
 ## `stop_near`: accept any cell within that many columns of the goal (to reach a thing to work on, not its exact cell).
 ## Runs to the end at once (tests, one-off questions); units use `begin_search` and give it a few milliseconds a frame.
 func find_path(from: Vector3i, to: Vector3i, stop_near := 0.0) -> Array[Vector3i]:
-	var s := PathSearch.new(self, from, to, stop_near)
+	var s := _begin(from, to, stop_near, true)
 	s.advance(-1)
+	learn(s)
 	last_reached = s.reached
 	last_expanded = s.expanded
 	return s.path
@@ -288,11 +368,91 @@ func find_path(from: Vector3i, to: Vector3i, stop_near := 0.0) -> Array[Vector3i
 
 ## A search that is done in slices of time, or on a worker thread (see PathSearch).
 func begin_search(from: Vector3i, to: Vector3i, stop_near := 0.0) -> PathSearch:
-	if not use_threads():
-		return PathSearch.new(self, from, to, stop_near)
-	var s := PathSearch.new(view(), from, to, stop_near)
-	s.threaded = true
+	return _begin(from, to, stop_near, false)
+
+
+func _begin(from: Vector3i, to: Vector3i, stop_near: float, here: bool) -> PathSearch:
+	refresh_obstacles()
+	var sig := signature()
+	if sig != _components_signature:
+		_components.clear()
+		_components_signature = sig
+	var s: PathSearch
+	if here or not use_threads():
+		s = PathSearch.new(self, from, to, stop_near)
+	else:
+		s = PathSearch.new(view(), from, to, stop_near)
+		s.threaded = true
+	s.signature = sig
+	if not s.done:
+		s.routes = routes_for(to, stop_near)
+	if not s.done:
+		var start_key := _key(s.from)
+		for comp in _components:
+			var i: int = comp.bsearch(start_key)
+			if i < comp.size() and comp[i] == start_key:
+				s.restrict = comp
+				break
 	return s
+
+
+## The recent ways to a goal near `to` (their cells), newest first.
+func routes_for(to: Vector3i, _stop_near: float) -> Array:
+	var out: Array = []
+	var now := Time.get_ticks_msec()
+	for i in range(_routes.size() - 1, -1, -1):
+		var r := _routes[i]
+		if now - int(r.t) > ROUTE_AGE_MSEC:
+			continue
+		var g: Vector3i = r.goal
+		if Vector2(g.x - to.x, g.z - to.z).length() <= ROUTE_GOAL_RADIUS and absi(g.y - to.y) <= 2:
+			out.append(r.path)
+			if out.size() >= ROUTES_PER_SEARCH:
+				break
+	return out
+
+
+## What the world, the bricks and the buildings look like now, as one number: what is worked out from them is only good while it stays.
+func signature() -> int:
+	var sig := world.edit_serial * 1000003 + _obstacle_signature
+	if bricks != null:
+		sig = sig * 31 + bricks.signature()
+	return sig
+
+
+## The way a unit is going to walk to a goal it can reach: later searches to a place near it follow it where they meet it.
+func remember(search: PathSearch) -> void:
+	if not search.reached or search.path.size() < 4:
+		return
+	var path := search.path.duplicate()
+	for i in range(_routes.size() - 1, -1, -1):
+		if _routes[i].path[0] == path[0] and _routes[i].path[-1] == path[-1]:
+			_routes.remove_at(i)
+	_routes.append({"goal": search.to, "path": path, "t": Time.get_ticks_msec()})
+	if _routes.size() > MAX_ROUTES:
+		_routes.pop_front()
+
+
+## The price of walking from one cell to the next one of a way, or -1 when that cannot be done now (a step, a hop or a jump of the rules).
+func move_cost(a: Vector3i, b: Vector3i) -> float:
+	var dx := b.x - a.x
+	var dz := b.z - a.z
+	if absi(dx) <= 1 and absi(dz) <= 1 and (dx != 0 or dz != 0):
+		var r := step(a, Vector2i(dx, dz))
+		return r[1] if r[0] == b else -1.0
+	if (dx == 0) != (dz == 0) and (absi(dx) == 2 or absi(dz) == 2):
+		var j := jump(a, Vector2i(signi(dx), signi(dz)))
+		return j[1] if j[0] == b else -1.0
+	return -1.0
+
+
+## A finished search tells what it found out. Called on the main thread with every search a unit has used.
+func learn(search: PathSearch) -> void:
+	if search.component.is_empty() or search.signature != signature():
+		return
+	_components.append(search.component)
+	if _components.size() > MAX_COMPONENTS:
+		_components.pop_front()
 
 
 ## Searches run on worker threads where something is drawn (the game); the tests step the world by hand, in order, and ask for the
@@ -309,15 +469,16 @@ func use_threads() -> bool:
 ## The navigation a thread may read: the same rules over a copy of the bricks and of the cells of the buildings, made when something
 ## of them has changed (the voxels themselves are read as they are).
 func view() -> Navigation:
-	var sig := [bricks.signature() if bricks != null else 0, obstacle_source.call("obstacle_signature") if obstacle_source != null else 0]
+	refresh_obstacles()
+	var sig := [bricks.signature() if bricks != null else 0, _obstacle_signature]
 	if _view == null or sig != _view_signature:
 		_view = Navigation.new(world)
 		_view.threaded = false
 		if bricks != null:
 			_view.bricks = bricks.snapshot()
 		if obstacle_source != null:
-			var blocked: Dictionary = obstacle_source.call("blocked_cells")
-			_view.obstacle = func(c: Vector3i) -> bool: return blocked.has(c)
+			_view.obstacle_source = obstacle_source   # (only to say that the cells are in a set; the view never asks it)
+			_view._obstacle_cells = _obstacle_cells   # a set that is replaced, never changed, so the thread may read it
 		_view_signature = sig
 	return _view
 

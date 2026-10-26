@@ -74,6 +74,8 @@ var _mesh_holds := 0                ## meshing waits while anything (the cliff p
 
 var _solid_material: ShaderMaterial
 var _water_material: ShaderMaterial
+var nav_bits: NavBits              ## what the ground says about standing in each cell (Navigation reads it)
+var edit_serial := 0               ## counts every change of a block (what is cached from the blocks asks if it is still right)
 var relief_texture: ImageTexture   ## the shade of the high ground on the low (ReliefShadow); every ground material shows it
 
 
@@ -85,6 +87,7 @@ func _ready() -> void:
 	_solid_material.set_shader_parameter("relief_tex", relief_texture)
 	_solid_material.set_shader_parameter("relief_size", Vector2(size_blocks().x, size_blocks().z))
 	terrain = TerrainEdit.new(self)
+	nav_bits = NavBits.new()
 	cover = GroundCover.new(size_blocks().x, size_blocks().z)
 	start()
 
@@ -102,6 +105,7 @@ func start() -> void:
 	_wz = size_chunks.z * Blocks.CHUNK_SIZE
 	_cxz = size_chunks.x * size_chunks.z
 	_grid.resize(_gen_total)
+	nav_bits.setup(self)
 	hold_meshing()
 	WorkerThreadPool.add_task(_cliff_cover_task)
 	# Generate from the middle of the map outwards so the visible area appears first.
@@ -194,6 +198,12 @@ func get_block(p: Vector3i) -> int:
 	return d[(x & 15) + ((z & 15) << 4) + ((y & 15) << 8)]
 
 
+## Does the chunk hold anything (false: nothing but open sky, or not generated)?
+func chunk_has_data(cpos: Vector3i) -> bool:
+	var c: Chunk = _chunks.get(cpos)
+	return c != null and not c.data.is_empty()
+
+
 ## Writes one voxel and schedules the remesh of every chunk that can see it. Pure storage: the rules of digging and
 ## building, and the slopes that depend on neighbours, are TerrainEdit's job.
 func set_block(p: Vector3i, raw: int) -> bool:
@@ -214,6 +224,8 @@ func set_block(p: Vector3i, raw: int) -> bool:
 		return false
 	c.data[idx] = raw
 	_modified[cpos] = true
+	edit_serial += 1
+	nav_bits.block_changed(p)
 	block_changed.emit(p)
 	# The chunk and any neighbour whose faces or ambient occlusion can see this voxel need a new mesh.
 	var lx := p.x & 15
@@ -351,6 +363,8 @@ func restore(snap: Dictionary) -> void:
 		c.version += 1
 		c.pending = null
 		_touched[key] = c
+	nav_bits.refresh_chunks(_modified.keys())
+	edit_serial += 1
 	_modified = {}
 	cover.bare = snap.cover.duplicate()
 
@@ -397,6 +411,7 @@ func _drain_generated() -> void:
 						_try_mesh(n)
 	if not _finished_signalled and _gen_done_count == _gen_total:
 		_finished_signalled = true
+		WorkerThreadPool.add_task(nav_bits.build)   # what the ground says about standing, for every cell
 		generation_finished.emit()
 
 
