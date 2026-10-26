@@ -27,7 +27,7 @@ const SKY_NIGHT := Color("0b1330")
 ## 0 is midnight, 0.25 sunrise, 0.5 noon, 0.75 sunset.
 @export var time_of_day := 0.4
 ## Real seconds a whole day lasts; 0 stops the clock.
-@export var day_seconds := 300.0
+@export var day_seconds := 1200.0
 
 ## The light and the sky it moves (set in the scene: the DirectionalLight3D and the WorldEnvironment).
 @export var sun: DirectionalLight3D
