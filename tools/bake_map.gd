@@ -42,6 +42,7 @@ func _run() -> void:
 	map.name = "BakedMap"
 	var n := 0
 	var bytes := 0
+	var materials := {}   # a ground material of a chunk -> the file it was saved to (the parts of a chunk share it)
 	for child in _world.get_children():
 		var mi := child as MeshInstance3D
 		if mi == null or mi.mesh == null:
@@ -55,6 +56,13 @@ func _run() -> void:
 			own.append(m is ShaderMaterial and (m as ShaderMaterial).get_shader_parameter("ao_tex") != null)
 			if not own[i]:
 				mesh.surface_set_material(i, null)    # the other materials are shared files, not copies inside every mesh
+			else:
+				var m_own: Material = surface_materials[i]
+				if not materials.has(m_own):
+					var mpath := "%s/chunks/Material_%d.res" % [_out, materials.size()]
+					ResourceSaver.save(m_own, mpath, ResourceSaver.FLAG_COMPRESS)
+					materials[m_own] = load(mpath)
+				mesh.surface_set_material(i, materials[m_own])
 		var path := "%s/chunks/%s.res" % [_out, mi.name]
 		ResourceSaver.save(mesh, path, ResourceSaver.FLAG_COMPRESS)
 		bytes += FileAccess.get_file_as_bytes(path).size()

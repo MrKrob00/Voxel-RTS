@@ -42,6 +42,7 @@ class Chunk extends RefCounted:
 	var instance: MeshInstance3D
 	var in_group := false            ## member of the open edit group
 	var pending: Variant = null      ## finished mesh arrays waiting for the rest of the group
+	var parts: Array[MeshInstance3D] = []   ## the faces that look along an axis, one node each (index ChunkMesher.GROUP_*), see set_camera
 
 	func _init(p: Vector3i) -> void:
 		cpos = p
@@ -74,6 +75,11 @@ var _mesh_holds := 0                ## meshing waits while anything (the cliff p
 
 var _solid_material: ShaderMaterial
 var _water_material: ShaderMaterial
+## The mesh of a chunk is cut by the way its faces look, and the parts that look away from the camera are not drawn at all (the graphics
+## card would only throw them away, after the work of getting them there). Costs a few more draw calls, saves about half of the triangles.
+@export var cull_by_direction := true
+var _camera := Vector3(INF, INF, INF)
+var _with_parts := {}              # cpos -> Chunk that has parts
 var nav_bits: NavBits              ## what the ground says about standing in each cell (Navigation reads it)
 var edit_serial := 0               ## counts every change of a block (what is cached from the blocks asks if it is still right)
 var relief_texture: ImageTexture   ## the shade of the high ground on the low (ReliefShadow); every ground material shows it
@@ -474,6 +480,9 @@ func _mesh_task(c: Chunk, snap: Array, grass: PackedByteArray, version: int) -> 
 		var layer_bytes := size.x * size.y * 4
 		for y in size.z:
 			layers.append(Image.create_from_data(size.x, size.y, false, Image.FORMAT_RGBA8, ao_data.slice(y * layer_bytes, (y + 1) * layer_bytes)))
+	if cull_by_direction and out[0] != null:
+		out.append(ChunkMesher.split_by_direction(out[0]))
+		out[0] = null
 	var cover_slice: PackedByteArray = out[3]
 	var n := Blocks.CHUNK_SIZE + 2 * GroundCover.SLICE_BORDER
 	out[2] = layers
@@ -545,15 +554,20 @@ func _solid_material_for(layers: Array, cover_image: Image) -> ShaderMaterial:
 
 
 func _commit_mesh(c: Chunk, out: Array) -> void:
-	if out[0] == null and out[1] == null:
+	var groups: Array = out[4] if out.size() > 4 else []
+	var empty := out[1] == null and (groups.is_empty() and out[0] == null or (not groups.is_empty() and groups.all(func(g: Variant) -> bool: return g == null)))
+	if empty:
 		if c.instance != null:
 			c.instance.queue_free()
 			c.instance = null
+		_free_parts(c)
 		return
+	var material := _solid_material_for(out[2] if out.size() > 2 else [], out[3] if out.size() > 3 else null)
 	var mesh := ArrayMesh.new()
-	if out[0] != null:
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[0])
-		mesh.surface_set_material(mesh.get_surface_count() - 1, _solid_material_for(out[2] if out.size() > 2 else [], out[3] if out.size() > 3 else null))
+	var always: Variant = out[0] if groups.is_empty() else groups[ChunkMesher.GROUP_ALWAYS]
+	if always != null:
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, always)
+		mesh.surface_set_material(mesh.get_surface_count() - 1, material)
 	if out[1] != null:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[1])
 		mesh.surface_set_material(mesh.get_surface_count() - 1, _water_material)
@@ -563,3 +577,63 @@ func _commit_mesh(c: Chunk, out: Array) -> void:
 		c.instance.name = "Chunk_%d_%d_%d" % [c.cpos.x, c.cpos.y, c.cpos.z]
 		add_child(c.instance)
 	c.instance.mesh = mesh
+	# the faces that look along an axis: a node each
+	if c.parts.is_empty():
+		c.parts.resize(ChunkMesher.GROUP_COUNT)
+	for g in range(1, ChunkMesher.GROUP_COUNT):
+		var arrays: Variant = groups[g] if not groups.is_empty() else null
+		if arrays == null:
+			if c.parts[g] != null:
+				c.parts[g].queue_free()
+				c.parts[g] = null
+			continue
+		var part_mesh := ArrayMesh.new()
+		part_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		part_mesh.surface_set_material(0, material)
+		if c.parts[g] == null:
+			var node := MeshInstance3D.new()
+			node.position = c.instance.position
+			node.name = "%s_%s" % [c.instance.name, PART_NAMES[g]]
+			add_child(node)
+			c.parts[g] = node
+		c.parts[g].mesh = part_mesh
+	_with_parts[c.cpos] = c
+	_apply_camera(c)
+
+
+const PART_NAMES := ["", "xp", "xn", "zp", "zn", "yn"]
+
+
+func _free_parts(c: Chunk) -> void:
+	for node in c.parts:
+		if node != null:
+			node.queue_free()
+	c.parts = []
+	_with_parts.erase(c.cpos)
+
+
+## Tells the world where the camera is: the faces of a chunk that look away from it are hidden (a face that looks along +x can only be
+## seen from a place with a larger x than its plane, and so on).
+func set_camera(pos: Vector3) -> void:
+	if pos.distance_squared_to(_camera) < 0.25:
+		return
+	_camera = pos
+	for c: Chunk in _with_parts.values():
+		_apply_camera(c)
+
+
+func _apply_camera(c: Chunk) -> void:
+	if c.parts.is_empty() or _camera.x == INF:
+		return
+	var lo := Vector3(c.cpos * Blocks.CHUNK_SIZE)
+	var hi := lo + Vector3.ONE * Blocks.CHUNK_SIZE
+	_show(c.parts[ChunkMesher.GROUP_XP], _camera.x > lo.x)
+	_show(c.parts[ChunkMesher.GROUP_XN], _camera.x < hi.x)
+	_show(c.parts[ChunkMesher.GROUP_ZP], _camera.z > lo.z)
+	_show(c.parts[ChunkMesher.GROUP_ZN], _camera.z < hi.z)
+	_show(c.parts[ChunkMesher.GROUP_YN], _camera.y < hi.y)
+
+
+func _show(node: MeshInstance3D, on: bool) -> void:
+	if node != null:
+		node.visible = on

@@ -95,6 +95,7 @@ func _process(delta: float) -> void:
 		_refresh_units_label()
 	hud.set_status("%d fps | %s | bricks %d" % [Engine.get_frames_per_second(), world.stats(), bricks.brick_count()])
 	_update_hover()
+	world.set_camera(rig.camera.global_position)
 
 
 func _spawn_units() -> void:
