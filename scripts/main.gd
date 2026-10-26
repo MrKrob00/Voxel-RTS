@@ -228,7 +228,12 @@ func _refresh_units_label() -> void:
 
 func _pick(screen_pos: Vector2) -> Dictionary:
 	var cam := rig.camera
-	return world.raycast(cam.project_ray_origin(screen_pos), cam.project_ray_normal(screen_pos), 300.0, bricks.occupied)
+	return world.raycast(cam.project_ray_origin(screen_pos), cam.project_ray_normal(screen_pos), 300.0, _pick_solid)
+
+
+## What the pointer hits besides the ground: bricks, and with a block tool also the plans that are not laid yet (a block can be planned on them).
+func _pick_solid(c: Vector3i) -> bool:
+	return bricks.occupied(c) or (Tools.is_block(mode) and economy.plan_slot_at(c) != null)
 
 
 func _update_hover() -> void:

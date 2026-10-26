@@ -133,6 +133,20 @@ func run() -> void:
 	check(_economy.block_error("brick", spot, Vector2i(1, 0)) == "" and _economy.walls.is_empty(), "a free flat spot has no error and nothing is planned by asking")
 	check(_economy.block_error("brick", base + Vector3i(3, 0, 3), Vector2i(1, 0)).contains("overlaps"), "the ghost over a stockpile is refused")
 
+	# A block can be planned on a plan that is not laid yet; it is laid only after the one under it.
+	var up := spot + Vector3i(0, 1, 0)
+	check(_economy.block_error("brick", up, Vector2i(1, 0)) != "", "in the air with nothing planned under it: refused")
+	var low_plan := _board.place_block("brick", spot, Vector2i(1, 0))
+	check(low_plan != null and _economy.plan_slot_at(spot) != null, "the lower block is planned")
+	var up_plan := _board.place_block("brick", up, Vector2i(1, 0))
+	check(up_plan != null, "a block is planned on the plan (%s)" % _economy.last_error)
+	var store := _economy.place_stockpile(base + Vector3i(2, 0, 10))
+	store.add(Resources.Kind.BRICK, 4)
+	var order: Array[int] = []
+	bricks.brick_placed.connect(func(b: BrickWorld.Brick) -> void: order.append(b.origin.y))
+	_until(func() -> bool: return bricks.brick_count() == 2, 6000)
+	check(bricks.brick_count() == 2 and order == [spot.y, up.y], "both are laid, the lower one first (%s)" % str(order))
+
 
 func _step(n: int) -> void:
 	for i in n:

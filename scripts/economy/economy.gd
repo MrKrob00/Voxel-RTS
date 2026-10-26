@@ -10,6 +10,7 @@ var stockpiles: Array[Stockpile] = []
 var stations: Array = []     ## Station nodes (stump, rope machine)
 var blueprints: Array = []   ## Blueprint nodes: planned buildings waiting for what they cost
 var walls: Array = []        ## WallPlan nodes: planned walls
+var _plan_cells := {}        # Vector3i -> WallPlan.Slot: the cells the planned (not yet laid) slots will fill
 var _reserved := {}          ## Stockpile -> {kind, count}: goods on their way there
 var _taking := {}            ## Stockpile -> how many of its goods someone is on the way to fetch
 
@@ -149,7 +150,7 @@ func place_wall(from: Vector3i, to: Vector3i, height: int) -> WallPlan:
 	var plan := WallPlan.new()
 	add_child(plan)
 	plan.build(lo, axis, length, height)
-	walls.append(plan)
+	_register_plan(plan)
 	changed.emit()
 	return plan
 
@@ -176,7 +177,7 @@ func place_stairs(at: Vector3i, rise: Vector2i) -> WallPlan:
 	var plan := WallPlan.new()
 	add_child(plan)
 	plan.build(at, slots[0].axis, 2, 1, slots)
-	walls.append(plan)
+	_register_plan(plan)
 	changed.emit()
 	return plan
 
@@ -198,7 +199,7 @@ func block_error(id: String, at: Vector3i, dir: Vector2i) -> String:
 		for w in walls:
 			if w.covers(c):
 				return "overlaps another plan"
-	if not bricks.can_place(at, slots[0].axis, d.length):
+	if not rests_on_plan_or_ground(at, slots[0].axis, d.length):
 		return "needs flat whole ground or a block under it"
 	return ""
 
@@ -217,13 +218,47 @@ func place_block(id: String, at: Vector3i, dir: Vector2i) -> WallPlan:
 	var plan := WallPlan.new()
 	add_child(plan)
 	plan.build(at, slots[0].axis, d.length, 1, slots)
-	walls.append(plan)
+	_register_plan(plan)
 	changed.emit()
 	return plan
 
 
+func _register_plan(plan: WallPlan) -> void:
+	walls.append(plan)
+	for sl in plan.slots:
+		for c in sl.cells():
+			_plan_cells[c] = sl
+
+
+## The planned slot that will fill this cell, or null (a laid one is a brick by then).
+func plan_slot_at(c: Vector3i) -> WallPlan.Slot:
+	var sl: WallPlan.Slot = _plan_cells.get(c)
+	return sl if sl != null and not sl.done else null
+
+
+## Whether a block of this size standing on `at` has something to rest on: whole ground, or a brick, or a planned block (it is laid
+## only after the one under it, the builders wait for that).
+func rests_on_plan_or_ground(at: Vector3i, axis: int, length: int) -> bool:
+	var grounded := false
+	var supported := false
+	for c in BrickWorld.cells_for(at, axis, length):
+		var under := c + Vector3i(0, -1, 0)
+		var raw := world.get_block(under)
+		if Blocks.is_whole(raw):
+			grounded = true
+		elif Blocks.is_solid(raw):
+			return false
+		elif bricks.occupied(under) or plan_slot_at(under) != null:
+			supported = true
+	return grounded or supported
+
+
 func cancel_wall(plan: WallPlan) -> void:
 	walls.erase(plan)
+	for sl in plan.slots:
+		for c in sl.cells():
+			if _plan_cells.get(c) == sl:
+				_plan_cells.erase(c)
 	plan.queue_free()
 	changed.emit()
 
