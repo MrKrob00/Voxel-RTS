@@ -14,6 +14,8 @@ const SPEED := 3.6          ## blocks per second on the flat
 const TURN_SPEED := 12.0
 const BODY_COLOR := Color("f3c22b")
 const SCARF_COLOR := Color("3d6fd1")
+const FIRST_SLICE_USEC := 3000   # a search that starts takes up to this long at once, so a short way is found without a pause
+const SLICE_USEC := 2000         # and this long in each frame after (all the units together: Navigation.FRAME_USEC)
 
 var nav: Navigation
 var cell := Vector3i.ZERO
@@ -26,6 +28,7 @@ var goal := Vector3i(-1, -1, -1)     ## where the current move order ends
 var stop_near := 0.0                  ## accept arriving within this many blocks of the goal (to work on something next to it)
 
 var path: Array[Vector3i] = []
+var _search: PathSearch                ## the search for a way that is not finished yet
 var _seg_t := 0.0
 var _seg_len := 1.0
 var _from := Vector3.ZERO
@@ -66,11 +69,11 @@ func place_at(c: Vector3i) -> void:
 
 
 func is_moving() -> bool:
-	return not path.is_empty()
+	return not path.is_empty() or _search != null
 
 
 func is_idle() -> bool:
-	return path.is_empty() and not _falling
+	return path.is_empty() and not _falling and _search == null
 
 
 func carry(kind: int, n: int) -> void:
@@ -157,20 +160,41 @@ func walk_to(to: Vector3i, near := 0.0) -> bool:
 
 func stop() -> void:
 	path.clear()
+	_search = null
 	goal = Vector3i(-1, -1, -1)
 
 
+## Looks for the way to the goal. A short way is found at once; a long one (or none) is looked for a few milliseconds a frame while the
+## unit stands (`_search`), and then it walks, or reports path_failed.
 func _repath() -> bool:
-	var found := nav.find_path(cell, goal, stop_near)
+	_search = nav.begin_search(cell, goal, stop_near)
+	nav.run_search(_search, FIRST_SLICE_USEC)
+	if _search.done:
+		var s := _search
+		_search = null
+		return _use(s)
+	path.clear()
+	return true
+
+
+func _use(s: PathSearch) -> bool:
+	var found := s.path
 	if found.size() < 2:
 		path.clear()
-		if found.size() == 1 and nav.last_reached:
-			return true
-		return false
+		return found.size() == 1 and s.reached
 	path = found
 	path.remove_at(0)   # the first cell is where it stands
 	_begin_segment()
 	return true
+
+
+func _continue_search() -> void:
+	nav.run_search(_search, SLICE_USEC)
+	if _search.done:
+		var s := _search
+		_search = null
+		if not _use(s):
+			path_failed.emit()
 
 
 func _begin_segment() -> void:
@@ -181,6 +205,8 @@ func _begin_segment() -> void:
 
 
 func _process(delta: float) -> void:
+	if _search != null:
+		_continue_search()
 	_check_ground(delta)
 	if not path.is_empty() and not _falling:
 		_walk(delta)

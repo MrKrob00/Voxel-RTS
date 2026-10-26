@@ -274,67 +274,42 @@ static func _heuristic(a: Vector3i, b: Vector3i) -> float:
 ## A* from one standable cell to another. Returns the cells from `from` to `to` (both included), or, when the goal cannot be
 ## reached (`last_reached` false), the way to the closest cell the search found, which is [] if there is nowhere to go.
 ## `stop_near`: accept any cell within that many columns of the goal (to reach a thing to work on, not its exact cell).
+## Runs to the end at once (tests, one-off questions); units use `begin_search` and give it a few milliseconds a frame.
 func find_path(from: Vector3i, to: Vector3i, stop_near := 0.0) -> Array[Vector3i]:
-	last_reached = false
-	last_expanded = 0
-	var result: Array[Vector3i] = []
-	if not standable(from):
-		from = nearest_standable(from, 2)
-		if from.x < 0:
-			return result
-	if from == to:
-		last_reached = true
-		result.append(from)
-		return result
-	var open_f := PackedFloat32Array()
-	var open_n := PackedInt32Array()
-	var g := {}          # key -> best cost so far
-	var came := {}       # key -> previous key
-	var closed := {}
-	var start_key := _key(from)
-	g[start_key] = 0.0
-	_push(open_f, open_n, _heuristic(from, to), start_key)
-	var best_key := start_key
-	var best_h := _heuristic(from, to)
-	var goal_key := -1
-	while open_n.size() > 0:
-		var cur_key := _pop(open_f, open_n)
-		if closed.has(cur_key):
-			continue
-		closed[cur_key] = true
-		var cur := _cell(cur_key)
-		last_expanded += 1
-		var h := _heuristic(cur, to)
-		if h < best_h:
-			best_h = h
-			best_key = cur_key
-		if cur == to or (stop_near > 0.0 and Vector2(cur.x - to.x, cur.z - to.z).length() <= stop_near and absi(cur.y - to.y) <= 2):
-			goal_key = cur_key
-			break
-		if last_expanded > NODE_LIMIT:
-			break
-		var cur_g: float = g[cur_key]
-		for r in neighbours(cur):
-			var nk := _key(r[0])
-			if closed.has(nk):
-				continue
-			var ng: float = cur_g + r[1]
-			if not g.has(nk) or ng < g[nk]:
-				g[nk] = ng
-				came[nk] = cur_key
-				_push(open_f, open_n, ng + _heuristic(r[0], to), nk)
-	var end_key := goal_key if goal_key >= 0 else best_key
-	last_reached = goal_key >= 0
-	var k := end_key
-	while true:
-		result.append(_cell(k))
-		if k == start_key:
-			break
-		k = came[k]
-	result.reverse()
-	if not last_reached and result.size() <= 1:
-		result.clear()
-	return result
+	var s := PathSearch.new(self, from, to, stop_near)
+	s.advance(-1)
+	last_reached = s.reached
+	last_expanded = s.expanded
+	return s.path
+
+
+## A search that is done in slices of time (see PathSearch).
+func begin_search(from: Vector3i, to: Vector3i, stop_near := 0.0) -> PathSearch:
+	return PathSearch.new(self, from, to, stop_near)
+
+
+## All the searches of a frame together may take about this long (the units share it); the window is 16 ms of real time.
+const FRAME_USEC := 4000
+const WINDOW_USEC := 16000
+## Whether the searches of a frame share one budget. Only where something is drawn: the tests step the world by hand, not by frames.
+var share_frame := DisplayServer.get_name() != "headless"
+var _window_start := -WINDOW_USEC
+var _left := FRAME_USEC
+
+
+## Gives `search` up to `usec` microseconds of what is left of this frame's budget (and uses it).
+func run_search(search: PathSearch, usec: int) -> void:
+	if not share_frame:
+		search.advance(usec)   # headless (tests, a server): there is no frame to keep short, every search gets its slice
+		return
+	var now := Time.get_ticks_usec()
+	if now - _window_start >= WINDOW_USEC:
+		_window_start = now
+		_left = FRAME_USEC
+	var grant := mini(usec, _left)
+	if grant <= 0:
+		return
+	_left -= search.advance(grant)
 
 
 # --- a small binary min-heap (cost, node) -------------------------------------------------------------
