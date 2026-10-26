@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://bt2lexscogpxj"]
 
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_14_3_15.res" id="1_tij2k"]
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_14_3_15_xp.res" id="2_3dbgx"]
@@ -628,7 +628,7 @@
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_12_2_11_zn.res" id="626_3ukhj"]
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_12_2_11_yn.res" id="627_x720b"]
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_13_3_18.res" id="628_rcqs8"]
-[ext_resource type="Material" path="res://maps/plains/water.tres" id="629_2pgtn"]
+[ext_resource type="Material" uid="uid://b5ywkd672hsy2" path="res://maps/plains/water.tres" id="629_2pgtn"]
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_13_3_18_xp.res" id="630_i38u1"]
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_13_3_18_xn.res" id="631_toeuj"]
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_13_3_18_zn.res" id="632_jyyf1"]

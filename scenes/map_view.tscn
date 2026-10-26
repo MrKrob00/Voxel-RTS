@@ -1,9 +1,9 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene format=3 uid="uid://c8rlyasickj8r"]
 
-[ext_resource type="Script" path="res://scripts/tools/map_view.gd" id="1_view"]
+[ext_resource type="Script" uid="uid://dwddg48q12qos" path="res://scripts/tools/map_view.gd" id="1_view"]
 [ext_resource type="PackedScene" path="res://maps/plains/map.tscn" id="2_map"]
-[ext_resource type="Script" path="res://scripts/camera/rts_camera.gd" id="3_camera"]
-[ext_resource type="Script" path="res://scripts/world/day_cycle.gd" id="4_day"]
+[ext_resource type="Script" uid="uid://dxhd7kxonomr0" path="res://scripts/camera/rts_camera.gd" id="3_camera"]
+[ext_resource type="Script" uid="uid://bu3mignpxxf5j" path="res://scripts/world/day_cycle.gd" id="4_day"]
 
 [sub_resource type="Environment" id="Environment_sky"]
 background_mode = 1
@@ -12,25 +12,23 @@ ambient_light_source = 2
 ambient_light_color = Color(0.72, 0.76, 0.85, 1)
 ambient_light_energy = 0.9
 
-[node name="MapView" type="Node3D"]
+[node name="MapView" type="Node3D" unique_id=378636255]
 script = ExtResource("1_view")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=19455060]
 environment = SubResource("Environment_sky")
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=159947714]
 transform = Transform3D(0.8, -0.4, 0.45, 0, 0.75, 0.66, -0.6, -0.53, 0.6, 0, 40, 0)
 
-[node name="DayCycle" type="Node" parent="." node_paths=PackedStringArray("sun", "world_environment")]
+[node name="DayCycle" type="Node" parent="." unique_id=426798849 node_paths=PackedStringArray("sun", "world_environment")]
 script = ExtResource("4_day")
-sun = NodePath("../Sun")
-world_environment = NodePath("../WorldEnvironment")
 time_of_day = 0.45
 day_seconds = 0.0
+sun = NodePath("../Sun")
+world_environment = NodePath("../WorldEnvironment")
 
-[node name="BakedMap" parent="." instance=ExtResource("2_map")]
-; the middle of the map is at the origin, where the editor looks first
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -224, -48, -224)
+[node name="BakedMap" parent="." unique_id=1459661372 instance=ExtResource("2_map")]
 
-[node name="Camera" type="Node3D" parent="."]
+[node name="Camera" type="Node3D" parent="." unique_id=1142021720]
 script = ExtResource("3_camera")

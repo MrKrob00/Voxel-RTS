@@ -155,5 +155,5 @@ void fragment() {
 		col += vec3(0.18) * step(0.93, s) * sparkle;
 	}
 	ALBEDO = col;
-	ALPHA = alpha * COLOR.a;
+	//ALPHA = alpha * COLOR.a;
 }
