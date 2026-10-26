@@ -29,6 +29,8 @@ time_of_day = 0.45
 day_seconds = 0.0
 
 [node name="BakedMap" parent="." instance=ExtResource("2_map")]
+; the middle of the map is at the origin, where the editor looks first
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -224, -48, -224)
 
 [node name="Camera" type="Node3D" parent="."]
 script = ExtResource("3_camera")

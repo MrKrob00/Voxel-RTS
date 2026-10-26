@@ -7,8 +7,8 @@ extends Node3D
 
 
 func _ready() -> void:
-	rig.bounds = Rect2(0, 0, 448, 448)
-	rig.focus = Vector3(224.0, 48.0, 224.0)
+	rig.bounds = Rect2(-224, -224, 448, 448)   # the baked map is placed with its middle at the origin (see the scene)
+	rig.focus = Vector3(0.0, 0.0, 0.0)
 	rig.distance = 120.0
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--overview="):
