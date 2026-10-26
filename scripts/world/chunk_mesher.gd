@@ -334,7 +334,8 @@ static func _shape_tri(buf: Buffers, pts: Array, outward: Vector3, id: int, face
 	buf.indices.append_array([start, start + 2, start + 1])
 
 
-## The lighting of the four corners of a face (0 darkest .. 3 open), in the order of the face's corners.
+## The lighting of the four corners of a face (0 darkest .. 3 open), in the order of the face's corners. The shade of a corner reaches
+## one block further than the blocks that touch it: a corner is at most one step lighter than the darkest corner next to it.
 static func _corner_ao(snap: Array, x: int, y: int, z: int, f: int) -> Array:
 	var n := FACE_NORMALS[f]
 	var u := FACE_U[f]
@@ -345,11 +346,21 @@ static func _corner_ao(snap: Array, x: int, y: int, z: int, f: int) -> Array:
 	var pz := z + n.z
 	for k in 4:
 		var s := CORNER_SIGNS[k]
-		var s1 := 1 if Blocks.is_opaque(_voxel(snap, px + u.x * s.x, py + u.y * s.x, pz + u.z * s.x)) else 0
-		var s2 := 1 if Blocks.is_opaque(_voxel(snap, px + v.x * s.y, py + v.y * s.y, pz + v.z * s.y)) else 0
-		var c := 1 if Blocks.is_opaque(_voxel(snap, px + u.x * s.x + v.x * s.y, py + u.y * s.x + v.y * s.y, pz + u.z * s.x + v.z * s.y)) else 0
-		ao[k] = 0 if (s1 == 1 and s2 == 1) else 3 - (s1 + s2 + c)
+		var level := _vertex_light(snap, px, py, pz, u, v, s)
+		if level > 0:
+			for d in 4:
+				var step: Vector3i = u if d == 0 else (-u if d == 1 else (v if d == 2 else -v))
+				level = mini(level, _vertex_light(snap, px + step.x, py + step.y, pz + step.z, u, v, s) + 1)
+		ao[k] = level
 	return ao
+
+
+## The light at the corner (s.x along u, s.y along v) of the cell in front of a face: 3 open, less with every block touching it.
+static func _vertex_light(snap: Array, px: int, py: int, pz: int, u: Vector3i, v: Vector3i, s: Vector2i) -> int:
+	var s1 := 1 if Blocks.is_opaque(_voxel(snap, px + u.x * s.x, py + u.y * s.x, pz + u.z * s.x)) else 0
+	var s2 := 1 if Blocks.is_opaque(_voxel(snap, px + v.x * s.y, py + v.y * s.y, pz + v.z * s.y)) else 0
+	var c := 1 if Blocks.is_opaque(_voxel(snap, px + u.x * s.x + v.x * s.y, py + u.y * s.x + v.y * s.y, pz + u.z * s.x + v.z * s.y)) else 0
+	return 0 if (s1 == 1 and s2 == 1) else 3 - (s1 + s2 + c)
 
 
 ## Greedy meshing of one direction: neighbouring faces of the same block, lit the same, become one rectangle. `mask` holds, per block,
