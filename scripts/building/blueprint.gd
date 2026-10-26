@@ -137,6 +137,10 @@ func show_incoming_log(on: bool) -> void:
 		_ghost_log.visible = on
 
 
+func is_ghost_log_shown() -> bool:
+	return _ghost_log != null and _ghost_log.visible
+
+
 func _refresh() -> void:
 	if _label != null:
 		_label.text = "%s\n%s" % [title, needs_text()]

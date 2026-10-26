@@ -274,8 +274,11 @@ func remove_station(st: Station) -> void:
 
 
 func remove_task(t: WorkTask) -> void:
+	var loaded: Array[Unit] = []
 	for u in t.workers.duplicate():
 		unassign(u)
+		if u.carried_amount() > 0:
+			loaded.append(u)
 	if t is WallTask:
 		for p in t.plans.duplicate():
 			if is_instance_valid(p):
@@ -283,7 +286,31 @@ func remove_task(t: WorkTask) -> void:
 	tasks.erase(t)
 	if t.overlay != null:
 		t.overlay.queue_free()
+	for u in loaded:
+		dispose_load(u)   # whoever was carrying something for this job does not stand there with it
 	changed.emit()
+
+
+## A unit with something in its hands and no job: it takes it to a stockpile (or a building that needs it); with nowhere to take it the
+## load is thrown into the world.
+func dispose_load(u: Unit) -> void:
+	if u.carried_amount() == 0 or _workers.has(u):
+		return
+	var kind := u.carried_kind()
+	var n := u.carried_amount()
+	if economy.find_space(u.cell, kind, n) != null or build_task_needing(kind) != null:
+		var job := DeliverTask.new()
+		add_task(job)
+		assign(u, job)
+		return
+	drop_load(u)
+
+
+## Throws what the unit carries into the world, at its feet.
+func drop_load(u: Unit) -> void:
+	if loose != null and u.carried_amount() > 0:
+		loose.drop(u.carried_kind(), u.carried_amount(), u.position)
+	u.carry(Resources.Kind.NONE, 0)
 
 
 func task_of(u: Unit) -> WorkTask:
@@ -417,6 +444,9 @@ func resume_or_free(u: Unit) -> void:
 func _auto_assign() -> void:
 	if units == null:
 		return
+	for u in units.units:
+		if u.is_idle() and u.carried_amount() > 0 and not _workers.has(u):
+			dispose_load(u)   # left holding something: put it down
 	for t in tasks:
 		if t.workers.size() >= t.max_workers or not t.wants_workers(self):
 			continue

@@ -15,6 +15,17 @@ func _init(s: Station) -> void:
 	max_workers = 1
 
 
+## Every frame: while somebody carries the input to the station and has not begun, a ghost of it hangs there.
+func update(_board: TaskBoard) -> void:
+	if not is_instance_valid(station):
+		return
+	var coming := false
+	for u in workers:
+		if is_instance_valid(u) and u.carried_kind() == station.def().input.kind and u.carried_amount() > 0:
+			coming = true
+	station.show_incoming(coming)
+
+
 func is_finished() -> bool:
 	return not is_instance_valid(station)
 

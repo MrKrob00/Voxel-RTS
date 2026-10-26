@@ -6,6 +6,7 @@ extends Node3D
 var world: VoxelWorld
 var colliders: GroundColliders
 var logs: Array[LooseLog] = []
+var goods: Array[LooseGoods] = []
 
 
 func setup(w: VoxelWorld, c: GroundColliders) -> void:
@@ -27,6 +28,23 @@ func spawn_log(pos: Vector3, push := Vector3.ZERO) -> LooseLog:
 	return l
 
 
+## `n` of `kind` are thrown down around `pos`: logs as logs, the rest as small bodies of their colour.
+func drop(kind: int, n: int, pos: Vector3) -> void:
+	for i in n:
+		var at := pos + Vector3(randf_range(-0.4, 0.4), 0.6 + i * 0.35, randf_range(-0.4, 0.4))
+		var push := Vector3(randf_range(-0.8, 0.8), 0.4, randf_range(-0.8, 0.8))
+		if kind == Resources.Kind.LOG:
+			spawn_log(at + Vector3(0.0, 0.8, 0.0), push)
+			continue
+		var g := LooseGoods.new().setup(kind)
+		add_child(g)
+		g.position = at
+		g.rotation = Vector3(0.0, randf() * TAU, 0.0)
+		g.linear_velocity = push
+		goods.append(g)
+		colliders.touch(at)
+
+
 func remove_log(l: LooseLog) -> void:
 	logs.erase(l)
 	if is_instance_valid(l):
@@ -41,6 +59,14 @@ func _physics_process(_delta: float) -> void:
 			remove_log(l)   # fell off the world
 		elif not l.sleeping:
 			colliders.touch(l.global_position)
+	for g in goods.duplicate():
+		if not is_instance_valid(g):
+			goods.erase(g)
+		elif g.global_position.y < -20.0:
+			goods.erase(g)
+			g.queue_free()
+		elif not g.sleeping:
+			colliders.touch(g.global_position)
 
 
 func _on_block_changed(p: Vector3i) -> void:
@@ -49,3 +75,7 @@ func _on_block_changed(p: Vector3i) -> void:
 		if is_instance_valid(l) and l.global_position.distance_to(at) < 2.5:
 			l.sleeping = false
 			colliders.touch(l.global_position)
+	for g in goods:
+		if is_instance_valid(g) and g.global_position.distance_to(at) < 2.5:
+			g.sleeping = false
+			colliders.touch(g.global_position)

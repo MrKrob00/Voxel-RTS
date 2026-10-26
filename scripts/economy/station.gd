@@ -35,6 +35,7 @@ var _input_until := 0.0
 var _output_until := 0.0
 ## What has been made and lies on the station because there was nowhere to take it (planks on the stump): how many.
 var waiting := 0
+var _ghost_in: Node3D   # the input as a translucent ghost: somebody is bringing it, the work has not begun
 
 
 func def() -> Dictionary:
@@ -211,6 +212,23 @@ func show_working() -> void:
 	_output_vis.visible = false
 	_input_vis.visible = true
 	set_process(true)
+
+
+## A unit is bringing the input (a log): a translucent copy of it hangs where it will lie until the work begins.
+func show_incoming(on: bool) -> void:
+	if _ghost_in == null:
+		_ghost_in = Node3D.new()
+		_ghost_in.position = _input_vis.position
+		add_child(_ghost_in)
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color = Color(0.7, 0.5, 0.25, 0.5)
+		for c in _input_vis.get_children():
+			var copy := (c as MeshInstance3D).duplicate() as MeshInstance3D
+			copy.material_override = m
+			_ghost_in.add_child(copy)
+	_ghost_in.visible = on and not _input_vis.visible
 
 
 ## There was nowhere to take what was made (n planks): it lies on the station until somebody takes it.

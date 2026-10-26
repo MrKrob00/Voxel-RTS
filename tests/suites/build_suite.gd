@@ -67,7 +67,12 @@ func run() -> void:
 	var stump_plan := _board.place_blueprint("station", Station.Kind.STUMP, base + Vector3i(6, 0, 10))
 	check(stump_plan != null and stump_plan.cost == {Resources.Kind.LOG: 1}, "a blueprint of a stump asks for a log")
 	logbank.add(Resources.Kind.LOG, 1)
-	_until(func() -> bool: return not _economy.stations.is_empty(), 3000)
+	var ghost_seen := [false]
+	_until(func() -> bool:
+		if is_instance_valid(stump_plan) and stump_plan.is_ghost_log_shown():
+			ghost_seen[0] = true
+		return not _economy.stations.is_empty(), 3000)
+	check(ghost_seen[0], "a ghost log hung over the plan while the log was carried to it")
 	check(_economy.stations.size() == 1 and _economy.stations[0].task != null, "the stump stands and has its job")
 	check(_economy.stock_of(Resources.Kind.LOG) == 0, "the log was used")
 
@@ -98,6 +103,24 @@ func run() -> void:
 	_until(func() -> bool: return _economy.stockpiles.size() == 4, 6000)
 	check(_economy.stockpiles.size() == 4 and room.count == 0, "the planks went to the plan, not to the stockpile that had room (%d on it)" % room.count)
 
+
+	# A plan is deleted while a unit carries its planks to it: it takes them to a stockpile (room) or throws them into the world.
+	var plan4 := _board.place_blueprint("stockpile", 0, base + Vector3i(14, 0, 7))
+	check(plan4 != null, "a fourth plan (%s)" % _economy.last_error)
+	var spare := _economy.place_stockpile(base + Vector3i(14, 0, 2))
+	room.add(Resources.Kind.PLANK, 12)   # planks the units can carry to the plan (and no room left in this stockpile)
+	var carrying := [null]
+	_until(func() -> bool:
+		for u in crew:
+			if u.carried_kind() == Resources.Kind.PLANK and u.carried_amount() > 0:
+				carrying[0] = u
+		return carrying[0] != null, 3000)
+	check(carrying[0] != null, "a unit carries planks towards the plan")
+	var holder: Unit = carrying[0]
+	_board.cancel_blueprint(plan4)
+	_until(func() -> bool: return holder.carried_amount() == 0 and holder.is_idle(), 3000)
+	check(holder.carried_amount() == 0 and holder.is_idle(), "the unit put its planks down and is free")
+	check(_economy.stock_of(Resources.Kind.PLANK) == 12, "all twelve planks are on stockpiles again, the three it carried too (%d)" % _economy.stock_of(Resources.Kind.PLANK))
 
 	# A job whose blueprint is already built and freed (a worker may still be on it): nothing to fetch, no crash.
 	var gone := Blueprint.new()

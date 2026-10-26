@@ -329,8 +329,8 @@ func _work(delta: float) -> void:
 		return
 	unit.progress = -1.0
 	var res := task.perform(target, board, unit)
-	if task is CraftTask and is_instance_valid(task.station):
-		task.station.show_made()
+	if task is CraftTask and is_instance_valid(task.station) and task.station.waiting > 0:
+		task.station.show_made()   # only what was left lying there is shown; what the unit took is in its hands
 	if res.get("consumed", false):
 		unit.carry(Resources.Kind.NONE, 0)
 	if res.get("done", false):
@@ -374,6 +374,10 @@ func _find_stockpile() -> void:
 		return
 	stockpile = board.economy.find_space(unit.cell, kind, n)
 	if stockpile == null:
+		if task is DeliverTask:
+			board.drop_load(unit)   # there is nowhere to take it any more
+			state = State.SEEK
+			return
 		if not (task is BuildTask) and board.divert_to_build(unit):
 			return
 		state = State.WAIT_STOCK
