@@ -99,6 +99,13 @@ func run() -> void:
 	check(_economy.stockpiles.size() == 4 and room.count == 0, "the planks went to the plan, not to the stockpile that had room (%d on it)" % room.count)
 
 
+	# A job whose blueprint is already built and freed (a worker may still be on it): nothing to fetch, no crash.
+	var gone := Blueprint.new()
+	var job := BuildTask.new(gone)
+	gone.free()
+	check(job.is_finished() and job.input_needed().is_empty(), "a finished building job with a freed blueprint asks for nothing")
+
+
 func _step(n: int) -> void:
 	for i in n:
 		_board._process(DT)

@@ -109,3 +109,14 @@ func _until(cond: Callable, max_ticks: int) -> int:
 		await _tick()
 		ticks += 1
 	return ticks
+
+	# 3. A worker with a log in its hands, on any other job, still takes it to the free stump first (and the planks to the stockpile).
+	var carrier := _units.spawn_squad(base + Vector3i(6, 0, 8), 1, 0)[0]
+	carrier.carry(Resources.Kind.LOG, 1)
+	var plants := _board.create_harvest(HarvestTask.Kind.PLANTS, Rect2(base.x + 13.0, base.z + 8.0, 2.0, 2.0))
+	_board.assign(carrier, plants)
+	var went := [false]
+	await _until(func() -> bool:
+		went[0] = went[0] or _board.task_of(carrier) == stump
+		return _economy.stock_of(Resources.Kind.PLANK) == 12, 60 * 90)
+	check(went[0] and _economy.stock_of(Resources.Kind.PLANK) == 12 and _economy.stock_of(Resources.Kind.LOG) == 0, "a log in the hands goes to the free stump before any stockpile (%d planks)" % _economy.stock_of(Resources.Kind.PLANK))

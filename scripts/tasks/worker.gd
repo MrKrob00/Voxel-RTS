@@ -354,8 +354,10 @@ func _find_stockpile() -> void:
 	if n == 0:
 		state = State.SEEK
 		return
-	# A building that is waiting for what the unit carries comes first (planks from a stump go to the plan that needs them),
-	# then a stockpile with room.
+	# A log goes to a free stump first, to be made into planks; whatever else is carried (planks from a stump) goes to a building that
+	# is waiting for it, and only then to a stockpile with room.
+	if kind == Resources.Kind.LOG and not (task is CraftTask) and board.detour_to_stump(unit):
+		return
 	if not (task is BuildTask) and board.divert_to_build(unit):
 		return
 	stockpile = board.economy.find_space(unit.cell, kind, n)

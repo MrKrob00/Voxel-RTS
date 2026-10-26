@@ -28,6 +28,8 @@ func detail() -> String:
 
 ## What is to be fetched next: a load of the first thing still missing.
 func input_needed() -> Dictionary:
+	if is_finished():
+		return {}   # the blueprint is done and gone (a worker may still be on the job): nothing more to fetch
 	var rem := blueprint.remaining()
 	for k in rem:
 		return {"kind": k, "amount": mini(rem[k], Resources.carry_capacity(k))}
@@ -62,6 +64,8 @@ func valid(target: Variant, _brd: TaskBoard) -> bool:
 
 
 func stand_cells(_target: Variant, brd: TaskBoard) -> Array[Vector3i]:
+	if is_finished():
+		return []
 	return blueprint.access_cells(brd.nav)
 
 
