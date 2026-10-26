@@ -10,8 +10,8 @@ extends Node3D
 
 const PATCH := 8
 const KEEP_SECONDS := 3.0
-const LOOKAHEAD := 1.2          ## seconds of velocity to cover ahead of a moving body
-const BODY_RADIUS := 2          ## patches around a body in each axis (in patch units: 0 = only the cell)
+const LOOKAHEAD := 1.2          ## seconds of velocity to cover ahead of a moving body (XZ only)
+const XY_PAD := 1               ## extra patches in X/Z around the body (1 → 3×3 columns)
 
 var world: VoxelWorld
 var _patches := {}              ## Vector3i -> {body: StaticBody3D, t: int msec}
@@ -54,33 +54,23 @@ func touch(pos: Vector3) -> void:
 
 func _touch_point(pos: Vector3, vel: Vector3) -> void:
 	var now := Time.get_ticks_msec()
-	var p0 := pos
-	var p1 := pos + vel * LOOKAHEAD
-	var keys := _keys_for_aabb(
-		Vector3(minf(p0.x, p1.x), minf(p0.y, p1.y), minf(p0.z, p1.z)),
-		Vector3(maxf(p0.x, p1.x), maxf(p0.y, p1.y), maxf(p0.z, p1.z)),
-		BODY_RADIUS
-	)
-	for key in keys:
-		if _patches.has(key):
-			_patches[key].t = now
-		else:
-			_build_patch(key, now)
-
-
-func _keys_for_aabb(lo: Vector3, hi: Vector3, pad: int) -> Array[Vector3i]:
-	var out: Array[Vector3i] = []
-	var a := Vector3i(
-		floori(lo.x / PATCH) - pad, floori(lo.y / PATCH) - pad, floori(lo.z / PATCH) - pad
-	)
-	var b := Vector3i(
-		floori(hi.x / PATCH) + pad, floori(hi.y / PATCH) + pad, floori(hi.z / PATCH) + pad
-	)
-	for y in range(a.y, b.y + 1):
-		for z in range(a.z, b.z + 1):
-			for x in range(a.x, b.x + 1):
-				out.append(Vector3i(x, y, z))
-	return out
+	# Corridor only in XZ (a falling log must not light up a tower of Y patches).
+	var p0 := Vector2(pos.x, pos.z)
+	var p1 := p0 + Vector2(vel.x, vel.z) * LOOKAHEAD
+	var x0 := floori(minf(p0.x, p1.x) / PATCH) - XY_PAD
+	var x1 := floori(maxf(p0.x, p1.x) / PATCH) + XY_PAD
+	var z0 := floori(minf(p0.y, p1.y) / PATCH) - XY_PAD
+	var z1 := floori(maxf(p0.y, p1.y) / PATCH) + XY_PAD
+	# Y: the body's own patch and one below (landing). Never ±pad in Y.
+	var y_body := floori(pos.y / PATCH)
+	for y in [y_body, y_body - 1]:
+		for z in range(z0, z1 + 1):
+			for x in range(x0, x1 + 1):
+				var key := Vector3i(x, y, z)
+				if _patches.has(key):
+					_patches[key].t = now
+				else:
+					_build_patch(key, now)
 
 
 # --- auto-tracking (LiteTerrain-style) -----------------------------------------------------------
@@ -184,6 +174,8 @@ func _build_patch(key: Vector3i, now: int) -> void:
 				if not exposed:
 					continue
 				cells.append([x, y, z, maxi(quarters, 1)])
+	if cells.is_empty():
+		return   # pure air: no StaticBody3D
 
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
