@@ -4,6 +4,8 @@ extends Node3D
 ## also gives units orders through `command_move`/`Unit.walk_to`; this class only knows how to select and send people somewhere.
 
 signal selection_changed(selected: Array)
+const UNIT_SCENE := preload("res://scenes/units/unit.tscn")
+
 signal ordered(unit: Unit)   ## the player told this unit to go somewhere: any job it had is over
 
 var world: VoxelWorld
@@ -45,7 +47,7 @@ func _process(delta: float) -> void:
 # --- units ------------------------------------------------------------------------------------------
 
 func spawn(c: Vector3i) -> Unit:
-	var u := Unit.new()
+	var u := UNIT_SCENE.instantiate() as Unit
 	u.nav = nav
 	u.name = "Unit%d" % units.size()
 	add_child(u)

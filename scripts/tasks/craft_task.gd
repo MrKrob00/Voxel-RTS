@@ -35,13 +35,23 @@ func shown() -> bool:
 
 
 func input_needed() -> Dictionary:
+	if is_instance_valid(station) and station.waiting > 0:
+		return {}   # what was made lies on the station: it is taken away before anything new is made
 	return station.def().input
+
+
+## Is there a place for `n` of what the station makes: a stockpile with room, or a building that is waiting for it?
+func _output_has_place(n: int) -> bool:
+	var d := station.def()
+	return board != null and (board.economy.find_space(Vector3i(station.origin), d.output.kind, n) != null or board.build_task_needing(d.output.kind) != null)
 
 
 func wants_workers(board: TaskBoard) -> bool:
 	if not is_instance_valid(station) or not station.enabled or workers.size() >= max_workers:
 		return false
 	var d := station.def()
+	if station.waiting > 0:
+		return _output_has_place(station.waiting)   # what lies there is fetched as soon as there is a place for it
 	# Something to make it of, and somewhere to take what is made: a stockpile with room, or a building that is waiting for it
 	# (the planks of a stump go to the stockpile that is being built when there is no other).
 	var has_input: bool = board.economy.find_stock(Vector3i(station.origin), d.input.kind, d.input.amount) != null \
@@ -51,6 +61,8 @@ func wants_workers(board: TaskBoard) -> bool:
 
 
 func claim(unit: Unit, _from: Vector3i, _now: float) -> Variant:
+	if station.waiting > 0 and not _output_has_place(station.waiting):
+		return null   # nothing to do here until a stockpile has room
 	if claimed_by == null or claimed_by == unit:
 		claimed_by = unit
 		return station
@@ -82,9 +94,15 @@ func face_point(_target: Variant) -> Vector3:
 
 
 func work_time(_target: Variant) -> float:
-	return station.def().time
+	return 0.4 if station.waiting > 0 else station.def().time
 
 
 func perform(_target: Variant, _board: TaskBoard, _unit: Unit = null) -> Dictionary:
 	var d := station.def()
+	if station.waiting > 0:
+		# Taking away what lay on the station.
+		return {"kind": d.output.kind, "amount": station.take_output(), "done": false}
+	if not _output_has_place(d.output.amount):
+		station.leave_output(d.output.amount)   # nowhere to put it now: it lies on the station
+		return {"consumed": true, "done": false}
 	return {"kind": d.output.kind, "amount": d.output.amount, "consumed": true, "done": false}

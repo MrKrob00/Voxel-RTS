@@ -33,6 +33,8 @@ var _input_vis: Node3D            # what is being worked on: a log on the stump,
 var _output_vis: Node3D           # what has been made, lying on the station until the unit has picked it up
 var _input_until := 0.0
 var _output_until := 0.0
+## What has been made and lies on the station because there was nowhere to take it (planks on the stump): how many.
+var waiting := 0
 
 
 func def() -> Dictionary:
@@ -166,24 +168,22 @@ func _make_goods() -> void:
 	_output_vis.visible = false
 	add_child(_output_vis)
 	if kind == Kind.STUMP:
-		var log_mesh := MeshInstance3D.new()
+		var log_mesh := MeshInstance3D.new()   # the real log, standing upright on the stump
 		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.16
-		cyl.bottom_radius = 0.16
-		cyl.height = 0.8
+		cyl.top_radius = LooseLog.RADIUS
+		cyl.bottom_radius = LooseLog.RADIUS
+		cyl.height = LooseLog.LENGTH
 		log_mesh.mesh = cyl
-		log_mesh.material_override = _mat(Color("8a5a2b"))
-		log_mesh.rotation = Vector3(0.0, 0.0, deg_to_rad(90.0))
-		log_mesh.position.y = 0.16
+		log_mesh.material_override = _mat(Resources.COLORS[Resources.Kind.LOG])
+		log_mesh.position.y = LooseLog.LENGTH * 0.5
 		_input_vis.add_child(log_mesh)
-		for i in 3:   # the three planks made of it, stacked
+		for i in 3:   # the three real planks made of it, standing upright side by side
 			var plank := MeshInstance3D.new()
 			var bm := BoxMesh.new()
-			bm.size = Vector3(0.8, 0.07, 0.3)
+			bm.size = Vector3(Stockpile.PLANK_SIZE.y, Stockpile.PLANK_SIZE.x, Stockpile.PLANK_SIZE.z * 0.5)
 			plank.mesh = bm
-			plank.material_override = _mat(Color("c99a5b"))
-			plank.position = Vector3(0.0, 0.04 + i * 0.08, 0.0)
-			plank.rotation.y = deg_to_rad(i * 14.0 - 14.0)
+			plank.material_override = _mat(Resources.COLORS[Resources.Kind.PLANK])
+			plank.position = Vector3((i - 1) * (Stockpile.PLANK_SIZE.y + 0.03), Stockpile.PLANK_SIZE.x * 0.5, 0.0)
 			_output_vis.add_child(plank)
 	else:
 		for i in 2:   # two sacks of grass in, one rope out
@@ -213,6 +213,21 @@ func show_working() -> void:
 	set_process(true)
 
 
+## There was nowhere to take what was made (n planks): it lies on the station until somebody takes it.
+func leave_output(n: int) -> void:
+	waiting = n
+	_input_vis.visible = false
+	_output_vis.visible = true
+
+
+## A unit takes what lies on the station; returns how much.
+func take_output() -> int:
+	var n := waiting
+	waiting = 0
+	_output_vis.visible = false
+	return n
+
+
 ## The work is done: what was made lies here for a few seconds.
 func show_made() -> void:
 	_input_vis.visible = false
@@ -225,9 +240,9 @@ func _process(_delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	if _input_vis.visible and now > _input_until:
 		_input_vis.visible = false
-	if _output_vis.visible and now > _output_until:
+	if _output_vis.visible and waiting == 0 and now > _output_until:
 		_output_vis.visible = false
-	if not _input_vis.visible and not _output_vis.visible:
+	if not _input_vis.visible and (not _output_vis.visible or waiting > 0):
 		set_process(false)
 
 

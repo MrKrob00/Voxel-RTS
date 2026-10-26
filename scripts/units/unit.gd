@@ -31,10 +31,12 @@ var _seg_len := 1.0
 var _from := Vector3.ZERO
 var _to := Vector3.ZERO
 var _walk_phase := 0.0
-var _body: Node3D
-var _ring: MeshInstance3D
-var _pack: Node3D
-var _label: Label3D
+## The parts of the model are nodes of scenes/units/unit.tscn: change the look there, in the editor.
+@onready var _body: Node3D = $Body
+@onready var _ring: MeshInstance3D = $SelectionRing
+@onready var _pack: Node3D = $Body/Pack
+@onready var _label: Label3D = $StatusLabel
+@onready var _bar: MeshInstance3D = $ProgressBar
 var _idle_time := 0.0
 var _falling := false
 
@@ -50,11 +52,12 @@ var progress := -1.0:
 			_bar.visible = v >= 0.0
 			_bar.scale.x = maxf(v, 0.001)
 			_bar.position.x = -0.4 + 0.4 * maxf(v, 0.001)
-var _bar: MeshInstance3D
 
 
 func _ready() -> void:
-	_build_model()
+	_ring.visible = selected
+	_bar.visible = progress >= 0.0
+	_label.visible = false
 
 
 func place_at(c: Vector3i) -> void:
@@ -88,7 +91,7 @@ func _rebuild_carry() -> void:
 	var col: Color = Resources.COLORS.get(kind, Color("8a5a2b"))
 	match kind:
 		Resources.Kind.LOG:
-			_carry_part(_cylinder(LooseLog.RADIUS, LooseLog.LENGTH), Vector3(0.0, 0.2, 0.0), Vector3(0.0, 0.0, deg_to_rad(90.0)), col)   # the real log
+			_carry_part(_cylinder(LooseLog.RADIUS, LooseLog.LENGTH), Vector3(0.0, 0.2, 0.0), Vector3.ZERO, col)   # the real log, standing upright on the back
 		Resources.Kind.PLANK:
 			for i in n:
 				_carry_part(_box(Stockpile.PLANK_SIZE - Vector3(0.0, 0.02, 0.04)), Vector3(0.0, 0.1 + i * Stockpile.PLANK_SIZE.y, 0.0), Vector3(0.0, 0.0, 0.0), col)   # the real planks, a stack of up to three
@@ -267,85 +270,6 @@ func _animate(delta: float) -> void:
 	else:
 		_label.text = "Nothing to do"
 		_label.visible = selected and is_idle() and _idle_time > 1.0
-
-
-func _build_model() -> void:
-	_body = Node3D.new()
-	add_child(_body)
-	var body_mat := _flat_material(BODY_COLOR)
-	var r := WIDTH * 0.5
-	var torso := MeshInstance3D.new()
-	var cap := CapsuleMesh.new()
-	cap.radius = r
-	cap.height = 1.2
-	torso.mesh = cap
-	torso.material_override = body_mat
-	torso.position.y = 0.6
-	_body.add_child(torso)
-	var head := MeshInstance3D.new()
-	var ball := SphereMesh.new()
-	ball.radius = r
-	ball.height = r * 2.0
-	head.mesh = ball
-	head.material_override = body_mat
-	head.position.y = HEIGHT - r
-	_body.add_child(head)
-	var scarf := MeshInstance3D.new()
-	var ring := TorusMesh.new()
-	ring.inner_radius = r * 0.72
-	ring.outer_radius = r * 1.1
-	scarf.mesh = ring
-	scarf.material_override = _flat_material(SCARF_COLOR)
-	scarf.position.y = 1.0
-	_body.add_child(scarf)
-	for sx in [-1.0, 1.0]:
-		var eye := MeshInstance3D.new()
-		var sph := SphereMesh.new()
-		sph.radius = 0.07
-		sph.height = 0.14
-		eye.mesh = sph
-		eye.material_override = _flat_material(Color("2a2420"))
-		eye.position = Vector3(sx * 0.16, HEIGHT - r + 0.06, r * 0.9)
-		_body.add_child(eye)
-	_pack = Node3D.new()
-	_pack.position = Vector3(0, 0.75, -r - 0.14)
-	_body.add_child(_pack)
-	_bar = MeshInstance3D.new()
-	var bar_mesh := BoxMesh.new()
-	bar_mesh.size = Vector3(0.8, 0.09, 0.09)
-	_bar.mesh = bar_mesh
-	var bar_mat := StandardMaterial3D.new()
-	bar_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	bar_mat.albedo_color = Color("ffe14a")
-	bar_mat.no_depth_test = true
-	_bar.material_override = bar_mat
-	_bar.position = Vector3(0, HEIGHT + 0.2, 0)
-	_bar.visible = false
-	add_child(_bar)
-	_ring = MeshInstance3D.new()
-	var disc := CylinderMesh.new()
-	disc.top_radius = 0.7
-	disc.bottom_radius = 0.7
-	disc.height = 0.02
-	_ring.mesh = disc
-	var rm := StandardMaterial3D.new()
-	rm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	rm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	rm.albedo_color = Color(1.0, 0.85, 0.2, 0.55)
-	_ring.material_override = rm
-	_ring.position.y = 0.04
-	_ring.visible = selected
-	add_child(_ring)
-	_label = Label3D.new()
-	_label.text = "Nothing to do"
-	_label.font_size = 24
-	_label.pixel_size = 0.0045
-	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_label.no_depth_test = true
-	_label.outline_size = 8
-	_label.position.y = HEIGHT + 0.45
-	_label.visible = false
-	add_child(_label)
 
 
 static func _flat_material(c: Color) -> StandardMaterial3D:

@@ -12,6 +12,8 @@ var world: VoxelWorld
 var nav: Navigation
 var economy: Economy
 var props: PropField                 ## trees and grass that can be harvested (null in tests without them)
+const DETOUR_PAUSE := 1.5
+var _detour_at := {}                 ## Unit -> when it last tried to go to a stump
 var loose: LooseItems                ## logs lying on the ground
 var units: UnitManager
 var tasks: Array[WorkTask] = []
@@ -371,7 +373,7 @@ func divert_to_build(u: Unit) -> bool:
 func free_stump() -> CraftTask:
 	for t in tasks:
 		var ct := t as CraftTask
-		if ct != null and is_instance_valid(ct.station) and ct.station.kind == Station.Kind.STUMP and ct.workers.size() < ct.max_workers and ct.claimed_by == null:
+		if ct != null and is_instance_valid(ct.station) and ct.station.kind == Station.Kind.STUMP and ct.workers.size() < ct.max_workers and ct.claimed_by == null and ct.station.waiting == 0:
 			var d: Dictionary = ct.station.def()
 			if economy.find_space(Vector3i(ct.station.origin), d.output.kind, d.output.amount) != null or build_task_needing(d.output.kind) != null:
 				return ct
@@ -385,6 +387,10 @@ func log_has_destination(from: Vector3i) -> bool:
 
 ## A worker with a log in its hands goes to a free stump first, to make planks of it; afterwards it returns to its job.
 func detour_to_stump(u: Unit) -> bool:
+	# One try per unit in a short while: a detour that cannot start must not be tried again at once (that is an endless loop).
+	if _detour_at.get(u, -10.0) > now - DETOUR_PAUSE:
+		return false
+	_detour_at[u] = now
 	var craft := free_stump()
 	if craft == null:
 		return false
