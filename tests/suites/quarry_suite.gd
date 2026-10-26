@@ -135,15 +135,15 @@ func _straight() -> void:
 
 
 func _free_units_help() -> void:
-	print("-- 4 x 4 columns, 1 layer: free units come to help by themselves")
+	print("-- 4 x 4 columns, 3 layers: free units come to help by themselves")
 	var x0 := _corner.x + 4
 	var z0 := _corner.z + 10
-	var task := _board.create_dig(x0, z0, x0 + 3, z0 + 3, 1)
+	var task := _board.create_dig(x0, z0, x0 + 3, z0 + 3, 3)
 	task.collect = {}
 	var crew := _units.spawn_squad(Vector3i(x0 - 2, _top_y + 1, z0 - 2), 3, 1)   # nobody is told to dig
 	var most := 0
 	var frames := 0
-	while _board.tasks.has(task) and frames < 40000:
+	while _board.tasks.has(task) and frames < 80000:
 		_board._process(0.05)
 		for u in crew:
 			u._process(0.05)
