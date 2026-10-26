@@ -206,6 +206,7 @@ func set_block(p: Vector3i, raw: int) -> bool:
 	if c.data.is_empty():
 		if raw == Blocks.AIR:
 			return false
+		WorldReaders.wait_none()   # no path search may be reading the array while it is made
 		c.data.resize(Blocks.CHUNK_VOLUME)
 		c.data.fill(Blocks.AIR)
 	var idx := (p.x & 15) + ((p.z & 15) << 4) + ((p.y & 15) << 8)
@@ -441,7 +442,7 @@ func _try_mesh(c: Chunk) -> void:
 				elif not n.generated:
 					return
 				else:
-					snap[slot] = n.data
+					snap[slot] = n.data.duplicate()   # a copy: the live array is only ever written in place, which the path searches rely on
 	c.meshing = true
 	_mesh_in_flight += 1
 	var grass := cover.slice(c.cpos.x * Blocks.CHUNK_SIZE, c.cpos.z * Blocks.CHUNK_SIZE, Blocks.CHUNK_SIZE)
@@ -450,6 +451,18 @@ func _try_mesh(c: Chunk) -> void:
 
 func _mesh_task(c: Chunk, snap: Array, grass: PackedByteArray, version: int) -> void:
 	var out := ChunkMesher.build(snap, c.cpos * Blocks.CHUNK_SIZE, preset, grass)
+	# The images of the textures of the ground are made here, off the main thread; it only has to hand them to the renderer.
+	var ao_data: PackedByteArray = out[2]
+	var layers: Array[Image] = []
+	if not ao_data.is_empty():
+		var size := ChunkMesher.AO_TEX_SIZE
+		var layer_bytes := size.x * size.y * 4
+		for y in size.z:
+			layers.append(Image.create_from_data(size.x, size.y, false, Image.FORMAT_RGBA8, ao_data.slice(y * layer_bytes, (y + 1) * layer_bytes)))
+	var cover_slice: PackedByteArray = out[3]
+	var n := Blocks.CHUNK_SIZE + 2 * GroundCover.SLICE_BORDER
+	out[2] = layers
+	out[3] = Image.create_from_data(n, n, false, Image.FORMAT_R8, cover_slice) if not cover_slice.is_empty() else null
 	_mutex.lock()
 	_mesh_results.append([c, out, version])
 	_mutex.unlock()
@@ -500,23 +513,19 @@ func _check_group() -> void:
 	_group = {}
 
 
-## The material of the ground of one chunk: the shared one, with the light of the corners of this chunk's faces in a 3D texture.
-func _solid_material_for(ao_data: PackedByteArray, cover_slice: PackedByteArray) -> ShaderMaterial:
-	if ao_data.is_empty():
+## The material of the ground of one chunk: the shared one, or a copy with the light of the corners of this chunk's faces in a 3D texture.
+## `layers`: the 16 images of its 3D texture, `cover_image`: the worn grass of the chunk (both made by the mesh task).
+func _solid_material_for(layers: Array, cover_image: Image) -> ShaderMaterial:
+	if layers.is_empty():
 		return _solid_material
 	var size := ChunkMesher.AO_TEX_SIZE
-	var layer_bytes := size.x * size.y * 4
-	var layers: Array[Image] = []
-	for y in size.z:
-		layers.append(Image.create_from_data(size.x, size.y, false, Image.FORMAT_RGBA8, ao_data.slice(y * layer_bytes, (y + 1) * layer_bytes)))
 	var tex := ImageTexture3D.new()
 	tex.create(Image.FORMAT_RGBA8, size.x, size.y, size.z, false, layers)
 	var m := _solid_material.duplicate() as ShaderMaterial
 	m.set_shader_parameter("ao_tex", tex)
-	if not cover_slice.is_empty():
-		var n := Blocks.CHUNK_SIZE + 2 * GroundCover.SLICE_BORDER
-		m.set_shader_parameter("cover_tex", ImageTexture.create_from_image(Image.create_from_data(n, n, false, Image.FORMAT_R8, cover_slice)))
-		m.set_shader_parameter("cover_size", Vector2(n, GroundCover.SLICE_BORDER))
+	if cover_image != null:
+		m.set_shader_parameter("cover_tex", ImageTexture.create_from_image(cover_image))
+		m.set_shader_parameter("cover_size", Vector2(cover_image.get_width(), GroundCover.SLICE_BORDER))
 	return m
 
 
@@ -529,7 +538,7 @@ func _commit_mesh(c: Chunk, out: Array) -> void:
 	var mesh := ArrayMesh.new()
 	if out[0] != null:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[0])
-		mesh.surface_set_material(mesh.get_surface_count() - 1, _solid_material_for(out[2] if out.size() > 2 else PackedByteArray(), out[3] if out.size() > 3 else PackedByteArray()))
+		mesh.surface_set_material(mesh.get_surface_count() - 1, _solid_material_for(out[2] if out.size() > 2 else [], out[3] if out.size() > 3 else null))
 	if out[1] != null:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[1])
 		mesh.surface_set_material(mesh.get_surface_count() - 1, _water_material)

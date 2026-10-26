@@ -108,6 +108,22 @@ func steps_at(cell: Vector3i) -> Dictionary:
 	return {"rise": rise, "steps": FLIGHTS[b.shape]}
 
 
+## A copy of what Navigation asks about the bricks, for a thread to read while the main thread goes on changing them.
+func snapshot() -> BrickSnapshot:
+	var snap := BrickSnapshot.new()
+	for c in _cells:
+		snap.cells[c] = true
+		var flight := steps_at(c)
+		if not flight.is_empty():
+			snap.flights[c] = flight
+	return snap
+
+
+## Changes whenever a brick is placed or taken out (a new snapshot is needed when it does).
+func signature() -> int:
+	return _next_id * 100003 + _cells.size()
+
+
 func debris_count() -> int:
 	return _debris.size()
 

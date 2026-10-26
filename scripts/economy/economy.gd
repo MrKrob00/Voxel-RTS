@@ -401,6 +401,36 @@ func blocks_cell(c: Vector3i) -> bool:
 	return false
 
 
+## The same cells as a set a worker thread may read (Navigation takes a copy of it when something changed, see obstacle_signature).
+func blocked_cells() -> Dictionary:
+	var out := {}
+	for s in stockpiles:
+		for dy in 2:
+			for dz in Stockpile.SIZE:
+				for dx in Stockpile.SIZE:
+					var c := Vector3i(s.origin.x + dx, s.origin.y + dy, s.origin.z + dz)
+					if s.blocks(c):
+						out[c] = true
+	for st in stations:
+		var size: Vector2i = st.size()
+		for dz in size.y:
+			for dx in size.x:
+				var c := Vector3i(st.origin.x + dx, st.origin.y, st.origin.z + dz)
+				if st.blocks(c):
+					out[c] = true
+	return out
+
+
+## Changes whenever blocked_cells would.
+func obstacle_signature() -> int:
+	var sig := stockpiles.size() * 7919 + stations.size() * 104729
+	for s in stockpiles:
+		sig = sig * 31 + s.form() + s.origin.x * 3 + s.origin.z * 5 + s.origin.y * 11
+	for st in stations:
+		sig = sig * 31 + st.origin.x * 3 + st.origin.z * 5 + st.origin.y * 11 + st.kind
+	return sig
+
+
 func total(kind: int) -> int:
 	var n := 0
 	for s in stockpiles:

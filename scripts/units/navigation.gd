@@ -25,8 +25,11 @@ const DIRS: Array[Vector2i] = [
 ]
 
 var world: VoxelWorld
-var bricks: BrickWorld   ## optional: bricks are obstacles and floors
+var bricks   ## optional: bricks are obstacles and floors (a BrickWorld, or a BrickSnapshot in the copy a thread reads)
 var obstacle := Callable()   ## optional (cell) -> bool: other things that fill a cell (a stockpile frame, a station)
+## optional: whoever the cells of `obstacle` come from, with blocked_cells() -> Dictionary and obstacle_signature() -> int (the Economy);
+## a thread reads a copy of them.
+var obstacle_source: Object
 var _size: Vector3i
 
 ## Result of the last find_path: false when the goal could not be reached and the path only gets as near as it could.
@@ -34,7 +37,7 @@ var last_reached := false
 var last_expanded := 0
 
 
-func _init(w: VoxelWorld, b: BrickWorld = null) -> void:
+func _init(w: VoxelWorld, b = null) -> void:
 	world = w
 	bricks = b
 	_size = w.size_blocks()
@@ -283,9 +286,40 @@ func find_path(from: Vector3i, to: Vector3i, stop_near := 0.0) -> Array[Vector3i
 	return s.path
 
 
-## A search that is done in slices of time (see PathSearch).
+## A search that is done in slices of time, or on a worker thread (see PathSearch).
 func begin_search(from: Vector3i, to: Vector3i, stop_near := 0.0) -> PathSearch:
-	return PathSearch.new(self, from, to, stop_near)
+	if not use_threads():
+		return PathSearch.new(self, from, to, stop_near)
+	var s := PathSearch.new(view(), from, to, stop_near)
+	s.threaded = true
+	return s
+
+
+## Searches run on worker threads where something is drawn (the game); the tests step the world by hand, in order, and ask for the
+## same answer every time, so there they run in slices on the calling thread.
+var threaded := DisplayServer.get_name() != "headless"
+var _view: Navigation
+var _view_signature := []
+
+
+func use_threads() -> bool:
+	return threaded and (not obstacle.is_valid() or obstacle_source != null)
+
+
+## The navigation a thread may read: the same rules over a copy of the bricks and of the cells of the buildings, made when something
+## of them has changed (the voxels themselves are read as they are).
+func view() -> Navigation:
+	var sig := [bricks.signature() if bricks != null else 0, obstacle_source.call("obstacle_signature") if obstacle_source != null else 0]
+	if _view == null or sig != _view_signature:
+		_view = Navigation.new(world)
+		_view.threaded = false
+		if bricks != null:
+			_view.bricks = bricks.snapshot()
+		if obstacle_source != null:
+			var blocked: Dictionary = obstacle_source.call("blocked_cells")
+			_view.obstacle = func(c: Vector3i) -> bool: return blocked.has(c)
+		_view_signature = sig
+	return _view
 
 
 ## All the searches of a frame together may take about this long (the units share it); the window is 16 ms of real time.
@@ -299,6 +333,12 @@ var _left := FRAME_USEC
 
 ## Gives `search` up to `usec` microseconds of what is left of this frame's budget (and uses it).
 func run_search(search: PathSearch, usec: int) -> void:
+	if search.threaded:
+		if not search.started and not search.done:
+			search.started = true
+			WorldReaders.enter()
+			WorkerThreadPool.add_task(search.run_on_thread, true)
+		return
 	if not share_frame:
 		search.advance(usec)   # headless (tests, a server): there is no frame to keep short, every search gets its slice
 		return

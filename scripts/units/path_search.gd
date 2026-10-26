@@ -11,7 +11,9 @@ var nav: Navigation
 var from: Vector3i
 var to: Vector3i
 var stop_near := 0.0
-var done := false
+var done := false     ## set last, from the thread that did the search: the rest of the result is there when this is true
+var threaded := false ## goes to a worker thread (Navigation.run_search) instead of being done in slices
+var started := false  ## and has been handed to it
 var reached := false
 var expanded := 0
 var path: Array[Vector3i] = []
@@ -47,6 +49,12 @@ func _init(n: Navigation, start: Vector3i, goal: Vector3i, near := 0.0) -> void:
 	Navigation._push(_open_f, _open_n, Navigation._heuristic(from, to), _start_key)
 	_best_key = _start_key
 	_best_h = Navigation._heuristic(from, to)
+
+
+## The whole search, on a worker thread.
+func run_on_thread() -> void:
+	advance(-1)
+	WorldReaders.leave()
 
 
 ## Works on the search for at most `usec` microseconds (negative: until it is done). Returns the time it took.
@@ -87,7 +95,6 @@ func advance(usec: int) -> int:
 
 
 func _finish() -> void:
-	done = true
 	var end_key := _goal_key if _goal_key >= 0 else _best_key
 	reached = _goal_key >= 0
 	var k := end_key
@@ -104,3 +111,4 @@ func _finish() -> void:
 	_g = {}
 	_came = {}
 	_closed = {}
+	done = true

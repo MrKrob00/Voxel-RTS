@@ -14,6 +14,7 @@ const SUITES := {
 	"stump": "res://tests/suites/stump_suite.gd",
 	"wall": "res://tests/suites/wall_suite.gd",
 	"brick": "res://tests/suites/brick_suite.gd",
+	"threads": "res://tests/suites/threads_suite.gd",
 }
 
 

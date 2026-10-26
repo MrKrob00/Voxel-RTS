@@ -72,6 +72,7 @@ func _ready() -> void:
 	units.setup(world, bricks)
 	economy.setup(world, bricks)
 	units.nav.obstacle = economy.blocks_cell
+	units.nav.obstacle_source = economy
 	board.setup(world, units.nav, economy, props, loose, units)
 	board.changed.connect(_refresh_tasks_panel)
 	economy.changed.connect(_refresh_stock_label)
