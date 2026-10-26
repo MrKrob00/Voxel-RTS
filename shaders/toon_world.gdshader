@@ -115,8 +115,9 @@ void fragment() {
 		} else if ((fl & 4) != 0) {
 			worn = COLOR.a;
 		}
-		worn = smoothstep(0.3, 0.85, worn);   // a faint wear shows nothing, only the stronger one wears the grass pixel by pixel
-		float dither = mix(hash13(cell), hash13(floor(cell * 0.5) + 17.0), 0.35);
+		// a faint wear shows nothing; the edge between grass and earth is a narrow band of lumps of 2 x 2 pixels, not a speckle
+		worn = smoothstep(0.2, 0.8, worn);
+		float dither = 0.5 + (mix(hash13(cell), hash13(floor(cell * 0.5) + 17.0), 0.7) - 0.5) * 0.3;
 		bool bare = worn > dither;
 		if ((fl & 1) != 0) {
 			base *= bare ? bare_color : grass_green(world_pos.xz);
