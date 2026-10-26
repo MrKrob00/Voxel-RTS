@@ -1,7 +1,8 @@
 class_name LooseItems
 extends Node3D
-## Things lying on the ground that are not part of the voxel world: felled logs (physics bodies). Keeps ground colliders under the
-## ones that are moving, lets the rest sleep, and wakes the ones whose floor was dug away.
+## Things lying on the ground that are not part of the voxel world: felled logs (physics bodies).
+## Ground colliders under them are kept by GroundColliders' auto-tracking of RigidBody3D; this
+## node only spawns, culls, and wakes bodies whose floor was dug away.
 
 var world: VoxelWorld
 var colliders: GroundColliders
@@ -57,16 +58,12 @@ func _physics_process(_delta: float) -> void:
 			logs.erase(l)
 		elif l.global_position.y < -20.0:
 			remove_log(l)   # fell off the world
-		elif not l.sleeping:
-			colliders.touch(l.global_position)
 	for g in goods.duplicate():
 		if not is_instance_valid(g):
 			goods.erase(g)
 		elif g.global_position.y < -20.0:
 			goods.erase(g)
 			g.queue_free()
-		elif not g.sleeping:
-			colliders.touch(g.global_position)
 
 
 func _on_block_changed(p: Vector3i) -> void:
