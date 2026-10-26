@@ -78,6 +78,7 @@ var _water_material: ShaderMaterial
 
 func _ready() -> void:
 	_solid_material = DayCycle.world_material()
+	_solid_material.set_shader_parameter("terrain", true)   # the ground: the shader finishes what the mesher merged
 	_water_material = DayCycle.world_material(false, true)
 	terrain = TerrainEdit.new(self)
 	cover = GroundCover.new(size_blocks().x, size_blocks().z)
@@ -468,6 +469,26 @@ func _check_group() -> void:
 	_group = {}
 
 
+## The material of the ground of one chunk: the shared one, with the light of the corners of this chunk's faces in a 3D texture.
+func _solid_material_for(ao_data: PackedByteArray, cover_slice: PackedByteArray) -> ShaderMaterial:
+	if ao_data.is_empty():
+		return _solid_material
+	var size := ChunkMesher.AO_TEX_SIZE
+	var layer_bytes := size.x * size.y * 4
+	var layers: Array[Image] = []
+	for y in size.z:
+		layers.append(Image.create_from_data(size.x, size.y, false, Image.FORMAT_RGBA8, ao_data.slice(y * layer_bytes, (y + 1) * layer_bytes)))
+	var tex := ImageTexture3D.new()
+	tex.create(Image.FORMAT_RGBA8, size.x, size.y, size.z, false, layers)
+	var m := _solid_material.duplicate() as ShaderMaterial
+	m.set_shader_parameter("ao_tex", tex)
+	if not cover_slice.is_empty():
+		var n := Blocks.CHUNK_SIZE + 2 * GroundCover.SLICE_BORDER
+		m.set_shader_parameter("cover_tex", ImageTexture.create_from_image(Image.create_from_data(n, n, false, Image.FORMAT_R8, cover_slice)))
+		m.set_shader_parameter("cover_size", Vector2(n, GroundCover.SLICE_BORDER))
+	return m
+
+
 func _commit_mesh(c: Chunk, out: Array) -> void:
 	if out[0] == null and out[1] == null:
 		if c.instance != null:
@@ -477,7 +498,7 @@ func _commit_mesh(c: Chunk, out: Array) -> void:
 	var mesh := ArrayMesh.new()
 	if out[0] != null:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[0])
-		mesh.surface_set_material(mesh.get_surface_count() - 1, _solid_material)
+		mesh.surface_set_material(mesh.get_surface_count() - 1, _solid_material_for(out[2] if out.size() > 2 else PackedByteArray(), out[3] if out.size() > 3 else PackedByteArray()))
 	if out[1] != null:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[1])
 		mesh.surface_set_material(mesh.get_surface_count() - 1, _water_material)

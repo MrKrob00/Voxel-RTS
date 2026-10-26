@@ -15,9 +15,23 @@ uniform float steps = 3.0;             // bands of light
 uniform vec3 tint = vec3(1.0);        // multiplies the colour (lumps of ore are the grey rock, tinted)
 uniform float alpha = 1.0;
 uniform float sparkle = 0.0;           // water: pixels that flicker
+// The ground (ChunkMesher merges whole stretches of flat faces into one quad, so what varied per block and per corner is done here):
+// UV.x: 1 = a face of the grass top, coloured by blobs of three greens from the world position (MapPreset.blob);
+//       2 = the light in the corners of the block comes from ao_tex (the 4 corners x 6 faces of every block of the chunk, 2 bits each);
+// UV.y = how much each block of the face differs from the next (cobble on cliffs).
+uniform bool terrain = false;
+uniform sampler3D ao_tex : filter_nearest, repeat_disable;
+uniform sampler2D cover_tex : hint_default_black, filter_linear, repeat_disable;   // how much of the grass is worn away (GroundCover.slice of the chunk)
+uniform vec2 cover_size = vec2(18.0, 1.0);                                         // its width in columns and the border of columns around the chunk
+uniform vec3 bare_color = vec3(0.5412, 0.4157, 0.2627);
+uniform vec3 surface_dark = vec3(0.3098, 0.6039, 0.2039);    // MapPreset colours as the vertex colours carry them (no sRGB conversion)
+uniform vec3 surface_light = vec3(0.4157, 0.6588, 0.2353);
+uniform vec3 surface_deep = vec3(0.2392, 0.5176, 0.2039);
 
 varying vec3 world_pos;
 varying vec3 world_normal;
+varying vec3 local_pos;
+varying flat vec3 local_normal;
 
 float hash13(vec3 p) {
 	p = fract(p * 0.1031);
@@ -25,9 +39,48 @@ float hash13(vec3 p) {
 	return fract((p.x + p.y) * p.z);
 }
 
+float blob(vec2 p, float sc) {
+	float a = sin(p.x * 0.13 * sc + sin(p.y * 0.07 * sc) * 2.0);
+	float b = sin(p.y * 0.11 * sc + sin(p.x * 0.05 * sc) * 2.3);
+	float c = sin((p.x + p.y) * 0.045 * sc);
+	return clamp((a + b + c * 1.3) / 3.3 * 0.5 + 0.5, 0.0, 1.0);
+}
+
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	local_pos = VERTEX;
+	local_normal = NORMAL;
+}
+
+// How lit the corners of the block face under this point are (the way ChunkMesher bakes it): 0.5 .. 1.0, smooth over the face.
+float corner_light(vec3 p, vec3 nrm) {
+	int f = 0;
+	ivec3 ua = ivec3(0, 1, 0);   // tangent axes (as ChunkMesher.FACE_U / FACE_V)
+	ivec3 va = ivec3(0, 0, 1);
+	if (nrm.x < -0.5) { f = 1; ua = ivec3(0, 0, 1); va = ivec3(0, 1, 0); }
+	else if (nrm.y > 0.5) { f = 2; ua = ivec3(0, 0, 1); va = ivec3(1, 0, 0); }
+	else if (nrm.y < -0.5) { f = 3; ua = ivec3(1, 0, 0); va = ivec3(0, 0, 1); }
+	else if (nrm.z > 0.5) { f = 4; ua = ivec3(1, 0, 0); va = ivec3(0, 1, 0); }
+	else if (nrm.z < -0.5) { f = 5; ua = ivec3(0, 1, 0); va = ivec3(1, 0, 0); }
+	vec3 c = p - nrm * 0.01;   // a point inside the block that owns the face
+	vec3 cell = floor(c);
+	vec3 fr = c - cell;
+	float s = dot(fr, vec3(ua));
+	float t = dot(fr, vec3(va));
+	vec4 texel = texelFetch(ao_tex, ivec3(int(cell.x) * 2 + (f >= 4 ? 1 : 0), int(cell.z), int(cell.y)), 0);
+	float chan = texel.r;
+	int k = f & 3;
+	if (k == 1) chan = texel.g;
+	else if (k == 2) chan = texel.b;
+	else if (k == 3) chan = texel.a;
+	int packed = int(chan * 255.0 + 0.5);
+	const float levels[4] = float[4](0.5, 0.68, 0.84, 1.0);   // ChunkMesher.AO_LEVELS
+	float l0 = levels[packed & 3];
+	float l1 = levels[(packed >> 2) & 3];
+	float l2 = levels[(packed >> 4) & 3];
+	float l3 = levels[(packed >> 6) & 3];
+	return mix(mix(l0, l1, s), mix(l3, l2, s), t);
 }
 
 void fragment() {
@@ -35,7 +88,23 @@ void fragment() {
 	// the pixel this fragment is in (nudged a hair so a block edge does not flicker between two pixels)
 	vec3 cell = floor(world_pos / pixel_size + 0.002);
 	float r = hash13(cell);
-	vec3 albedo = COLOR.rgb * tint * (1.0 + (r - 0.5) * pixel_noise * 2.0);
+	vec3 base = COLOR.rgb;
+	if (terrain) {
+		float flags = floor(UV.x + 0.5);   // the UV is the same on every vertex of a quad, but interpolated it is not exact
+		if (flags > 1.5) {
+			base *= corner_light(local_pos, normalize(round(local_normal)));
+		}
+		if (mod(flags, 2.0) > 0.5) {
+			vec3 g = mix(surface_dark, surface_light, blob(world_pos.xz, 1.0));
+			g = mix(g, surface_deep, smoothstep(0.58, 0.72, blob(world_pos.xz + vec2(-90.0, 55.0), 0.55)) * 0.75);
+			g = mix(g, bare_color, texture(cover_tex, (local_pos.xz + cover_size.y) / cover_size.x).r);
+			base *= g;
+		}
+		if (UV.y > 0.0) {
+			base *= 1.0 + (hash13(floor(world_pos - n * 0.01)) - 0.5) * 2.0 * UV.y;
+		}
+	}
+	vec3 albedo = base * tint * (1.0 + (r - 0.5) * pixel_noise * 2.0);
 	// the light: bands of sun on top of a sky/ground ambient
 	float t = clamp(dot(n, -sun_direction) * 0.5 + 0.5, 0.0, 1.0);
 	float band = clamp(floor(t * steps + 0.5) / steps, 0.0, 1.0);

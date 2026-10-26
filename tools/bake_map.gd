@@ -1,7 +1,8 @@
 extends SceneTree
 ## Generates the map and saves it as a scene of meshes that opens in the editor ready made (no generation when it is opened):
 ##   godot --headless --path . -s res://tools/bake_map.gd -- --seed=1337 --out=res://maps/plains
-## Writes <out>/chunks/Chunk_x_y_z.res (the meshes), <out>/solid.tres and <out>/water.tres (the two materials) and <out>/map.tscn.
+## Writes <out>/chunks/Chunk_x_y_z.res (the meshes, with the ground material of the chunk), <out>/solid.tres and <out>/water.tres (the shared
+## materials) and <out>/map.tscn.
 ## Only the look of the ground is kept (no game data); `scenes/map_view.tscn` shows it.
 
 const WORLD_SCRIPT := preload("res://scripts/world/voxel_world.gd")
@@ -30,7 +31,8 @@ func _run() -> void:
 		frames += 1
 	print("generated after %d frames: %s" % [frames, _world.stats()])
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_out + "/chunks"))
-	var solid: Material = DayCycle.world_material()
+	var solid: ShaderMaterial = DayCycle.world_material()
+	solid.set_shader_parameter("terrain", true)
 	var water: Material = DayCycle.world_material(false, true)
 	ResourceSaver.save(solid, _out + "/solid.tres")
 	ResourceSaver.save(water, _out + "/water.tres")
@@ -46,10 +48,13 @@ func _run() -> void:
 			continue
 		var mesh := mi.mesh as ArrayMesh
 		var surface_materials: Array[Material] = []
+		var own: Array[bool] = []   # the ground of a chunk has its own material (the light of its corners is a texture), kept inside the mesh
 		for i in mesh.get_surface_count():
 			var m := mesh.surface_get_material(i)
 			surface_materials.append(m)
-			mesh.surface_set_material(i, null)        # the materials are shared files, not copies inside every mesh
+			own.append(m is ShaderMaterial and (m as ShaderMaterial).get_shader_parameter("ao_tex") != null)
+			if not own[i]:
+				mesh.surface_set_material(i, null)    # the other materials are shared files, not copies inside every mesh
 		var path := "%s/chunks/%s.res" % [_out, mi.name]
 		ResourceSaver.save(mesh, path, ResourceSaver.FLAG_COMPRESS)
 		bytes += FileAccess.get_file_as_bytes(path).size()
@@ -58,6 +63,8 @@ func _run() -> void:
 		node.mesh = load(path)
 		node.position = mi.position
 		for i in surface_materials.size():
+			if own[i]:
+				continue
 			var is_water: bool = surface_materials[i] != null and (surface_materials[i] as ShaderMaterial).get_shader_parameter("alpha") != null
 			node.set_surface_override_material(i, water_res if is_water else solid_res)
 		map.add_child(node)
