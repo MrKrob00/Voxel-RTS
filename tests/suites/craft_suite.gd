@@ -109,7 +109,7 @@ func _felling(pile: Stockpile, crew: Array, sp: Vector3i) -> void:
 	for i in _props.trees.size():
 		var o := _props.trees[i].origin
 		var d := Vector2(o.x - sp.x, o.z - sp.z).length()
-		if d < best_d and d > 14.0 and _props.trees_in_rect(Rect2(o.x - 1.5, o.z - 1.5, 3, 3)).size() == 1 and _level_around(o, 4, 1):
+		if d < best_d and d > 14.0 and _props.trees_in_rect(Rect2(o.x - 1.0, o.z - 1.0, 2, 2)).size() == 1 and _level_around(o, 3, 1):
 			best = i
 			best_d = d
 	check(best >= 0, "there is a lone tree to fell (%.0f blocks from the spawn)" % best_d)

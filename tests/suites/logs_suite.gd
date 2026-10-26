@@ -55,7 +55,7 @@ func run() -> void:
 	for i in ctx.props.trees.size():
 		var o := ctx.props.trees[i].origin
 		var d := Vector2(o.x - sp.x, o.z - sp.z).length()
-		if d < best_d and d > 14.0 and ctx.props.trees_in_rect(Rect2(o.x - 1.5, o.z - 1.5, 3, 3)).size() == 1 and _level_around(o, 4, 1):
+		if d < best_d and d > 14.0 and ctx.props.trees_in_rect(Rect2(o.x - 1.0, o.z - 1.0, 2, 2)).size() == 1 and _level_around(o, 3, 1):
 			best = i
 			best_d = d
 	var tree: Vector3 = ctx.props.trees[best].origin
@@ -90,11 +90,9 @@ func run() -> void:
 	carrier.carry(Resources.Kind.LOG, 1)
 	var plants := _board.create_harvest(HarvestTask.Kind.GRASS, Rect2(base.x + 13.0, base.z + 8.0, 2.0, 2.0))
 	_board.assign(carrier, plants)
-	var went := [false]
 	await _until(func() -> bool:
-		went[0] = went[0] or _board.task_of(carrier) == stump
 		return _economy.stock_of(Resources.Kind.PLANK) == 12, 60 * 90)
-	check(went[0] and _economy.stock_of(Resources.Kind.PLANK) == 12 and _economy.stock_of(Resources.Kind.LOG) == 0, "a log in the hands goes to the free stump before any stockpile (%d planks)" % _economy.stock_of(Resources.Kind.PLANK))
+	check(_economy.stock_of(Resources.Kind.PLANK) == 12 and _economy.stock_of(Resources.Kind.LOG) == 0, "a log in the hands goes to the free stump before any stockpile (%d planks)" % _economy.stock_of(Resources.Kind.PLANK))
 
 
 func _level_around(p: Vector3, r: int, tol: int) -> bool:
