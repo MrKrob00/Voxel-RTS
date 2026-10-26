@@ -164,10 +164,11 @@ func build(cell: Vector3i) -> void:
 	# The walls: the floor copied onto the four sides, standing up (x = 0 and 2, z = 0 and 2); shown while it holds stone or grass.
 	_walls = Node3D.new()
 	add_child(_walls)
-	_plank_panel(_walls, Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
-	_plank_panel(_walls, Transform3D(Basis(Vector3.FORWARD, deg_to_rad(90.0)), Vector3(SIZE, 0.0, 0.0)))
-	_plank_panel(_walls, Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, 0.0)))
-	_plank_panel(_walls, Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0.0, 0.0, SIZE)))
+	# Each panel's length goes up, its boards face into the crate and its beams stay outside.
+	_plank_panel(_walls, Transform3D(Basis(Vector3.UP, Vector3.RIGHT, Vector3.FORWARD), Vector3(0.0, 0.0, SIZE)))
+	_plank_panel(_walls, Transform3D(Basis(Vector3.UP, Vector3.LEFT, Vector3.BACK), Vector3(SIZE, 0.0, 0.0)))
+	_plank_panel(_walls, Transform3D(Basis(Vector3.UP, Vector3.BACK, Vector3.RIGHT), Vector3(0.0, 0.0, 0.0)))
+	_plank_panel(_walls, Transform3D(Basis(Vector3.UP, Vector3.FORWARD, Vector3.LEFT), Vector3(SIZE, 0.0, SIZE)))
 	_piles = Node3D.new()
 	add_child(_piles)
 	_label = Label3D.new()
