@@ -28,7 +28,9 @@ class Slot extends RefCounted:
 	func cells() -> Array[Vector3i]:
 		if kind == "stairs":
 			return [origin, origin + Vector3i(rise.x, 0, rise.y)]
-		return BrickWorld.cells_for(origin, axis, length)
+		# Origin is the pivot; facing 0..3 swings the far cell. Walls leave facing -1 → use axis.
+		var face := facing if facing >= 0 else axis
+		return BrickWorld.cells_for(origin, face, length)
 
 
 ## A unit reaches 2 blocks above its feet to lay a brick, which is enough for 3 courses from the ground. Higher, it climbs the wall's own
