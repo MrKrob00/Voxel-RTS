@@ -1,0 +1,43 @@
+diff --git a/scripts/main.gd b/scripts/main.gd
+index f4e9d30..4f07f51 100644
+--- a/scripts/main.gd
++++ b/scripts/main.gd
+@@ -273,9 +273,10 @@ func _update_hover() -> void:
+ 		_ghost.visible = true
+ 		var length := _brick_length()
+ 		(_ghost.mesh as BoxMesh).size = Vector3(length, 1, 1) * 1.02
+-		var turned := length == 2 and brick_axis % 2 == 1
+-		_ghost.transform = Transform3D(Basis(Vector3.UP, PI * 0.5 if turned else 0.0), BrickWorld.center_for(origin, brick_axis % 2, length))
+-		var ok := bricks.can_place(origin, brick_axis % 2, length)
++		# Pivot under the cursor (origin); brick_axis 0..3 swings the far cell (+x,+z,-x,-z).
++		var yaw := -float(brick_axis & 3) * PI * 0.5
++		_ghost.transform = Transform3D(Basis(Vector3.UP, yaw), BrickWorld.center_for(origin, brick_axis, length))
++		var ok := bricks.can_place(origin, brick_axis, length)
+ 		_ghost_mat.albedo_color = Color(0.2, 0.9, 0.9, 0.45) if ok else Color(0.95, 0.2, 0.2, 0.5)
+ 
+ 
+@@ -362,7 +363,7 @@ func _on_primary(pos: Vector2) -> void:
+ 			var target: Vector3i = hit.cell if not Blocks.is_whole(world.get_block(hit.cell)) else hit.cell + hit.normal
+ 			world.terrain.build(target, Blocks.STONE)
+ 		_:
+-			bricks.place(hit.cell + hit.normal, brick_axis % 2, _brick_kind(), _brick_length())
++			bricks.place(hit.cell + hit.normal, brick_axis, _brick_kind(), _brick_length())
+ 
+ 
+ ## Long press / right click: the command. Move the selection there; with nothing selected, in any tool mode, remove what is there.
+diff --git a/scripts/tasks/wall_task.gd b/scripts/tasks/wall_task.gd
+index c4e35ce..5165e70 100644
+--- a/scripts/tasks/wall_task.gd
++++ b/scripts/tasks/wall_task.gd
+@@ -165,7 +165,10 @@ func stand_cells(target: Variant, brd: TaskBoard) -> Array[Vector3i]:
+ 
+ func face_point(target: Variant) -> Vector3:
+ 	var s: WallPlan.Slot = target
+-	return BrickWorld.center_for(s.origin, s.axis, s.length) if s != null else Vector3.ZERO
++	if s == null:
++		return Vector3.ZERO
++	var face := s.facing if s.facing >= 0 else s.axis
++	return BrickWorld.center_for(s.origin, face, s.length)
+ 
+ 
+ func work_time(_target: Variant) -> float:
