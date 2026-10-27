@@ -19,18 +19,18 @@ const SIZE := Vector3(2, 1, 1)
 class Brick extends RefCounted:
 	var id: int
 	var origin: Vector3i
-	var axis: int      ## long brick only. 0: spans origin and origin + X, 1: spans origin and origin + Z
+	var axis: int      ## 0: length along X, 1: along Z (facing % 2); kept for walls/tests
 	var length: int    ## 2 = long brick, 1 = cube
 	var kind: int
 	var shape := ""    ## the id of a BlockCatalog shape ("" for the plain brick and cube)
-	var facing := 0    ## 0..3: which way the length / the slope points (+x, +z, -x, -z)
+	var facing := 0    ## 0..3: from origin (left/pivot cell) toward the far cell (+x,+z,-x,-z)
 	var node: MeshInstance3D
 
 	func cells() -> Array[Vector3i]:
-		return BrickWorld.cells_for(origin, axis, length)
+		return BrickWorld.cells_for(origin, facing, length)
 
 	func center() -> Vector3:
-		return BrickWorld.center_for(origin, axis, length)
+		return BrickWorld.center_for(origin, facing, length)
 
 
 var world: VoxelWorld
@@ -133,16 +133,24 @@ func debris_count() -> int:
 	return _debris.size()
 
 
-static func cells_for(origin: Vector3i, axis: int, length: int = 2) -> Array[Vector3i]:
+## Unit step from the pivot (origin / left cell) to the far cell of a 2×1×1. Facing 0..3.
+static func step_of(facing: int) -> Vector3i:
+	return [Vector3i(1, 0, 0), Vector3i(0, 0, 1), Vector3i(-1, 0, 0), Vector3i(0, 0, -1)][facing & 3]
+
+
+## Cells of a brick: origin is the pivot (left part); the second cell is origin + step_of(facing).
+## `facing` is 0..3 (+x,+z,-x,-z). Passing 0 or 1 still matches the old axis-only walls.
+static func cells_for(origin: Vector3i, facing: int, length: int = 2) -> Array[Vector3i]:
 	if length == 1:
 		return [origin]
-	return [origin, origin + (Vector3i(1, 0, 0) if axis == 0 else Vector3i(0, 0, 1))]
+	return [origin, origin + step_of(facing)]
 
 
-static func center_for(origin: Vector3i, axis: int, length: int = 2) -> Vector3:
+static func center_for(origin: Vector3i, facing: int, length: int = 2) -> Vector3:
 	if length == 1:
 		return Vector3(origin) + Vector3(0.5, 0.5, 0.5)
-	return Vector3(origin) + (Vector3(1, 0.5, 0.5) if axis == 0 else Vector3(0.5, 0.5, 1))
+	# Midpoint of the two cell centres (pivot stays fixed under the cursor when rotating).
+	return Vector3(origin) + Vector3(step_of(facing)) * 0.5 + Vector3(0.5, 0.5, 0.5)
 
 
 func _cell_free(cell: Vector3i) -> bool:
@@ -173,8 +181,8 @@ func _below(cells: Array[Vector3i], self_brick: Brick = null) -> Dictionary:
 
 ## Free, inside the world, resting on whole terrain blocks or standing bricks, and not over a slope (no building in
 ## mid-air or on bevels).
-func can_place(origin: Vector3i, axis: int, length: int = 2) -> bool:
-	var cells := cells_for(origin, axis, length)
+func can_place(origin: Vector3i, facing: int, length: int = 2) -> bool:
+	var cells := cells_for(origin, facing, length)
 	for c in cells:
 		if not _cell_free(c):
 			return false
@@ -185,17 +193,19 @@ func can_place(origin: Vector3i, axis: int, length: int = 2) -> bool:
 # --- building ---------------------------------------------------------------------------------------
 
 func place(origin: Vector3i, axis: int, kind: int = Kind.STONE, length: int = 2, shape := "", facing := -1) -> Brick:
-	if not can_place(origin, axis, length):
+	# `axis` is facing when the caller only has 0..3; optional `facing` overrides (catalog blocks).
+	var face: int = facing if facing >= 0 else axis
+	if not can_place(origin, face, length):
 		return null
 	var b := Brick.new()
 	b.id = _next_id
 	_next_id += 1
 	b.origin = origin
-	b.axis = axis
+	b.facing = face & 3
+	b.axis = b.facing & 1
 	b.length = length
 	b.kind = kind
 	b.shape = shape
-	b.facing = facing if facing >= 0 else axis
 	for c in b.cells():
 		_cells[c] = b
 	_bricks[b.id] = b
@@ -220,10 +230,9 @@ func _trample(b: Brick) -> void:
 
 
 func _transform_for(b: Brick) -> Transform3D:
-	if b.shape != "":
-		return Transform3D(Basis(Vector3.UP, -b.facing * PI * 0.5), b.center())
-	var turned := b.length == 2 and b.axis == 1
-	return Transform3D(Basis(Vector3.UP, PI * 0.5 if turned else 0.0), b.center())
+	# Mesh lies along +X; yaw by facing so the pivot cell stays the "left" part of the model.
+	var yaw := -float(b.facing & 3) * PI * 0.5
+	return Transform3D(Basis(Vector3.UP, yaw), b.center())
 
 
 ## Takes a brick out of the wall (a worker dismantling it). Returns how many other bricks fell as a result.
