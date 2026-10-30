@@ -107,51 +107,69 @@ static func _need_of(bp: Blueprint) -> Dictionary:
 	return {}
 
 
-## What is to be fetched next: a load of what the first plan that can be served right now misses (else of what the first one misses).
+## What is to be fetched next: a load of what the plan that can be served right now misses (else of what the first one misses).
 func input_needed() -> Dictionary:
 	return input_needed_by(null)
 
 
-## The same, but a unit that carries something that a plan needs goes on with that.
-func input_needed_by(unit: Unit) -> Dictionary:
-	if unit != null and unit.carried_amount() == 0 and live().any(func(bp: Blueprint) -> bool: return bp.has_work()):
-		return {}   # a free hand goes to what is paid for and waits to be laid, before fetching more
-	var first := {}
-	for bp in live():
+## The plan a unit goes on with: the one that needs what it carries; else the first that can be served from a stockpile now; else the first.
+func _pick_for(unit: Unit) -> Blueprint:
+	var first: Blueprint = null
+	for bp in _open_to(unit):
 		var need := _need_of(bp)
 		if need.is_empty():
 			continue
 		if unit != null and unit.carried_amount() > 0 and bp.remaining().has(unit.carried_kind()):
-			return {"kind": unit.carried_kind(), "amount": mini(bp.remaining()[unit.carried_kind()], Resources.carry_capacity(unit.carried_kind()))}
-		if first.is_empty():
-			first = need
-		if board != null and board.economy.find_stock(Vector3i(bp.origin), need.kind, need.amount) != null:
-			if unit == null or unit.carried_amount() == 0:
-				return need
+			return bp
+		if first == null:
+			first = bp
+		if board != null and (unit == null or unit.carried_amount() == 0) and board.economy.find_stock(Vector3i(bp.origin), need.kind, need.amount) != null:
+			return bp
 	return first
+
+
+func input_needed_by(unit: Unit) -> Dictionary:
+	var bp := _pick_for(unit)
+	if bp == null:
+		return {}
+	if unit != null and unit.carried_amount() > 0 and bp.remaining().has(unit.carried_kind()):
+		return {"kind": unit.carried_kind(), "amount": mini(bp.remaining()[unit.carried_kind()], Resources.carry_capacity(unit.carried_kind()))}
+	return _need_of(bp)
+
+
+## The unit goes to fetch for a plan: it is its builder from now on (nobody else fetches for it).
+func fetch_wanted(unit: Unit) -> bool:
+	var bp := _pick_for(unit)
+	if bp == null:
+		return false
+	bp.builder = unit
+	return true
+
+
+## The plans that this unit may work on: those nobody else is building (a plan has ONE builder: the one that is on the job).
+func _open_to(unit: Unit) -> Array[Blueprint]:
+	var out: Array[Blueprint] = []
+	for bp in live():
+		if bp.builder == null or bp.builder == unit or not is_instance_valid(bp.builder) or not workers.has(bp.builder):
+			out.append(bp)
+	return out
 
 
 func wants_workers(brd: TaskBoard) -> bool:
 	if workers.size() >= max_workers:
 		return false
-	for bp in live():
-		if bp.has_work():
-			return true
+	for bp in _open_to(null):
 		var need := _need_of(bp)
 		if not need.is_empty() and brd.economy.find_stock(Vector3i(bp.origin), need.kind, need.amount) != null:
 			return true
 	return false
 
 
-## The nearest plan that needs what the unit carries.
+## The nearest plan that needs what the unit carries (and has no other builder).
 func claim(unit: Unit, from: Vector3i, _now: float) -> Variant:
-	var bp := _nearest_needing(live(), unit.carried_kind(), from) if unit.carried_amount() > 0 else null
-	if bp == null:
-		for w in live():
-			if w.has_work():
-				bp = w   # something to lay that has been paid for
-				break
+	var bp := _nearest_needing(_open_to(unit), unit.carried_kind(), from) if unit.carried_amount() > 0 else null
 	if bp != null:
+		bp.builder = unit
 		bp.note_builder(from)
 	return bp
 

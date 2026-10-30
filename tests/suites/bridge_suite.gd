@@ -38,7 +38,7 @@ func run() -> void:
 				var p := Vector3i(sp.x - 8 + dx, y, sp.z - 8 + dz)
 				_world.set_block(p, Blocks.make(Blocks.GRASS) if y == sp.y else (Blocks.make(Blocks.DIRT) if y < sp.y else Blocks.AIR))
 	for dz in 12:
-		for dx in range(5, 9):   # the gap: four blocks along x
+		for dx in range(5, 9) if dz < 6 else range(4, 9):   # the gap: four blocks along x in the first rows, five in the others
 			for y in range(sp.y - 1, sp.y + 1):
 				_world.set_block(Vector3i(sp.x - 8 + dx, y, sp.z - 8 + dz), Blocks.AIR)
 	var a := base + Vector3i(4, 0, 3)
@@ -64,18 +64,46 @@ func run() -> void:
 	# The planks come, a unit lays them one by one from the end it comes from.
 	var bank := _economy.place_stockpile(base + Vector3i(1, 0, 8))
 	bank.add(Resources.Kind.PLANK, 3)
-	var crew := _units.spawn_squad(base + Vector3i(1, 0, 5), 1, 1)
+	var crew := _units.spawn_squad(base + Vector3i(1, 0, 5), 3, 1)
 	var order: Array[int] = []
-	var seen_floor := [false]
+	var most_carrying := [0]
+	var most_planks := [0]
 	_until(func() -> bool:
 		if order.is_empty() or order[-1] != plan.placed:
 			order.append(plan.placed)
+		var carrying := 0
+		for u in crew:
+			if u.carried_kind() == Resources.Kind.PLANK and u.carried_amount() > 0:
+				carrying += 1
+				most_planks[0] = maxi(most_planks[0], u.carried_amount())
+		most_carrying[0] = maxi(most_carrying[0], carrying)
 		return plan.finished, 6000)
+	check(most_carrying[0] == 1, "only one unit builds it (%d carried planks at once)" % most_carrying[0])
+	check(most_planks[0] == 1, "it took the one plank the bridge costs, not more (%d)" % most_planks[0])
 	check(plan.finished and plan.placed == 4, "all four pieces are laid (%d)" % plan.placed)
 	check(order.size() >= 4, "they were laid one after another, not all at once (%s)" % str(order))
 	check(plan.from_end == 0, "from the end the unit came from")
 	check(_economy.bridges.has(plan) and not _economy.blueprints.has(plan) and _board.tasks.filter(func(t: WorkTask) -> bool: return t is BuildTask).is_empty(), "the plan is a bridge now and the job is gone")
 	check(_economy.stock_of(Resources.Kind.PLANK) == 2, "it cost one plank (%d left)" % _economy.stock_of(Resources.Kind.PLANK))
+
+	# A bridge of five blocks costs two planks: the unit takes two, lays four pieces, spends a plank on the fourth and one on the fifth.
+	var plan5 := _board.place_bridge(base + Vector3i(3, 0, 9), base + Vector3i(9, 0, 9), 1)
+	check(plan5 != null and plan5.count == 5 and plan5.cost == {Resources.Kind.PLANK: 2}, "five blocks cost two planks")
+	var took := [0]
+	var spent_at: Array[int] = []
+	var paid := [0]
+	_until(func() -> bool:
+		for u in crew:
+			if u.carried_kind() == Resources.Kind.PLANK:
+				took[0] = maxi(took[0], u.carried_amount())
+		var now_paid: int = plan5.delivered.get(Resources.Kind.PLANK, 0)
+		if now_paid > paid[0]:
+			paid[0] = now_paid
+			spent_at.append(plan5.placed)   # the plank is spent when the piece is laid
+		return plan5.finished, 8000)
+	check(plan5.finished and took[0] == 2, "it took exactly two planks (%d)" % took[0])
+	check(spent_at == [4, 5], "a plank went on the fourth piece and one on the last (%s)" % str(spent_at))
+	check(_economy.stock_of(Resources.Kind.PLANK) == 0, "nothing is left over (%d)" % _economy.stock_of(Resources.Kind.PLANK))
 
 	# A floor: the feet cell over a plank is standable, the arc lowers the feet in the middle, the ends are level with the ground.
 	var mid := a + Vector3i(2, 0, 0)

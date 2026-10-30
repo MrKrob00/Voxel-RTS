@@ -1,9 +1,10 @@
 class_name BridgePlan
 extends Blueprint
 ## A rope bridge over a gap: two blocks wide, a plank for every block of its length (up to MAX_LENGTH), a post with a rope on each side at
-## both ends, hanging in an arc of ARC at its ends. It is a plan like a stockpile's (units bring planks to it) with one difference: the
-## planks of the bridge are laid one after another, from the end that is nearer to the first unit that comes. A plank (the resource)
-## pays for PER_PLANK pieces; the pieces that are paid for and not laid are `has_work`. The posts and the ropes stand with the first piece.
+## both ends, hanging in an arc of ARC at its ends. It is a plan like a stockpile's (a unit brings planks to it) with one difference: the
+## pieces of the bridge are laid one after another by the one unit that builds it, from the end that is nearer to that unit. The unit
+## comes with all the planks the bridge costs in its hands (a plank pays for PER_PLANK pieces) and spends one on every PER_PLANK-th piece
+## and on the last one. The posts and the ropes stand with the first piece.
 ##
 ## Cells: `a` and `b` are the cells the units stand in at the ends (lane 0; the second lane is next to it, on `side`). The pieces fill the
 ## cells between them; a piece stands at the height of the straight line between the ends (rounded to a cell), the feet follow the line
@@ -168,10 +169,6 @@ func _cell_index(piece: int) -> int:
 	return piece + 1 if from_end == 0 else count - piece
 
 
-func has_work() -> bool:
-	return not finished and from_end >= 0 and placed < mini(count, int(delivered.get(Resources.Kind.PLANK, 0)) * PER_PLANK)
-
-
 ## A unit is coming from `from`: the bridge is laid from the end that is nearer to it (once, with the first claim).
 func note_builder(from: Vector3i) -> void:
 	if from_end < 0 and placed == 0:
@@ -202,12 +199,16 @@ func access_cells(nav: Navigation) -> Array[Vector3i]:
 
 
 func perform_work(unit: Unit, brd: TaskBoard) -> void:
-	if unit != null and unit.carried_amount() > 0:
-		var kind := unit.carried_kind()
-		var left := unit.carried_amount() - deliver(kind, unit.carried_amount())
-		unit.carry(kind if left > 0 else Resources.Kind.NONE, left)
-	if has_work():
+	if placed < count:
+		var order := placed + 1   # the number of the piece that is laid now
+		var spends := order % PER_PLANK == 0 or order == count   # every fourth piece and the last one are paid with a plank in the hands
+		if spends and (unit == null or unit.carried_kind() != Resources.Kind.PLANK or unit.carried_amount() < 1):
+			return   # no plank to pay with: it is fetched, nothing is laid
 		lay_next()
+		if spends:
+			unit.carry(Resources.Kind.PLANK if unit.carried_amount() > 1 else Resources.Kind.NONE, unit.carried_amount() - 1)
+			delivered[Resources.Kind.PLANK] = delivered.get(Resources.Kind.PLANK, 0) + 1
+			_refresh()
 	if placed >= count:
 		brd.finish_blueprint(self)
 

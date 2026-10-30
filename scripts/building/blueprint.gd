@@ -11,6 +11,7 @@ var size := Vector2i(2, 2)
 var cost := {}                   ## Resources.Kind -> how many
 var delivered := {}              ## Resources.Kind -> how many have arrived
 var done := false
+var builder: Unit                ## the one unit that builds it (BuildTask lets nobody else in while this one is on the job)
 var title := ""
 var _label: Label3D
 var _ghost_log: MeshInstance3D
@@ -49,11 +50,6 @@ func perform_work(unit: Unit, brd: TaskBoard) -> void:
 		unit.carry(kind if left > 0 else Resources.Kind.NONE, left)   # what the plan did not need stays in the hands
 	if is_complete():
 		brd.finish_blueprint(self)
-
-
-## Is there work to do here that needs no delivery (the planks of a bridge that have been paid for and are not laid)?
-func has_work() -> bool:
-	return false
 
 
 ## A unit is coming to work at the plan from this cell (a bridge is laid from the end that is nearer to it).
