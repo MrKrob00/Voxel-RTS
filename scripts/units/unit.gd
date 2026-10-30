@@ -72,11 +72,6 @@ func is_moving() -> bool:
 	return not path.is_empty() or _search != null
 
 
-## The way is still being looked for.
-func is_searching() -> bool:
-	return _search != null
-
-
 func is_idle() -> bool:
 	return path.is_empty() and not _falling and _search == null
 
@@ -183,8 +178,6 @@ func _repath() -> bool:
 
 
 func _use(s: PathSearch) -> bool:
-	nav.learn(s)
-	nav.remember(s)
 	var found := s.path
 	if found.size() < 2:
 		path.clear()

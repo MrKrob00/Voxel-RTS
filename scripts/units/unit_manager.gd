@@ -15,10 +15,6 @@ var selection: Array[Unit] = []
 
 var _marker: MeshInstance3D
 var _marker_time := 99.0
-var _waiting: Array = []        ## [unit, cell] orders of a group that wait for the way of the first one (see command_move)
-var _waiting_time := 0.0
-var _leader: Unit
-const GROUP_WAIT := 0.3
 
 
 func setup(w: VoxelWorld, b: BrickWorld) -> void:
@@ -39,14 +35,6 @@ func setup(w: VoxelWorld, b: BrickWorld) -> void:
 
 
 func _process(delta: float) -> void:
-	if not _waiting.is_empty():
-		_waiting_time += delta
-		if not is_instance_valid(_leader) or not _leader.is_searching() or _waiting_time > GROUP_WAIT:
-			var orders := _waiting
-			_waiting = []
-			for o in orders:
-				if is_instance_valid(o[0]):
-					o[0].walk_to(o[1])
 	if _marker_time < 0.8:
 		_marker_time += delta
 		var t := _marker_time / 0.8
@@ -179,7 +167,7 @@ func command_move(goal: Vector3i) -> int:
 		return 0
 	# The nearest unit takes the nearest slot, so that nobody crosses over.
 	var free: Array[Unit] = selection.duplicate()
-	var orders: Array = []
+	var moved := 0
 	for c in cells:
 		if free.is_empty():
 			break
@@ -188,23 +176,9 @@ func command_move(goal: Vector3i) -> int:
 			if Vector2(u.cell.x - c.x, u.cell.z - c.z).length() < Vector2(best.cell.x - c.x, best.cell.z - c.z).length():
 				best = u
 		free.erase(best)
-		orders.append([best, c])
-	_waiting = []
-	var moved := 0
-	var group := nav.use_threads() and orders.size() > 2
-	for o in orders:
-		ordered.emit(o[0])
-	# A group goes to one place: the first one looks for the way, the others join it where they meet it (they start when it is found).
-	if group:
-		_leader = orders[0][0]
-		_leader.walk_to(orders[0][1])
-		_waiting = orders.slice(1)
-		_waiting_time = 0.0
-		moved = orders.size()
-	else:
-		for o in orders:
-			if o[0].walk_to(o[1]):
-				moved += 1
+		ordered.emit(best)
+		if best.walk_to(c):
+			moved += 1
 	show_marker(nav.feet_position(goal))
 	return moved
 

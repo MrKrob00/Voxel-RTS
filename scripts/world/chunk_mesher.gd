@@ -372,66 +372,6 @@ static func _vertex_light(snap: Array, px: int, py: int, pz: int, u: Vector3i, v
 	return 0 if (s1 == 1 and s2 == 1) else 3 - (s1 + s2 + c)
 
 
-## Which part of the ground a triangle belongs to when the mesh of a chunk is cut by the way its faces look (see VoxelWorld.set_camera):
-## 0 everything that is drawn whatever the camera does (tops, slopes, anything not facing exactly along an axis), then the faces that look
-## +x, -x, +z, -z and -y: such a face can only be seen from its own side of the chunk.
-const GROUP_ALWAYS := 0
-const GROUP_XP := 1
-const GROUP_XN := 2
-const GROUP_ZP := 3
-const GROUP_ZN := 4
-const GROUP_YN := 5
-const GROUP_COUNT := 6
-
-
-## The arrays of a surface cut into GROUP_COUNT surfaces (null where a group has no triangle), by the normal of each triangle.
-static func split_by_direction(arrays: Array) -> Array:
-	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-	var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
-	var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
-	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
-	var parts := []
-	var remap := []
-	for g in GROUP_COUNT:
-		parts.append(Buffers.new())
-		var m := PackedInt32Array()
-		m.resize(verts.size())
-		m.fill(-1)
-		remap.append(m)
-	for t in indices.size() / 3:
-		var n := normals[indices[t * 3]]
-		var g := GROUP_ALWAYS
-		if n.x > 0.999:
-			g = GROUP_XP
-		elif n.x < -0.999:
-			g = GROUP_XN
-		elif n.z > 0.999:
-			g = GROUP_ZP
-		elif n.z < -0.999:
-			g = GROUP_ZN
-		elif n.y < -0.999:
-			g = GROUP_YN
-		var buf: Buffers = parts[g]
-		var map: PackedInt32Array = remap[g]
-		for k in 3:
-			var old := indices[t * 3 + k]
-			var at := map[old]
-			if at < 0:
-				at = buf.verts.size()
-				map[old] = at
-				buf.verts.append(verts[old])
-				buf.normals.append(normals[old])
-				buf.colors.append(colors[old])
-				buf.uvs.append(uvs[old] if old < uvs.size() else Vector2.ZERO)
-			buf.indices.append(at)
-	var out := []
-	for g in GROUP_COUNT:
-		var buf: Buffers = parts[g]
-		out.append(buf.to_arrays() if not buf.indices.is_empty() else null)
-	return out
-
-
 ## Greedy meshing of one direction: neighbouring faces of the same block, lit the same, become one rectangle. `mask` holds, per block,
 ## 0 (no face) or the material.
 static func _merge_faces(buf: Buffers, mask: PackedInt32Array, f: int, origin: Vector3i, preset: MapPreset) -> void:

@@ -7,10 +7,6 @@ var cells := {}      # Vector3i -> true
 var flights := {}    # Vector3i -> {"rise": Vector2i, "steps": int}
 
 
-func cell_set() -> Dictionary:
-	return cells
-
-
 func occupied(cell: Vector3i) -> bool:
 	return cells.has(cell)
 

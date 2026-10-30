@@ -31,7 +31,7 @@ static func _finish(st: SurfaceTool) -> ArrayMesh:
 	return st.commit()
 
 
-static func _cone(st: SurfaceTool, base_y: float, height: float, radius: float, sides: int, col_low: Color, col_high: Color, twist := 0.0, cap := true) -> void:
+static func _cone(st: SurfaceTool, base_y: float, height: float, radius: float, sides: int, col_low: Color, col_high: Color, twist := 0.0) -> void:
 	var tip := Vector3(0, base_y + height, 0)
 	for i in sides:
 		var a0 := TAU * i / sides + twist
@@ -40,8 +40,7 @@ static func _cone(st: SurfaceTool, base_y: float, height: float, radius: float, 
 		var p1 := Vector3(cos(a1) * radius, base_y, sin(a1) * radius)
 		var shade := 0.88 + 0.12 * float(i % 2)
 		_tri(st, p0, tip, p1, col_low.lerp(col_high, 0.5) * shade)
-		if cap:
-			_tri(st, p0, p1, Vector3(0, base_y, 0), col_low * 0.6)
+		_tri(st, p0, p1, Vector3(0, base_y, 0), col_low * 0.6)
 
 
 static func pine() -> ArrayMesh:
@@ -64,18 +63,6 @@ static func pine() -> ArrayMesh:
 	_cone(st, 0.9, 1.9, 1.5, 7, low, high, 0.0)
 	_cone(st, 1.9, 1.7, 1.15, 7, low, high, 0.4)
 	_cone(st, 2.9, 1.6, 0.8, 7, low, high, 0.2)
-	return _finish(st)
-
-
-## The pine seen from far away: three cones of five sides, no trunk, no underside (15 triangles instead of 54).
-static func pine_far() -> ArrayMesh:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var low := Color("2f7a2e")
-	var high := Color("4fa23a")
-	_cone(st, 0.9, 1.9, 1.5, 5, low, high, 0.0, false)
-	_cone(st, 1.9, 1.7, 1.15, 5, low, high, 0.4, false)
-	_cone(st, 2.9, 1.6, 0.8, 5, low, high, 0.2, false)
 	return _finish(st)
 
 
