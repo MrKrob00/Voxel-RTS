@@ -88,6 +88,9 @@ func _cases() -> Array:
 	# the ground shader's levels (toon_world.gdshaderinc `features`): the cost of what the next level adds
 	for level in [2, 1, 0]:
 		out.append(["shader level 3 -> %d" % level, _level(mat, level)])
+	# the same shader with one part of its work cut out (the PROBE_* defines of toon_world.gdshaderinc), on the one material of the ground
+	for v in [["no pixel noise", "PROBE_NO_NOISE"], ["no dark corners", "PROBE_NO_AO"], ["no grass picture", "PROBE_NO_COVER"], ["no relief shade", "PROBE_NO_RELIEF"], ["no light read", "PROBE_NO_LIGHT"]]:
+		out.append([v[0], _variant(mat, v[1])])
 	out.append(["ground plain material", _plain(world)])
 	out.append(["culling (-: saves)", _culling()])
 	out.append(["3D scale x0.5", _scale()])
@@ -99,6 +102,18 @@ func _vis(n: Node) -> Callable:
 		if is_instance_valid(n):
 			n.set("visible", not off)
 		return true
+
+
+func _variant(mat: ShaderMaterial, define: String) -> Callable:
+	return func(off: bool, s: Variant) -> Variant:
+		if off:
+			var keep := mat.shader
+			var sh := Shader.new()
+			sh.code = "shader_type spatial;\nrender_mode unshaded, cull_back, depth_draw_opaque;\n#define %s\n#include \"res://shaders/toon_world.gdshaderinc\"\n" % define
+			mat.shader = sh
+			return keep
+		mat.shader = s
+		return null
 
 
 func _level(mat: ShaderMaterial, level: int) -> Callable:
