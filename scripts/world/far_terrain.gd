@@ -45,6 +45,10 @@ func node_count() -> int:
 	return _nodes.size()
 
 
+func hidden_columns() -> int:
+	return _far_columns.size()
+
+
 func far_leaf_count() -> int:
 	return _built_leaves.size()
 

@@ -540,15 +540,14 @@ func _mesh_task(c: Chunk, snap: Array, grass: PackedByteArray, version: int) -> 
 	var out := ChunkMesher.build(snap, c.cpos * Blocks.CHUNK_SIZE, preset, grass)
 	# The images of the textures of the ground are made here, off the main thread; it only has to hand them to the renderer.
 	var ao_data: PackedByteArray = out[2]
-	var layers: Array[Image] = []
+	# the light of the corners is one 2D picture, 32 wide and 16 x 16 high (the layers of the chunk one over the other)
+	var ao_image: Image = null
 	if not ao_data.is_empty():
 		var size := ChunkMesher.AO_TEX_SIZE
-		var layer_bytes := size.x * size.y * 4
-		for y in size.z:
-			layers.append(Image.create_from_data(size.x, size.y, false, Image.FORMAT_RGBA8, ao_data.slice(y * layer_bytes, (y + 1) * layer_bytes)))
+		ao_image = Image.create_from_data(size.x, size.y * size.z, false, Image.FORMAT_RGBA8, ao_data)
 	var cover_slice: PackedByteArray = out[3]
 	var n := Blocks.CHUNK_SIZE + 2 * GroundCover.SLICE_BORDER
-	out[2] = layers
+	out[2] = ao_image
 	out[3] = Image.create_from_data(n, n, false, Image.FORMAT_R8, cover_slice) if not cover_slice.is_empty() else null
 	_mutex.lock()
 	_mesh_results.append([c, out, version])
@@ -600,16 +599,13 @@ func _check_group() -> void:
 	_group = {}
 
 
-## The material of the ground of one chunk: the shared one, or a copy with the light of the corners of this chunk's faces in a 3D texture.
-## `layers`: the 16 images of its 3D texture, `cover_image`: the worn grass of the chunk (both made by the mesh task).
-func _solid_material_for(layers: Array, cover_image: Image) -> ShaderMaterial:
-	if layers.is_empty():
+## The material of the ground of one chunk: the shared one, or a copy with the light of the corners of this chunk's faces in a texture.
+## `ao_image` and `cover_image` (the worn grass of the chunk) are made by the mesh task.
+func _solid_material_for(ao_image: Image, cover_image: Image) -> ShaderMaterial:
+	if ao_image == null:
 		return _solid_material
-	var size := ChunkMesher.AO_TEX_SIZE
-	var tex := ImageTexture3D.new()
-	tex.create(Image.FORMAT_RGBA8, size.x, size.y, size.z, false, layers)
 	var m := _solid_material.duplicate() as ShaderMaterial
-	m.set_shader_parameter("ao_tex", tex)
+	m.set_shader_parameter("ao_tex", ImageTexture.create_from_image(ao_image))
 	if cover_image != null:
 		m.set_shader_parameter("cover_tex", ImageTexture.create_from_image(cover_image))
 		m.set_shader_parameter("cover_size", Vector2(cover_image.get_width(), GroundCover.SLICE_BORDER))
@@ -625,7 +621,7 @@ func _commit_mesh(c: Chunk, out: Array) -> void:
 	var mesh := ArrayMesh.new()
 	if out[0] != null:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[0])
-		mesh.surface_set_material(mesh.get_surface_count() - 1, _solid_material_for(out[2] if out.size() > 2 else [], out[3] if out.size() > 3 else null))
+		mesh.surface_set_material(mesh.get_surface_count() - 1, _solid_material_for(out[2] if out.size() > 2 else null, out[3] if out.size() > 3 else null))
 	if out[1] != null:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[1])
 		mesh.surface_set_material(mesh.get_surface_count() - 1, _water_material)

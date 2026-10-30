@@ -29,6 +29,7 @@ var _have_heights := false
 var _dirty := {}                  # squares to take again: index -> true
 var _poll := 0.0
 var _all_shown := true
+var _hidden_count := 0
 var _last_cam := Vector3(INF, INF, INF)
 var _busy := false
 var _job_done := false
@@ -208,11 +209,17 @@ static func chunk_hidden(cam: Vector3, horizon: PackedFloat32Array, x0: float, z
 	return true
 
 
+func hidden_count() -> int:
+	return _hidden_count
+
+
 func _apply() -> void:
 	if _camera == null or _camera.global_position.distance_to(_job_cam) > STALE:
 		_last_cam = Vector3(INF, INF, INF)   # too late: made for another place
 		return
+	_hidden_count = 0
 	for i in _job_nodes.size():
+		_hidden_count += _job_hidden[i]
 		var mi: MeshInstance3D = _job_nodes[i]
 		if is_instance_valid(mi):
 			ChunkHide.set_hidden(mi, "horizon", _job_hidden[i] != 0)

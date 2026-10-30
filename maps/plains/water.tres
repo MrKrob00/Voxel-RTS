@@ -32,9 +32,9 @@ uniform float sparkle = 0.0;           // water: pixels that flicker
 // UV.y = how much each block of the face differs from the next (cobble on cliffs).
 uniform bool terrain = false;
 // How much of the ground's work is done (to find which part a graphics card cannot do): 0 only colour and light, 1 + the dark corners
-// (a 3D texture), 2 + the grass blobs, the worn earth and the shade of the relief (2D textures), 3 everything (the noise of pixels).
+// (a texture), 2 + the grass blobs, the worn earth and the shade of the relief (textures), 3 everything (the noise of pixels).
 uniform float features = 3.0;
-uniform sampler3D ao_tex : filter_nearest, repeat_disable;
+uniform sampler2D ao_tex : hint_default_black, filter_nearest, repeat_disable;   // 32 x 256 texels: (x * 2 + face / 4, y * 16 + z) of the block
 uniform sampler2D cover_tex : hint_default_black, filter_linear, repeat_disable;   // how much of the grass is worn away (GroundCover.slice of the chunk)
 uniform vec2 cover_size = vec2(18.0, 1.0);                                         // its width in columns and the border of columns around the chunk
 uniform vec3 bare_color = vec3(0.5412, 0.4157, 0.2627);
@@ -112,7 +112,7 @@ float corner_light(vec3 p, vec3 nrm) {
 	vec3 fr = c - cell;
 	float s = dot(fr, vec3(ua));
 	float t = dot(fr, vec3(va));
-	vec4 texel = texelFetch(ao_tex, ivec3(int(cell.x) * 2 + (f >= 4 ? 1 : 0), int(cell.z), int(cell.y)), 0);
+	vec4 texel = texelFetch(ao_tex, ivec2(int(cell.x) * 2 + (f >= 4 ? 1 : 0), int(cell.z) + int(cell.y) * 16), 0);
 	float chan = texel.r;
 	int k = f & 3;
 	if (k == 1) chan = texel.g;

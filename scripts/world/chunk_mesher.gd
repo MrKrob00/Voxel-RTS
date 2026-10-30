@@ -24,7 +24,8 @@ const FACE_SHADE: Array[float] = [0.82, 0.74, 1.0, 0.55, 0.9, 0.68]
 const AO_LEVELS: Array[float] = [0.5, 0.68, 0.84, 1.0]
 ## Width of the flat floor in the middle of a half-dug block, as a share of the block.
 const DUG_PLATFORM := 0.5
-## The light in the corners of the faces goes to the shader as a 3D texture of the chunk (see ao_data): 32 x 16 x 16 texels of 4 bytes.
+## The light in the corners of the faces goes to the shader as a texture of the chunk (see ao_data): 32 x 16 x 16 texels of 4 bytes, laid
+## out as a picture 32 wide and 256 high (the 16 layers one over the other).
 const AO_TEX_SIZE := Vector3i(32, 16, 16)
 ## How much each block of a merged cliff face differs from its neighbours (the old per-block jitter, now done by the shader).
 const COBBLE_JITTER := 0.12
