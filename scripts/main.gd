@@ -219,6 +219,7 @@ func _setup_ui() -> void:
 		rig.focus = Vector3(sp.x, sp.y, sp.z))
 	hud.probe_pressed.connect(_run_probe)
 	hud.task_cancel.connect(_cancel_task)
+	hud.task_moved.connect(func(t: WorkTask, i: int) -> void: board.move_task(t, i))
 	hud.task_select.connect(_select_task)
 	units.selection_changed.connect(func(_s: Array) -> void: _refresh_units_label())
 	_set_depth(1)

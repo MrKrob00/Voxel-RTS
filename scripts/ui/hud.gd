@@ -19,6 +19,7 @@ signal probe_pressed
 signal turn_pressed
 signal task_select(task: WorkTask)
 signal task_cancel(task: WorkTask)
+signal task_moved(task: WorkTask, to_index: int)   ## a card was dragged to this place among the cards (the priority of the task)
 
 const MIN_TOUCH := 56
 const ACCENT := Color("ffc933")
@@ -53,6 +54,13 @@ var _ribbon_scroll: ScrollContainer
 var _ribbon: HBoxContainer
 var _cards: Array[Control] = []     # the cards of the ribbon, made once (see set_tasks)
 var _no_tasks: Label
+const HOLD_TIME := 0.4              ## seconds a finger stays on a card before it can be dragged
+const HOLD_SLOP := 14.0             ## pixels the finger may move meanwhile (more is a tap that slid, not a hold)
+var _hold_card: Control
+var _hold_time := 0.0
+var _hold_from := Vector2.ZERO
+var _drag_card: Control
+var _drag_ended := false            # the release that ended a drag must not also be a tap on the card
 var _home: Button
 var _probe: Button          # measures what a frame costs on this device, layer by layer (FrameProbe)
 var _probe_label: Label
@@ -91,6 +99,12 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if _hold_card != null and _drag_card == null:
+		_hold_time += delta
+		if _hold_time >= HOLD_TIME:
+			_drag_card = _hold_card   # held long enough: the card can be dragged along the ribbon
+			_drag_card.modulate = Color(1.0, 1.0, 1.0, 0.8)
+			_drag_card.z_index = 1
 	if _toast_time > 0.0:
 		_toast_time -= delta
 		_toast.modulate.a = clampf(_toast_time / 0.6, 0.0, 1.0)
@@ -154,6 +168,8 @@ func set_resources(lines: Dictionary) -> void:
 ## Fills the ribbon. The cards are made once and kept (a card is a button with three labels and a cross): a task takes the next one of the
 ## pool and only its texts are changed, so a refresh makes and frees no node.
 func set_tasks(tasks: Array) -> void:
+	if _drag_card != null:
+		return   # a card is in the finger: the order on the screen is its own until it is let go
 	var shown := 0
 	for t: WorkTask in tasks:
 		if not t.shown():
@@ -468,7 +484,12 @@ func _make_card() -> Control:
 	var card := Button.new()
 	card.custom_minimum_size = Vector2(132, 96)
 	card.focus_mode = Control.FOCUS_NONE
-	card.pressed.connect(func() -> void: task_select.emit(card.get_meta("task")))
+	card.pressed.connect(func() -> void:
+		if _drag_ended:
+			_drag_ended = false
+			return
+		task_select.emit(card.get_meta("task")))
+	card.gui_input.connect(_card_input.bind(card))
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	col.offset_left = 8.0
@@ -506,6 +527,59 @@ func _make_card() -> Control:
 	card.add_child(close)
 	_ribbon.add_child(card)
 	return card
+
+
+## Holding a card for HOLD_TIME lets it be dragged left and right: it changes places with the card it passes, and where it is let go is its
+## place in the order of the tasks (the first has the first call on idle units).
+func _card_input(e: InputEvent, card: Control) -> void:
+	var button := e as InputEventMouseButton
+	if button != null and button.button_index == MOUSE_BUTTON_LEFT:
+		if button.pressed:
+			_drag_ended = false
+			_hold_card = card
+			_hold_time = 0.0
+			_hold_from = card.get_global_mouse_position()
+		else:
+			_release_card(card)
+	elif e is InputEventMouseMotion and _hold_card == card:
+		var at := card.get_global_mouse_position()
+		if _drag_card == card:
+			_drag_over(card, at.x)
+		elif at.distance_to(_hold_from) > HOLD_SLOP:
+			_hold_card = null   # it slid before the hold was long enough: not a hold
+
+
+func _release_card(card: Control) -> void:
+	if _drag_card == card:
+		var index := _shown_cards().find(card)
+		card.modulate = Color.WHITE
+		card.z_index = 0
+		_drag_card = null
+		_drag_ended = true
+		task_moved.emit(card.get_meta("task"), index)
+	_hold_card = null
+
+
+func _shown_cards() -> Array[Control]:
+	var out: Array[Control] = []
+	for c in _ribbon.get_children():
+		if c.visible and _cards.has(c):
+			out.append(c)
+	return out
+
+
+## The card in the finger passes its neighbours: it takes their place when its middle is past theirs.
+func _drag_over(card: Control, x: float) -> void:
+	var cards := _shown_cards()
+	var i := cards.find(card)
+	while i > 0 and x < cards[i - 1].get_global_rect().get_center().x:
+		_ribbon.move_child(card, cards[i - 1].get_index())
+		cards = _shown_cards()
+		i = cards.find(card)
+	while i < cards.size() - 1 and x > cards[i + 1].get_global_rect().get_center().x:
+		_ribbon.move_child(card, cards[i + 1].get_index())
+		cards = _shown_cards()
+		i = cards.find(card)
 
 
 func _fill_card(card: Control, t: WorkTask) -> void:

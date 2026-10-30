@@ -302,6 +302,22 @@ func remove_station(st: Station) -> void:
 	economy.remove_station(st)
 
 
+## The player dragged a task's card to place `shown_index` among the cards: the order of the tasks is their priority (idle units go to the
+## first one that has work), so the task goes before the one that is at that place now. The tasks without a card keep where they are.
+func move_task(t: WorkTask, shown_index: int) -> void:
+	var shown := tasks.filter(func(x: WorkTask) -> bool: return x.shown() and x != t)
+	if not tasks.has(t) or not t.shown():
+		return
+	tasks.erase(t)
+	if shown.is_empty():
+		tasks.append(t)
+	elif shown_index >= shown.size():
+		tasks.insert(tasks.find(shown[-1]) + 1, t)
+	else:
+		tasks.insert(tasks.find(shown[maxi(shown_index, 0)]), t)
+	changed.emit()
+
+
 func remove_task(t: WorkTask) -> void:
 	var loaded: Array[Unit] = []
 	for u in t.workers.duplicate():
