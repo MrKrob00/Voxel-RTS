@@ -91,13 +91,12 @@ void vertex() {
 	v_flags = int(UV.x + 0.5);
 	v_jitter = UV.y;
 	v_dist = -(MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).z;   // the depth in front of the camera
-	if (terrain) {
-		mediump vec3 amb;
-		mediump vec3 sun;
-		face_light(world_normal, amb, sun);
-		v_ambient = amb;
-		v_sun = sun;
-	}
+	// (worked out for everything, not only for the ground: whatever the fragment shader reads is always written)
+	mediump vec3 amb;
+	mediump vec3 sun;
+	face_light(world_normal, amb, sun);
+	v_ambient = amb;
+	v_sun = sun;
 }
 
 // How lit the corners of the block face under this point are (the way ChunkMesher bakes it): 0.5 .. 1.0, smooth over the face.

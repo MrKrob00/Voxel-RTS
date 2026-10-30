@@ -215,11 +215,11 @@ func _apply() -> void:
 	for i in _job_nodes.size():
 		var mi: MeshInstance3D = _job_nodes[i]
 		if is_instance_valid(mi):
-			mi.visible = _job_hidden[i] == 0
+			ChunkHide.set_hidden(mi, "horizon", _job_hidden[i] != 0)
 
 
 func _show_all() -> void:
 	_all_shown = true
 	for child in _world.get_children():
 		if child is MeshInstance3D:
-			child.visible = true
+			ChunkHide.set_hidden(child, "horizon", false)

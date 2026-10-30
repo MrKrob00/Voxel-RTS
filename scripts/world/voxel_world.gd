@@ -77,6 +77,7 @@ var _water_material: ShaderMaterial
 ## The height of the ground of every column (x + z * width) in quarter-blocks (Blocks.UNIT per block), 0 where there is none: what the
 ## colliders under falling things are cut from. Worked out in a thread when the world is generated, then kept right by every change.
 var column_levels := PackedInt32Array()
+var column_materials := PackedByteArray()   ## the material of the top block of every column (0: none): the colour of the far ground
 var column_levels_ready := false
 var _levels_busy := false          # a worker thread is working out the levels (the world must not be torn down meanwhile)
 var edit_serial := 0               ## counts every change of a block
@@ -264,8 +265,13 @@ func surface_y(x: int, z: int) -> int:
 
 ## The height of the ground in a column in quarter-blocks, looking from block `from_y` down (the blocks above must be open).
 func ground_level(x: int, z: int, from_y := -1) -> int:
+	return ground_info(x, z, from_y).x
+
+
+## (height in quarter-blocks, material of the top block) of the ground of a column; (0, 0) where there is none.
+func ground_info(x: int, z: int, from_y := -1) -> Vector2i:
 	if x < 0 or z < 0 or x >= _wx or z >= _wz:
-		return 0
+		return Vector2i.ZERO
 	var y := _wy - 1 if from_y < 0 else mini(from_y, _wy - 1)
 	while y >= 0:
 		var c: Chunk = _grid[(x >> 4) + (z >> 4) * size_chunks.x + (y >> 4) * _cxz]
@@ -274,40 +280,47 @@ func ground_level(x: int, z: int, from_y := -1) -> int:
 			continue
 		var raw := c.data[(x & 15) + ((z & 15) << 4) + ((y & 15) << 8)]
 		if Blocks.is_solid(raw):
-			if Blocks.is_partial(raw):
-				return Blocks.UNIT * y + Blocks.max_height(Blocks.shape(raw))
-			return Blocks.UNIT * (y + 1)
+			var level := Blocks.UNIT * y + Blocks.max_height(Blocks.shape(raw)) if Blocks.is_partial(raw) else Blocks.UNIT * (y + 1)
+			return Vector2i(level, Blocks.mat(raw))
 		y -= 1
-	return 0
+	return Vector2i.ZERO
 
 
 func _update_column_level(p: Vector3i) -> void:
 	var idx := p.x + p.z * _wx
 	var top_block := (column_levels[idx] - 1) / Blocks.UNIT if column_levels[idx] > 0 else -1
 	if p.y >= top_block:   # a change under the top block cannot change the ground; here the column is looked at again from p down
-		column_levels[idx] = ground_level(p.x, p.z, p.y)
+		var info := ground_info(p.x, p.z, p.y)
+		column_levels[idx] = info.x
+		column_materials[idx] = info.y
 
 
 ## All the columns, in a worker thread. Done again when something was changed while it ran (the edits of those moments were not kept).
 func _levels_job() -> void:
 	var out := PackedInt32Array()
 	out.resize(_wx * _wz)
+	var mats := PackedByteArray()
+	mats.resize(_wx * _wz)
 	var before := -1
 	while before != edit_serial:
 		before = edit_serial
-		fill_column_levels(out)
+		fill_column_levels(out, mats)
+	column_materials = mats
 	column_levels = out
 	column_levels_ready = true
 	_levels_busy = false
 
 
-func fill_column_levels(out: PackedInt32Array) -> void:
+func fill_column_levels(out: PackedInt32Array, mats := PackedByteArray()) -> void:
 	var cs := Blocks.CHUNK_SIZE
 	for cz in size_chunks.z:
 		for cx in size_chunks.x:
 			for lz in cs:
 				for lx in cs:
-					out[(cx * cs + lx) + (cz * cs + lz) * _wx] = ground_level(cx * cs + lx, cz * cs + lz)
+					var info := ground_info(cx * cs + lx, cz * cs + lz)
+					out[(cx * cs + lx) + (cz * cs + lz) * _wx] = info.x
+					if not mats.is_empty():
+						mats[(cx * cs + lx) + (cz * cs + lz) * _wx] = info.y
 
 
 ## For every column (x + z * width): y + 1 of its highest solid block, 0 when there is none. Reads the chunks directly; call it from a
@@ -335,6 +348,17 @@ func fill_column_tops(out: PackedInt32Array) -> void:
 								found[lx + lz * cs] = 1
 								open -= 1
 								break
+
+
+## The node of the mesh of a chunk (null: it has none).
+func chunk_instance(cpos: Vector3i) -> MeshInstance3D:
+	var c: Chunk = _chunks.get(cpos)
+	return c.instance if c != null else null
+
+
+## The material the ground is drawn with (the far ground uses it too).
+func solid_material() -> ShaderMaterial:
+	return _solid_material
 
 
 ## Voxel DDA ray. Returns {} on a miss, else {cell, normal, id, brick, distance}.
