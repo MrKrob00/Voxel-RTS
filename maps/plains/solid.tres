@@ -1,6 +1,5 @@
-[gd_resource type="ShaderMaterial" format=3 uid="uid://b3ngdkp51b2n1"]
+[gd_resource type="ShaderMaterial" format=3]
 
-<<<<<<< HEAD
 [ext_resource type="Shader" path="res://shaders/toon_world.gdshader" id="1_x0us5"]
 [ext_resource type="Texture2DArray" path="res://maps/plains/ao.res" id="2_26vhg"]
 [ext_resource type="Texture2DArray" path="res://maps/plains/cover.res" id="3_3fmfs"]
@@ -10,15 +9,6 @@
 render_priority = 0
 shader = ExtResource("1_x0us5")
 shader_parameter/day_light = ExtResource("4_dkb5h")
-=======
-[ext_resource type="Shader" uid="uid://yt063p3ujr3q" path="res://shaders/toon_world.gdshader" id="1_75xyf"]
-[ext_resource type="Texture2D" path="res://shaders/day_light.tres" id="2_rfc24"]
-
-[resource]
-render_priority = 0
-shader = ExtResource("1_75xyf")
-shader_parameter/day_light = ExtResource("2_rfc24")
->>>>>>> 5ecdc11 (wip)
 shader_parameter/pixel_size = 0.125
 shader_parameter/pixel_noise = 0.045
 shader_parameter/steps = 3.0
@@ -28,13 +18,9 @@ shader_parameter/detail_near = 70.0
 shader_parameter/detail_far = 150.0
 shader_parameter/sparkle = 0.0
 shader_parameter/terrain = true
-<<<<<<< HEAD
 shader_parameter/features = 3.0
 shader_parameter/ao_tex = ExtResource("2_26vhg")
 shader_parameter/cover_tex = ExtResource("3_3fmfs")
-=======
-shader_parameter/features = 0.0
->>>>>>> 5ecdc11 (wip)
 shader_parameter/cover_size = Vector2(18, 1)
 shader_parameter/bare_color = Vector3(0.5412, 0.4157, 0.2627)
 shader_parameter/side_earth = Vector3(0.4784, 0.3529, 0.2275)

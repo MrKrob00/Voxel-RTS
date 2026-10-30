@@ -6,6 +6,8 @@ extends Node
 ## with it off against the mean of the two ons round it. The table goes to the HUD and to the clipboard. A switch writes the field the game
 ## owns and puts the saved value back; every node is asked `is_instance_valid` after each wait. The sync to the screen's refresh is
 ## switched off for the run (a frame that waits for the screen costs nothing to see), and put back after it.
+## Only the layers that told something are measured (a phone's table of everything was long and repeated itself): the ground, the props,
+## and the parts of the ground shader.
 
 signal finished(text: String)
 
@@ -79,21 +81,13 @@ func _cases() -> Array:
 	var out: Array = []
 	var world: Node3D = _main.get("world")
 	out.append(["ground + water", _vis(world)])
-	out.append(["far ground", _vis(_main.get("far_terrain"))])
 	if _main.get("props") != null:
 		out.append(["trees, rocks, grass", _vis(_main.get("props"))])
-	out.append(["units", _vis(_main.get("units"))])
-	out.append(["HUD", _vis(_main.get("hud"))])
 	var mat: ShaderMaterial = world.call("solid_material")
-	# the ground shader's levels (toon_world.gdshaderinc `features`): the cost of what the next level adds
-	for level in [2, 1, 0]:
-		out.append(["shader level 3 -> %d" % level, _level(mat, level)])
 	# the same shader with one part of its work cut out (the PROBE_* defines of toon_world.gdshaderinc), on the one material of the ground
 	for v in [["no pixel noise", "PROBE_NO_NOISE"], ["no dark corners", "PROBE_NO_AO"], ["no grass picture", "PROBE_NO_COVER"], ["no relief shade", "PROBE_NO_RELIEF"], ["no light read", "PROBE_NO_LIGHT"]]:
 		out.append([v[0], _variant(mat, v[1])])
 	out.append(["ground plain material", _plain(world)])
-	out.append(["culling (-: saves)", _culling()])
-	out.append(["3D scale x0.5", _scale()])
 	return out
 
 
@@ -113,16 +107,6 @@ func _variant(mat: ShaderMaterial, define: String) -> Callable:
 			mat.shader = sh
 			return keep
 		mat.shader = s
-		return null
-
-
-func _level(mat: ShaderMaterial, level: int) -> Callable:
-	return func(off: bool, s: Variant) -> Variant:
-		if off:
-			var keep: Variant = mat.get_shader_parameter("features")
-			mat.set_shader_parameter("features", float(level))
-			return keep if keep != null else 3.0
-		mat.set_shader_parameter("features", s)
 		return null
 
 
@@ -149,25 +133,4 @@ func _plain(world: Node3D) -> Callable:
 			return null
 		for n: MeshInstance3D in nodes:
 			n.material_override = null
-		return null
-
-
-## The horizon, picture and far-ground culling off: everything the game keeps out of the picture is drawn.
-func _culling() -> Callable:
-	return func(off: bool, _s: Variant) -> Variant:
-		for key in ["horizon", "far_terrain"]:
-			var n: Node = _main.get(key)
-			if is_instance_valid(n):
-				n.set("enabled", not off)
-		return true
-
-
-func _scale() -> Callable:
-	return func(off: bool, s: Variant) -> Variant:
-		var vp := get_viewport()
-		if off:
-			var keep := vp.scaling_3d_scale
-			vp.scaling_3d_scale = keep * 0.5
-			return keep
-		vp.scaling_3d_scale = s
 		return null
