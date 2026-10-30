@@ -12,6 +12,11 @@
 //   PROBE_NO_COVER   no read of the grass picture of the chunk (one green, nothing worn)
 //   PROBE_NO_RELIEF  no shade of the relief (its texture)
 //   PROBE_NO_LIGHT   no read of the light of the day (a fixed light)
+// The ground is lit from uniforms of its one material (DayCycle sets them with the texture), the rest from the texture: a uniform costs nothing, a read does.
+uniform vec3 l_dir = vec3(0.4, -0.8, 0.4);
+uniform vec3 l_sun = vec3(1.0);
+uniform vec3 l_sky = vec3(0.5, 0.55, 0.65);
+uniform vec3 l_ground = vec3(0.3);
 uniform sampler2D day_light : hint_default_white, filter_nearest, repeat_disable;
 
 uniform float pixel_size = 0.125;      // one "pixel" of texture, in blocks
@@ -51,13 +56,12 @@ varying float v_flags;              // UV.x (a whole number: see above)
 varying float v_layer;      // UV2.x: the layer of the pictures of the chunk (GroundLayers)
 varying float v_jitter;             // UV.y
 
-// A number in 0..1 from three whole numbers (the pixel of the world a fragment is in): integer arithmetic only.
+// A number in 0..1 from three whole numbers (the pixel of the world a fragment is in).
 float hash_i(ivec3 c) {
-	highp uint h = uint(c.x) * 73856093u ^ uint(c.y) * 19349663u ^ uint(c.z) * 83492791u;
-	h ^= h >> 13u;
-	h *= 0x5bd1e995u;
-	h ^= h >> 15u;
-	return float(h & 0xFFFFFFu) * 5.9604645e-8;
+	// all in floats (a hash without sines): the 32-bit integer multiplies it was made of are slow on a phone's GPU
+	vec3 p = fract(vec3(c) * 0.1031);
+	p += dot(p, p.zyx + 31.32);
+	return fract((p.x + p.y) * p.z);
 }
 
 // The noise a pixel is worn by: lumps of 2 x 2 pixels on top of single pixels.
@@ -73,10 +77,16 @@ void face_light(vec3 nrm, out vec3 amb, out vec3 sun) {
 	vec3 sky_rgb = vec3(0.45);
 	vec3 ground_rgb = vec3(0.25);
 #else
-	vec3 to_light = -texelFetch(day_light, ivec2(0, 0), 0).xyz;
-	vec3 sun_rgb = texelFetch(day_light, ivec2(1, 0), 0).xyz;
-	vec3 sky_rgb = texelFetch(day_light, ivec2(2, 0), 0).xyz;
-	vec3 ground_rgb = texelFetch(day_light, ivec2(3, 0), 0).xyz;
+	vec3 to_light = -l_dir;
+	vec3 sun_rgb = l_sun;
+	vec3 sky_rgb = l_sky;
+	vec3 ground_rgb = l_ground;
+	if (!terrain) {
+		to_light = -texelFetch(day_light, ivec2(0, 0), 0).xyz;
+		sun_rgb = texelFetch(day_light, ivec2(1, 0), 0).xyz;
+		sky_rgb = texelFetch(day_light, ivec2(2, 0), 0).xyz;
+		ground_rgb = texelFetch(day_light, ivec2(3, 0), 0).xyz;
+	}
 #endif
 	float t = clamp(dot(nrm, to_light) * 0.5 + 0.5, 0.0, 1.0);
 	float band = clamp(floor(t * steps + 0.5) / steps, 0.0, 1.0);

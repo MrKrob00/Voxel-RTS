@@ -36,8 +36,19 @@ var _last_text := ""
 signal clock_changed(text: String)
 
 
+static var ground_material: ShaderMaterial   ## the one material of the ground: it takes the light as uniforms too
+const LIGHT_UNIFORMS := ["l_dir", "l_sun", "l_sky", "l_ground"]
 static var _light_image: Image
 static var _light_texture: ImageTexture
+
+
+## The one material of the ground (VoxelWorld makes it): from now on the light is set on it as uniforms, with what it is now.
+static func attach_ground(m: ShaderMaterial) -> void:
+	ground_material = m
+	light_texture()
+	for i in 4:
+		var c := _light_image.get_pixel(i, 0)
+		m.set_shader_parameter(LIGHT_UNIFORMS[i], Vector3(c.r, c.g, c.b))
 
 
 ## The texture the shaders read the light of the day from (the same one for everything).
@@ -135,3 +146,5 @@ func _apply() -> void:
 
 func _push(texel: int, v: Vector3) -> void:
 	_light_image.set_pixel(texel, 0, Color(v.x, v.y, v.z, 1.0))
+	if ground_material != null:
+		ground_material.set_shader_parameter(LIGHT_UNIFORMS[texel], v)

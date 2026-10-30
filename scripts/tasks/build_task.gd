@@ -153,7 +153,7 @@ func complete(_target: Variant) -> void:
 
 
 func _is_live(target: Variant) -> bool:
-	return target is Blueprint and is_instance_valid(target) and not (target as Blueprint).done and blueprints.has(target)
+	return is_instance_valid(target) and target is Blueprint and not (target as Blueprint).done and blueprints.has(target)   # (valid first: `is` on a freed one is an error)
 
 
 func holds(target: Variant) -> bool:

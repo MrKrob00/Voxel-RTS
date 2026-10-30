@@ -297,7 +297,7 @@ func _take() -> void:
 
 ## A unit standing IN the block it is told to dig (a slope piece or a pit) has to step out first.
 func _standing_in_target() -> bool:
-	return target is Vector3i and unit.cell == target
+	return typeof(target) == TYPE_VECTOR3I and unit.cell == target
 
 
 func _begin_work() -> void:
