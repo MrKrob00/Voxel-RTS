@@ -35,18 +35,18 @@ occlusion_culling/use_occlusion_culling=true
 [shader_globals]
 
 sun_direction={
-"type": "vec3",
-"value": Vector3(0.4, -0.8, 0.4)
+"type": "vec4",
+"value": Vector4(0.4, -0.8, 0.4, 0)
 }
 sun_color={
-"type": "vec3",
-"value": Vector3(1, 1, 1)
+"type": "vec4",
+"value": Vector4(1, 1, 1, 0)
 }
 sky_ambient={
-"type": "vec3",
-"value": Vector3(0.5, 0.55, 0.65)
+"type": "vec4",
+"value": Vector4(0.5, 0.55, 0.65, 0)
 }
 ground_ambient={
-"type": "vec3",
-"value": Vector3(0.3, 0.3, 0.3)
+"type": "vec4",
+"value": Vector4(0.3, 0.3, 0.3, 0)
 }

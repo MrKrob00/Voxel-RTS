@@ -4,10 +4,10 @@ render_mode unshaded, cull_back, depth_draw_opaque;
 // per light: one normal, one dot product, a few bands). The sun and the sky come from DayCycle through global parameters, so
 // the time of day costs nothing per object.
 
-global uniform vec3 sun_direction;     // the way the light travels
-global uniform vec3 sun_color;
-global uniform vec3 sky_ambient;
-global uniform vec3 ground_ambient;
+global uniform vec4 sun_direction;     // the way the light travels (xyz)
+global uniform vec4 sun_color;
+global uniform vec4 sky_ambient;
+global uniform vec4 ground_ambient;
 
 uniform float pixel_size = 0.125;      // one "pixel" of texture, in blocks
 uniform float pixel_noise = 0.045;     // how much the pixels differ from each other
@@ -78,10 +78,10 @@ mediump vec3 grass_green(vec2 p) {
 
 // The light a face of this normal gets: [ambient, sun].
 void face_light(vec3 nrm, out mediump vec3 amb, out mediump vec3 sun) {
-	float t = clamp(dot(nrm, -sun_direction) * 0.5 + 0.5, 0.0, 1.0);
+	float t = clamp(dot(nrm, -sun_direction.xyz) * 0.5 + 0.5, 0.0, 1.0);
 	float band = clamp(floor(t * steps + 0.5) / steps, 0.0, 1.0);
-	amb = mix(ground_ambient, sky_ambient, nrm.y * 0.5 + 0.5);
-	sun = sun_color * band * 0.62;
+	amb = mix(ground_ambient.xyz, sky_ambient.xyz, nrm.y * 0.5 + 0.5);
+	sun = sun_color.xyz * band * 0.62;
 }
 
 void vertex() {

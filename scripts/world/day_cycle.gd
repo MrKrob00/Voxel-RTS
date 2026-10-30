@@ -6,10 +6,10 @@ extends Node
 ## are ordinary materials; the one DirectionalLight3D and the environment follow the same sun so that they match.
 
 const GLOBALS := {
-	"sun_direction": Vector3(0.4, -0.8, 0.4),
-	"sun_color": Vector3(1, 1, 1),
-	"sky_ambient": Vector3(0.5, 0.55, 0.65),
-	"ground_ambient": Vector3(0.3, 0.3, 0.3),
+	"sun_direction": Vector4(0.4, -0.8, 0.4, 0),
+	"sun_color": Vector4(1, 1, 1, 0),
+	"sky_ambient": Vector4(0.5, 0.55, 0.65, 0),
+	"ground_ambient": Vector4(0.3, 0.3, 0.3, 0),
 }
 const AZIMUTH := deg_to_rad(-35.0)
 const NOON_ELEVATION := deg_to_rad(62.0)
@@ -49,7 +49,7 @@ static func ensure_globals() -> void:
 	for k in GLOBALS:
 		if ProjectSettings.has_setting("shader_globals/" + k):
 			continue   # declared in the project settings (so the editor knows them too)
-		RenderingServer.global_shader_parameter_add(k, RenderingServer.GLOBAL_VAR_TYPE_VEC3, GLOBALS[k])
+		RenderingServer.global_shader_parameter_add(k, RenderingServer.GLOBAL_VAR_TYPE_VEC4, GLOBALS[k])
 
 
 ## The material of the ground, the props and the water.
@@ -162,5 +162,6 @@ func _apply() -> void:
 		environment.ambient_light_energy = 0.9
 
 
+## (vec4, not vec3: a vec3 in the block of globals is not read right by the Compatibility renderer of some cards, which made the ground black)
 func _push(key: String, v: Vector3) -> void:
-	RenderingServer.global_shader_parameter_set(key, v)
+	RenderingServer.global_shader_parameter_set(key, Vector4(v.x, v.y, v.z, 0.0))
