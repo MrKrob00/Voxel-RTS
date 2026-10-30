@@ -74,6 +74,7 @@ var _mesh_holds := 0                ## meshing waits while anything (the cliff p
 
 var _solid_material: ShaderMaterial
 var _water_material: ShaderMaterial
+var _layers: GroundLayers          ## the light of the corners and the grass of every chunk of ground: layers of two textures (see GroundLayers)
 ## The height of the ground of every column (x + z * width) in quarter-blocks (Blocks.UNIT per block), 0 where there is none: what the
 ## colliders under falling things are cut from. Worked out in a thread when the world is generated, then kept right by every change.
 var column_levels := PackedInt32Array()
@@ -87,6 +88,9 @@ var relief_texture: ImageTexture   ## the shade of the high ground on the low (R
 func _ready() -> void:
 	_solid_material = DayCycle.terrain_material(size_blocks())   # the ground: the shader finishes what the mesher merged
 	_water_material = DayCycle.world_material(false, true)
+	_layers = GroundLayers.new(Blocks.CHUNK_SIZE + 2 * GroundCover.SLICE_BORDER)
+	_layers.changed.connect(_give_layers)
+	_give_layers()
 	relief_texture = ImageTexture.create_from_image(Image.create(size_blocks().x, size_blocks().z, false, Image.FORMAT_R8))
 	_solid_material.set_shader_parameter("relief_tex", relief_texture)
 	_solid_material.set_shader_parameter("relief_size", Vector2(size_blocks().x, size_blocks().z))
@@ -616,29 +620,42 @@ func _check_group() -> void:
 	_group = {}
 
 
-## The material of the ground of one chunk: the shared one, or a copy with the light of the corners of this chunk's faces in a texture.
-## `ao_image` and `cover_image` (the worn grass of the chunk) are made by the mesh task.
-func _solid_material_for(ao_image: Image, cover_image: Image) -> ShaderMaterial:
-	if ao_image == null:
-		return _solid_material
-	var m := _solid_material.duplicate() as ShaderMaterial
-	m.set_shader_parameter("ao_tex", ImageTexture.create_from_image(ao_image))
-	if cover_image != null:
-		m.set_shader_parameter("cover_tex", ImageTexture.create_from_image(cover_image))
-		m.set_shader_parameter("cover_size", Vector2(cover_image.get_width(), GroundCover.SLICE_BORDER))
-	return m
+## Shows the ground material the pictures of the chunks (again when the arrays were made bigger).
+func _give_layers() -> void:
+	_solid_material.set_shader_parameter("ao_tex", _layers.ao)
+	_solid_material.set_shader_parameter("cover_tex", _layers.cover)
+	_solid_material.set_shader_parameter("cover_size", Vector2(Blocks.CHUNK_SIZE + 2 * GroundCover.SLICE_BORDER, GroundCover.SLICE_BORDER))
+
+
+func ground_layers() -> GroundLayers:
+	return _layers
 
 
 func _commit_mesh(c: Chunk, out: Array) -> void:
 	if out[0] == null and out[1] == null:
+		_layers.release(c.cpos)
 		if c.instance != null:
 			c.instance.queue_free()
 			c.instance = null
 		return
 	var mesh := ArrayMesh.new()
 	if out[0] != null:
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[0])
-		mesh.surface_set_material(mesh.get_surface_count() - 1, _solid_material_for(out[2] if out.size() > 2 else null, out[3] if out.size() > 3 else null))
+		var arrays: Array = out[0]
+		var ao_image: Image = out[2] if out.size() > 2 else null
+		if ao_image != null:
+			# the vertices of the chunk say which layer of the pictures is theirs (the second UV, x)
+			var layer := _layers.acquire(c.cpos)
+			_layers.fill(layer, ao_image, out[3] if out.size() > 3 else null)
+			var uv2 := PackedVector2Array()
+			uv2.resize((arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size())
+			uv2.fill(Vector2(float(layer), 0.0))
+			arrays[Mesh.ARRAY_TEX_UV2] = uv2
+		else:
+			_layers.release(c.cpos)
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.surface_set_material(mesh.get_surface_count() - 1, _solid_material)
+	else:
+		_layers.release(c.cpos)
 	if out[1] != null:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out[1])
 		mesh.surface_set_material(mesh.get_surface_count() - 1, _water_material)

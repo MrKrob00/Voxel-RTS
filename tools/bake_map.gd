@@ -31,7 +31,14 @@ func _run() -> void:
 		frames += 1
 	print("generated after %d frames: %s" % [frames, _world.stats()])
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_out + "/chunks"))
+	# The pictures of all the chunks (the layers of two textures) are one file each, that the one material of the ground points to.
+	var layers: GroundLayers = _world.ground_layers()
+	ResourceSaver.save(layers.ao, _out + "/ao.res", ResourceSaver.FLAG_CHANGE_PATH | ResourceSaver.FLAG_COMPRESS)
+	ResourceSaver.save(layers.cover, _out + "/cover.res", ResourceSaver.FLAG_CHANGE_PATH | ResourceSaver.FLAG_COMPRESS)
 	var solid: ShaderMaterial = DayCycle.terrain_material(_world.size_blocks())
+	solid.set_shader_parameter("ao_tex", load(_out + "/ao.res"))
+	solid.set_shader_parameter("cover_tex", load(_out + "/cover.res"))
+	solid.set_shader_parameter("cover_size", Vector2(Blocks.CHUNK_SIZE + 2 * GroundCover.SLICE_BORDER, GroundCover.SLICE_BORDER))
 	var water: Material = DayCycle.world_material(false, true)
 	ResourceSaver.save(solid, _out + "/solid.tres")
 	ResourceSaver.save(water, _out + "/water.tres")
@@ -47,13 +54,10 @@ func _run() -> void:
 			continue
 		var mesh := mi.mesh as ArrayMesh
 		var surface_materials: Array[Material] = []
-		var own: Array[bool] = []   # the ground of a chunk has its own material (the light of its corners is a texture), kept inside the mesh
 		for i in mesh.get_surface_count():
 			var m := mesh.surface_get_material(i)
 			surface_materials.append(m)
-			own.append(m is ShaderMaterial and (m as ShaderMaterial).get_shader_parameter("ao_tex") != null)
-			if not own[i]:
-				mesh.surface_set_material(i, null)    # the other materials are shared files, not copies inside every mesh
+			mesh.surface_set_material(i, null)    # the materials are shared files, not copies inside every mesh
 		var path := "%s/chunks/%s.res" % [_out, mi.name]
 		ResourceSaver.save(mesh, path, ResourceSaver.FLAG_COMPRESS)
 		bytes += FileAccess.get_file_as_bytes(path).size()
@@ -62,8 +66,6 @@ func _run() -> void:
 		node.mesh = load(path)
 		node.position = mi.position
 		for i in surface_materials.size():
-			if own[i]:
-				continue
 			var is_water: bool = surface_materials[i] != null and (surface_materials[i] as ShaderMaterial).get_shader_parameter("alpha") != null
 			node.set_surface_override_material(i, water_res if is_water else solid_res)
 		map.add_child(node)

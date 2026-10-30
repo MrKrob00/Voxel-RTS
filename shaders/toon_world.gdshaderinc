@@ -30,8 +30,8 @@ uniform bool terrain = false;
 // How much of the ground's work is done (to find which part a graphics card cannot do): 0 only colour and light, 1 + the dark corners
 // (a texture), 2 + the worn earth and the shade of the relief (textures), 3 everything (the noise of pixels).
 uniform float features = 3.0;
-uniform sampler2D ao_tex : hint_default_black, filter_nearest, repeat_disable;   // 32 x 256 texels: (x * 2 + face / 4, y * 16 + z) of the block
-uniform sampler2D cover_tex : hint_default_transparent, filter_linear, repeat_disable; // the grass of the chunk, a texel per column: rgb its green (MapPreset.grass_colour), a how much of it is worn away (GroundCover.slice)
+uniform sampler2DArray ao_tex : filter_nearest, repeat_disable;   // a layer for each chunk (GroundLayers), 32 x 256 texels: (x * 2 + face / 4, y * 16 + z) of the block
+uniform sampler2DArray cover_tex : filter_linear, repeat_disable; // a layer for each chunk: the grass of the chunk, a texel per column: rgb its green (MapPreset.grass_colour), a how much of it is worn away (GroundCover.slice)
 uniform vec2 cover_size = vec2(18.0, 1.0);                                         // its width in columns and the border of columns around the chunk
 uniform vec3 bare_color = vec3(0.5412, 0.4157, 0.2627);
 uniform vec3 side_earth = vec3(0.4784, 0.3529, 0.2275);      // the side of a grass block under its lip (Blocks earth)
@@ -44,6 +44,7 @@ varying vec3 world_normal;
 varying vec3 local_pos;
 varying vec3 local_normal;
 varying float v_flags;              // UV.x (a whole number: see above)
+varying float v_layer;      // UV2.x: the layer of the pictures of the chunk (GroundLayers)
 varying float v_jitter;             // UV.y
 varying float v_dist;               // distance from the camera, for the detail
 
@@ -80,11 +81,12 @@ void vertex() {
 	local_normal = NORMAL;
 	v_flags = UV.x;
 	v_jitter = UV.y;
+	v_layer = UV2.x;
 	v_dist = -(MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).z;   // the depth in front of the camera
 }
 
 // How lit the corners of the block face under this point are (the way ChunkMesher bakes it): 0.5 .. 1.0, smooth over the face.
-float corner_light(vec3 p, vec3 nrm) {
+float corner_light(vec3 p, vec3 nrm, int layer) {
 	int f = 0;
 	ivec3 ua = ivec3(0, 1, 0);   // tangent axes (as ChunkMesher.FACE_U / FACE_V)
 	ivec3 va = ivec3(0, 0, 1);
@@ -98,7 +100,7 @@ float corner_light(vec3 p, vec3 nrm) {
 	vec3 fr = c - cell;
 	float s = dot(fr, vec3(ua));
 	float t = dot(fr, vec3(va));
-	vec4 texel = texelFetch(ao_tex, ivec2(int(cell.x) * 2 + (f >= 4 ? 1 : 0), int(cell.z) + int(cell.y) * 16), 0);
+	vec4 texel = texelFetch(ao_tex, ivec3(int(cell.x) * 2 + (f >= 4 ? 1 : 0), int(cell.z) + int(cell.y) * 16, layer), 0);
 	float chan = texel.r;
 	int k = f & 3;
 	if (k == 1) chan = texel.g;
@@ -122,16 +124,17 @@ void fragment() {
 	vec3 face = FRONT_FACING ? n : -n;   // (the back of a two-sided thing is lit the other way)
 	vec3 base = COLOR.rgb;
 	if (terrain) {
+		int layer = int(v_layer + 0.5);
 		int fl = int(v_flags + 0.5);   // (the UV is the same on every vertex of a face, but interpolated it is not exact)
 		vec4 grass = vec4(0.0);        // the green of the grass here and how worn it is: one read of the picture of the chunk
 		if ((fl & 9) != 0) {
-			grass = textureLod(cover_tex, (local_pos.xz + cover_size.y) / cover_size.x, 0.0);
+			grass = textureLod(cover_tex, vec3((local_pos.xz + cover_size.y) / cover_size.x, float(layer)), 0.0);
 		}
 		if (features < 2.0) {
 			fl &= 2;
 		}
 		if ((fl & 2) != 0 && features >= 1.0 && (features < 3.0 || lod > 0.0)) {
-			base *= mix(1.0, corner_light(local_pos, normalize(round(local_normal))), features >= 3.0 ? lod : 1.0);
+			base *= mix(1.0, corner_light(local_pos, normalize(round(local_normal)), layer), features >= 3.0 ? lod : 1.0);
 		}
 		// where the grass is worn the earth shows through in single pixels: a pixel is earth when the wear is more than its own noise
 		float worn = 0.0;

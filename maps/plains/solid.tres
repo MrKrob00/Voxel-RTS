@@ -1,23 +1,27 @@
 [gd_resource type="ShaderMaterial" format=3]
 
-[ext_resource type="Shader" path="res://shaders/toon_world.gdshader" id="1_75xyf"]
-[ext_resource type="Texture2D" path="res://shaders/day_light.tres" id="2_rfc24"]
+[ext_resource type="Shader" path="res://shaders/toon_world.gdshader" id="1_x0us5"]
+[ext_resource type="Texture2DArray" path="res://maps/plains/ao.res" id="2_26vhg"]
+[ext_resource type="Texture2DArray" path="res://maps/plains/cover.res" id="3_3fmfs"]
+[ext_resource type="Texture2D" path="res://shaders/day_light.tres" id="4_dkb5h"]
 
 [resource]
 render_priority = 0
-shader = ExtResource("1_75xyf")
-shader_parameter/day_light = ExtResource("2_rfc24")
-shader_parameter/pixel_size = null
-shader_parameter/pixel_noise = null
-shader_parameter/steps = null
-shader_parameter/tint = null
-shader_parameter/alpha = null
-shader_parameter/detail_near = null
-shader_parameter/detail_far = null
-shader_parameter/sparkle = null
+shader = ExtResource("1_x0us5")
+shader_parameter/day_light = ExtResource("4_dkb5h")
+shader_parameter/pixel_size = 0.125
+shader_parameter/pixel_noise = 0.045
+shader_parameter/steps = 3.0
+shader_parameter/tint = Vector3(1, 1, 1)
+shader_parameter/alpha = 1.0
+shader_parameter/detail_near = 70.0
+shader_parameter/detail_far = 150.0
+shader_parameter/sparkle = 0.0
 shader_parameter/terrain = true
-shader_parameter/features = null
-shader_parameter/cover_size = null
-shader_parameter/bare_color = null
-shader_parameter/side_earth = null
-shader_parameter/relief_size = null
+shader_parameter/features = 3.0
+shader_parameter/ao_tex = ExtResource("2_26vhg")
+shader_parameter/cover_tex = ExtResource("3_3fmfs")
+shader_parameter/cover_size = Vector2(18, 1)
+shader_parameter/bare_color = Vector3(0.5412, 0.4157, 0.2627)
+shader_parameter/side_earth = Vector3(0.4784, 0.3529, 0.2275)
+shader_parameter/relief_size = Vector2(448, 448)
