@@ -66,20 +66,20 @@ float wear_noise(ivec3 cell) {
 }
 
 // The light a face of this normal gets: [ambient, sun].
-void face_light(vec3 nrm, out mediump vec3 amb, out mediump vec3 sun) {
+void face_light(vec3 nrm, out vec3 amb, out vec3 sun) {
 #ifdef PROBE_NO_LIGHT
-	mediump vec3 to_light = vec3(-0.4, 0.8, -0.4);
-	mediump vec3 sun_rgb = vec3(0.9);
-	mediump vec3 sky_rgb = vec3(0.45);
-	mediump vec3 ground_rgb = vec3(0.25);
+	vec3 to_light = vec3(-0.4, 0.8, -0.4);
+	vec3 sun_rgb = vec3(0.9);
+	vec3 sky_rgb = vec3(0.45);
+	vec3 ground_rgb = vec3(0.25);
 #else
-	mediump vec3 to_light = -texelFetch(day_light, ivec2(0, 0), 0).xyz;
-	mediump vec3 sun_rgb = texelFetch(day_light, ivec2(1, 0), 0).xyz;
-	mediump vec3 sky_rgb = texelFetch(day_light, ivec2(2, 0), 0).xyz;
-	mediump vec3 ground_rgb = texelFetch(day_light, ivec2(3, 0), 0).xyz;
+	vec3 to_light = -texelFetch(day_light, ivec2(0, 0), 0).xyz;
+	vec3 sun_rgb = texelFetch(day_light, ivec2(1, 0), 0).xyz;
+	vec3 sky_rgb = texelFetch(day_light, ivec2(2, 0), 0).xyz;
+	vec3 ground_rgb = texelFetch(day_light, ivec2(3, 0), 0).xyz;
 #endif
-	mediump float t = clamp(dot(nrm, to_light) * 0.5 + 0.5, 0.0, 1.0);
-	mediump float band = clamp(floor(t * steps + 0.5) / steps, 0.0, 1.0);
+	float t = clamp(dot(nrm, to_light) * 0.5 + 0.5, 0.0, 1.0);
+	float band = clamp(floor(t * steps + 0.5) / steps, 0.0, 1.0);
 	amb = mix(ground_rgb, sky_rgb, nrm.y * 0.5 + 0.5);
 	sun = sun_rgb * band * 0.62;
 }
@@ -93,7 +93,7 @@ void vertex() {
 }
 
 // How lit the corners of the block face under this point are (the way ChunkMesher bakes it): 0.5 .. 1.0, smooth over the face.
-mediump float corner_light(vec3 p, vec3 nrm, int layer) {
+float corner_light(vec3 p, vec3 nrm, int layer) {
 	int f = 0;
 	ivec3 ua = ivec3(0, 1, 0);   // tangent axes (as ChunkMesher.FACE_U / FACE_V)
 	ivec3 va = ivec3(0, 0, 1);
@@ -104,21 +104,21 @@ mediump float corner_light(vec3 p, vec3 nrm, int layer) {
 	else if (nrm.z < -0.5) { f = 5; ua = ivec3(0, 1, 0); va = ivec3(1, 0, 0); }
 	vec3 c = p - nrm * 0.01;   // a point inside the block that owns the face
 	vec3 cell = floor(c);
-	mediump vec3 fr = c - cell;
-	mediump float s = dot(fr, vec3(ua));
-	mediump float t = dot(fr, vec3(va));
-	mediump vec4 texel = texelFetch(ao_tex, ivec3(int(cell.x) * 2 + (f >= 4 ? 1 : 0), int(cell.z) + int(cell.y) * 16, layer), 0);
+	vec3 fr = c - cell;
+	float s = dot(fr, vec3(ua));
+	float t = dot(fr, vec3(va));
+	vec4 texel = texelFetch(ao_tex, ivec3(int(cell.x) * 2 + (f >= 4 ? 1 : 0), int(cell.z) + int(cell.y) * 16, layer), 0);
 	float chan = texel.r;
 	int k = f & 3;
 	if (k == 1) chan = texel.g;
 	else if (k == 2) chan = texel.b;
 	else if (k == 3) chan = texel.a;
 	int packed = int(chan * 255.0 + 0.5);
-	const mediump vec4 levels = vec4(0.5, 0.68, 0.84, 1.0);   // ChunkMesher.AO_LEVELS (a vector, not an array: no table to index by a variable)
-	mediump float l0 = levels[packed & 3];
-	mediump float l1 = levels[(packed >> 2) & 3];
-	mediump float l2 = levels[(packed >> 4) & 3];
-	mediump float l3 = levels[(packed >> 6) & 3];
+	const vec4 levels = vec4(0.5, 0.68, 0.84, 1.0);   // ChunkMesher.AO_LEVELS (a vector, not an array: no table to index by a variable)
+	float l0 = levels[packed & 3];
+	float l1 = levels[(packed >> 2) & 3];
+	float l2 = levels[(packed >> 4) & 3];
+	float l3 = levels[(packed >> 6) & 3];
 	return mix(mix(l0, l1, s), mix(l3, l2, s), t);
 }
 
@@ -134,11 +134,11 @@ void fragment() {
 	vec3 n = dot(world_normal, world_normal) > 0.25 ? normalize(world_normal) : vec3(0.0, 1.0, 0.0);
 	vec3 local_pos = world_pos - MODEL_MATRIX[3].xyz;   // (a chunk is only moved: no varying for the place in the chunk)
 	vec3 face = FRONT_FACING ? n : -n;   // (the back of a two-sided thing is lit the other way)
-	mediump vec3 base = COLOR.rgb;
+	vec3 base = COLOR.rgb;
 	if (terrain) {
 		int layer = int(v_layer + 0.5);
 		int fl = int(v_flags + 0.5);   // (the UV is the same on every vertex of a face, but interpolated it is not exact)
-		mediump vec4 grass = vec4(0.0);        // the green of the grass here and how worn it is: one read of the picture of the chunk
+		vec4 grass = vec4(0.0);        // the green of the grass here and how worn it is: one read of the picture of the chunk
 #ifdef PROBE_NO_COVER
 		grass = vec4(0.42, 0.66, 0.24, 0.0);
 #else
@@ -188,21 +188,21 @@ void fragment() {
 			base *= 1.0 + (hash_i(ivec3(floor(world_pos - face * 0.01))) - 0.5) * 2.0 * v_jitter * lod;
 		}
 	}
-	mediump vec3 albedo = base * tint;
+	vec3 albedo = base * tint;
 	if (lod > 0.0) {
 		albedo *= 1.0 + (hash_i(cell) - 0.5) * pixel_noise * 2.0 * lod;
 	}
 	// the light: bands of sun on top of a sky/ground ambient. Worked out here, in the pixel shader, where the sun and the sky are read:
 	// the props have smooth normals (the bands run across their triangles) and the back of a two-sided thing is lit the other way.
-	mediump vec3 amb;
-	mediump vec3 sun;
+	vec3 amb;
+	vec3 sun;
 	face_light(face, amb, sun);
 #ifdef PROBE_NO_RELIEF
 	float shade = 0.0;
 #else
 	float shade = (terrain && features >= 2.0) ? textureLod(relief_tex, world_pos.xz / relief_size, 0.0).r * smoothstep(0.3, 0.7, face.y) : 0.0;   // high ground in the way of the sun
 #endif
-	mediump vec3 col = albedo * (amb + sun * (1.0 - shade));
+	vec3 col = albedo * (amb + sun * (1.0 - shade));
 	if (sparkle > 0.0) {
 		float s = hash_i(ivec3(cell.x, cell.z, int(floor(TIME * 1.5))));
 		col += vec3(0.18) * step(0.93, s) * sparkle;
