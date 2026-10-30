@@ -1,0 +1,13 @@
+[gd_resource type="ImageTexture" format=3]
+
+[sub_resource type="Image" id="Image_28a1s"]
+data = {
+"data": PackedByteArray(205, 204, 204, 62, 205, 204, 76, 191, 205, 204, 204, 62, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 0, 63, 205, 204, 12, 63, 102, 102, 38, 63, 0, 0, 128, 63, 154, 153, 153, 62, 154, 153, 153, 62, 154, 153, 153, 62, 0, 0, 128, 63),
+"format": "RGBAFloat",
+"height": 1,
+"mipmaps": false,
+"width": 4
+}
+
+[resource]
+image = SubResource("Image_28a1s")

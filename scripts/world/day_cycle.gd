@@ -1,16 +1,13 @@
 class_name DayCycle
 extends Node
-## The time of day, and the light that goes with it. The ground, the water and the props are drawn by shaders/toon_world.gdshader,
-## which lights them by hand from four global parameters (the sun's direction and colour, the sky and the ground ambient): no Godot
-## light is involved there, so a day costs a handful of `global_shader_parameter_set` calls per frame. The units, logs and bricks
-## are ordinary materials; the one DirectionalLight3D and the environment follow the same sun so that they match.
+## The time of day, and the light that goes with it. The ground, the water and the props are drawn by shaders/toon_world*.gdshader,
+## which light them by hand from four colours (the sun's direction and colour, the sky and the ground ambient) kept in ONE small
+## texture (res://shaders/day_light.tres): no Godot light is involved there, and a day costs one 4-texel upload per change. Every
+## material, the baked ones too, points to that one file. The units, logs and bricks are ordinary materials; the one DirectionalLight3D
+## and the environment follow the same sun so that they match.
 
-const GLOBALS := {
-	"sun_direction": Vector4(0.4, -0.8, 0.4, 0),
-	"sun_color": Vector4(1, 1, 1, 0),
-	"sky_ambient": Vector4(0.5, 0.55, 0.65, 0),
-	"ground_ambient": Vector4(0.3, 0.3, 0.3, 0),
-}
+const LIGHT_FILE := "res://shaders/day_light.tres"
+const LIGHT_DEFAULT: Array[Color] = [Color(0.4, -0.8, 0.4), Color(1, 1, 1), Color(0.5, 0.55, 0.65), Color(0.3, 0.3, 0.3)]   ## texels: sun direction, sun, sky, ground
 const AZIMUTH := deg_to_rad(-35.0)
 const NOON_ELEVATION := deg_to_rad(62.0)
 const SUN_NOON := Color(1.0, 0.96, 0.88)
@@ -39,31 +36,30 @@ var _last_text := ""
 signal clock_changed(text: String)
 
 
-static var _globals_added := false
+static var _light_image: Image
+static var _light_texture: ImageTexture
 
 
-static func ensure_globals() -> void:
-	if _globals_added:
-		return
-	_globals_added = true
-	for k in GLOBALS:
-		if ProjectSettings.has_setting("shader_globals/" + k):
-			continue   # declared in the project settings (so the editor knows them too)
-		RenderingServer.global_shader_parameter_add(k, RenderingServer.GLOBAL_VAR_TYPE_VEC4, GLOBALS[k])
+## The texture the shaders read the light of the day from (the same one for everything).
+static func light_texture() -> ImageTexture:
+	if _light_texture == null:
+		_light_image = Image.create(4, 1, false, Image.FORMAT_RGBAF)
+		for i in 4:
+			_light_image.set_pixel(i, 0, LIGHT_DEFAULT[i])
+		if ResourceLoader.exists(LIGHT_FILE):
+			_light_texture = load(LIGHT_FILE) as ImageTexture
+			_light_texture.update(_light_image)
+		else:
+			_light_texture = ImageTexture.create_from_image(_light_image)
+	return _light_texture
 
 
 ## The material of the ground, the props and the water.
 static func world_material(double_sided := false, water := false) -> ShaderMaterial:
-	ensure_globals()
-	var code := (load("res://shaders/toon_world.gdshader") as Shader).code
-	if double_sided:
-		code = code.replace("cull_back", "cull_disabled")
-	if not water:
-		code = code.replace("	ALPHA = alpha * COLOR.a;\n", "")   # writing ALPHA would make it a transparent (slower) material
-	var shader := Shader.new()
-	shader.code = code
 	var m := ShaderMaterial.new()
-	m.shader = shader
+	# the shader FILE itself, not a copy of its code: a baked map keeps pointing to the file, so a change of the shader reaches it
+	m.shader = load("res://shaders/toon_water.gdshader" if water else ("res://shaders/toon_world_2s.gdshader" if double_sided else "res://shaders/toon_world.gdshader"))
+	m.set_shader_parameter("day_light", light_texture())
 	if water:
 		m.set_shader_parameter("alpha", 0.62)
 		m.set_shader_parameter("sparkle", 1.0)
@@ -79,8 +75,6 @@ static func terrain_material(size_blocks: Vector3i) -> ShaderMaterial:
 	m.set_shader_parameter("terrain", true)
 	m.set_shader_parameter("blob_tex", blob_texture(size_blocks))
 	m.set_shader_parameter("blob_size", Vector2(size_blocks.x, size_blocks.z))
-	# project setting `voxel/render/shader_features` (0..3, default 3): for finding which part of the ground shader a card cannot do
-	m.set_shader_parameter("features", float(ProjectSettings.get_setting("voxel/render/shader_features", 3)))
 	return m
 
 
@@ -108,7 +102,7 @@ static func blob_texture(size_blocks: Vector3i) -> ImageTexture:
 
 
 func _ready() -> void:
-	ensure_globals()
+	light_texture()
 	if world_environment != null:
 		environment = world_environment.environment
 	_apply()
@@ -148,10 +142,12 @@ func _apply() -> void:
 	var sky_amb := SKY_AMB_NIGHT.lerp(SKY_AMB_DAY, day).lerp(SKY_AMB_DAY.lerp(SKY_DUSK, 0.35), low * day)
 	var ground_amb := GROUND_AMB_NIGHT.lerp(GROUND_AMB_DAY, day)
 	light_to_sun = light_from.normalized()
-	_push("sun_direction", -light_from.normalized())
-	_push("sun_color", Vector3(sun_col.r, sun_col.g, sun_col.b) * strength)
-	_push("sky_ambient", Vector3(sky_amb.r, sky_amb.g, sky_amb.b))
-	_push("ground_ambient", Vector3(ground_amb.r, ground_amb.g, ground_amb.b))
+	light_texture()
+	_push(0, -light_from.normalized())
+	_push(1, Vector3(sun_col.r, sun_col.g, sun_col.b) * strength)
+	_push(2, Vector3(sky_amb.r, sky_amb.g, sky_amb.b))
+	_push(3, Vector3(ground_amb.r, ground_amb.g, ground_amb.b))
+	_light_texture.update(_light_image)
 	if sun != null:
 		sun.basis = Basis.looking_at(-light_from.normalized(), Vector3.UP)
 		sun.light_color = sun_col
@@ -162,6 +158,5 @@ func _apply() -> void:
 		environment.ambient_light_energy = 0.9
 
 
-## (vec4, not vec3: a vec3 in the block of globals is not read right by the Compatibility renderer of some cards, which made the ground black)
-func _push(key: String, v: Vector3) -> void:
-	RenderingServer.global_shader_parameter_set(key, Vector4(v.x, v.y, v.z, 0.0))
+func _push(texel: int, v: Vector3) -> void:
+	_light_image.set_pixel(texel, 0, Color(v.x, v.y, v.z, 1.0))

@@ -31,22 +31,3 @@ pointing/emulate_mouse_from_touch=false
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 occlusion_culling/use_occlusion_culling=true
-
-[shader_globals]
-
-sun_direction={
-"type": "vec4",
-"value": Vector4(0.4, -0.8, 0.4, 0)
-}
-sun_color={
-"type": "vec4",
-"value": Vector4(1, 1, 1, 0)
-}
-sky_ambient={
-"type": "vec4",
-"value": Vector4(0.5, 0.55, 0.65, 0)
-}
-ground_ambient={
-"type": "vec4",
-"value": Vector4(0.3, 0.3, 0.3, 0)
-}

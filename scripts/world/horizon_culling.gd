@@ -22,7 +22,7 @@ const MARGIN := 0.02              ## slope (about a degree) that a chunk has to 
 const POLL := 0.2
 const MOVED := 1.0                ## blocks the camera has to move for a new picture
 const STALE := 4.0                ## blocks the camera may have moved while it was made
-const FRUSTUM_MARGIN := 20.0      ## blocks outside the picture that still count as in it (the camera turns while the answer is made)
+const FRUSTUM_MARGIN := 4.0       ## blocks outside the picture that still count as in it
 const TURNED := 0.99              ## the camera has turned (dot of its backwards direction with the old one) for a new picture
 
 var enabled := true

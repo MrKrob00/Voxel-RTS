@@ -21,8 +21,9 @@ const STEEP := 1.1                ## height over run from which a quad is a clif
 const BUILD_BUDGET := 3           ## nodes made in one pass
 const POLL := 0.25
 const MOVED := 4.0                ## blocks the camera must move for a new selection
-const FRUSTUM_MARGIN := 24.0      ## blocks: nodes that are this much outside the picture are made already (the camera turns)
-const WORLD_HEIGHT := 128.0       ## the nodes stand between 0 and this height, for the frustum test
+const FRUSTUM_MARGIN := 4.0       ## blocks: nodes that are this much outside the picture still count as in it
+const ABOVE := 12.0               ## blocks over the ground that things (trees) stand, for the frustum test
+const WORLD_HEIGHT := 128.0       ## the height of a node whose ground is not known
 
 var enabled := true
 var _world: VoxelWorld
@@ -35,6 +36,9 @@ var _poll := 0.0
 var _last_cam := Vector3(INF, INF, INF)
 var _last_back := Vector3.BACK     # where the camera looked at the last selection (what is in the picture changes when it turns)
 var _incomplete := true
+var _lo := PackedFloat32Array()    # per chunk column: the lowest and the highest ground (blocks), for the frustum test of the nodes
+var _hi := PackedFloat32Array()
+var _columns_w := 0
 
 
 func setup(world: VoxelWorld, camera: Camera3D) -> void:
@@ -75,23 +79,49 @@ func _process(delta: float) -> void:
 	var cx := clampi(int(cam.x), 0, size.x - 1)
 	var cz := clampi(int(cam.z), 0, size.z - 1)
 	var height_above := maxf(cam.y - float(_world.column_levels[cx + cz * size.x]) / Blocks.UNIT, 0.0)
-	_select(select_leaves(cam, height_above, size.x, size.z, _camera.get_frustum(), FRUSTUM_MARGIN))
+	if _lo.is_empty():
+		_measure_columns()
+	_select(select_leaves(cam, height_above, size.x, size.z, _camera.get_frustum(), FRUSTUM_MARGIN, _lo, _hi))
+
+
+## The lowest and the highest ground of every chunk column: a node is as tall as the ground under it, not as the whole world.
+func _measure_columns() -> void:
+	var size := _world.size_blocks()
+	_columns_w = size.x / Blocks.CHUNK_SIZE
+	var n := _columns_w * (size.z / Blocks.CHUNK_SIZE)
+	_lo.resize(n)
+	_hi.resize(n)
+	for i in n:
+		_measure_column(i % _columns_w, i / _columns_w)
+
+
+func _measure_column(cx: int, cz: int) -> void:
+	var size := _world.size_blocks()
+	var lo := 1.0e9
+	var hi := 0.0
+	for z in range(cz * Blocks.CHUNK_SIZE, (cz + 1) * Blocks.CHUNK_SIZE):
+		for x in range(cx * Blocks.CHUNK_SIZE, (cx + 1) * Blocks.CHUNK_SIZE):
+			var h := float(_world.column_levels[x + z * size.x]) / Blocks.UNIT
+			lo = minf(lo, h)
+			hi = maxf(hi, h)
+	_lo[cx + cz * _columns_w] = lo - SKIRT
+	_hi[cx + cz * _columns_w] = hi + ABOVE
 
 
 ## The nodes of level 1 and up that draw the ground now, as [lod, gx, gz]; every chunk column not under one of them is drawn as chunks.
 ## Pure function (see the test).
 ## `planes` are the planes of the camera's frustum (Camera3D.get_frustum): a node outside them, by more than `margin` blocks, is left out:
 ## what is behind the camera or beside the picture needs no far ground (its chunks stay as they are, and the engine does not draw them).
-static func select_leaves(cam: Vector3, height_above: float, width: int, depth: int, planes: Array = [], margin := 0.0) -> Array:
+static func select_leaves(cam: Vector3, height_above: float, width: int, depth: int, planes: Array = [], margin := 0.0, lo := PackedFloat32Array(), hi := PackedFloat32Array()) -> Array:
 	var out: Array = []
 	var top := GRID << MAX_LOD
 	for gz in range(0, ceili(float(depth) / top)):
 		for gx in range(0, ceili(float(width) / top)):
-			_descend(MAX_LOD, gx, gz, cam, height_above, width, depth, planes, margin, out)
+			_descend(MAX_LOD, gx, gz, cam, height_above, width, depth, planes, margin, lo, hi, out)
 	return out
 
 
-static func _descend(lod: int, gx: int, gz: int, cam: Vector3, height_above: float, width: int, depth: int, planes: Array, margin: float, out: Array) -> void:
+static func _descend(lod: int, gx: int, gz: int, cam: Vector3, height_above: float, width: int, depth: int, planes: Array, margin: float, lo: PackedFloat32Array, hi: PackedFloat32Array, out: Array) -> void:
 	var span := float(GRID << lod)
 	var x0 := gx * span
 	var z0 := gz * span
@@ -101,24 +131,38 @@ static func _descend(lod: int, gx: int, gz: int, cam: Vector3, height_above: flo
 	var z1 := minf(z0 + span, float(depth))
 	var dx := maxf(maxf(x0 - cam.x, 0.0), cam.x - x1)
 	var dz := maxf(maxf(z0 - cam.z, 0.0), cam.z - z1)
-	if not planes.is_empty() and _outside(planes, margin, x0, z0, x1, z1):
+	if not planes.is_empty() and _outside(planes, margin, x0, z0, x1, z1, _range(lo, hi, width, x0, z0, x1, z1)):
 		return
 	var d2 := dx * dx + dz * dz + height_above * height_above
 	if lod == 0:
 		return   # a chunk column: the voxel meshes
 	if d2 < (span * SPLIT) * (span * SPLIT):
 		for k in 4:
-			_descend(lod - 1, gx * 2 + (k & 1), gz * 2 + (k >> 1), cam, height_above, width, depth, planes, margin, out)
+			_descend(lod - 1, gx * 2 + (k & 1), gz * 2 + (k >> 1), cam, height_above, width, depth, planes, margin, lo, hi, out)
 		return
 	out.append([lod, gx, gz])
 
 
-## Does the box of a node (x0..x1, z0..z1, height 0..WORLD_HEIGHT) lie outside one of the planes by more than `margin`?
-static func _outside(planes: Array, margin: float, x0: float, z0: float, x1: float, z1: float) -> bool:
+## The lowest and highest ground under a node (x0..x1, z0..z1), from the per chunk column tables; the whole height of the world when there are none.
+static func _range(lo: PackedFloat32Array, hi: PackedFloat32Array, width: int, x0: float, z0: float, x1: float, z1: float) -> Vector2:
+	if lo.is_empty():
+		return Vector2(0.0, WORLD_HEIGHT)
+	var cw := width / Blocks.CHUNK_SIZE
+	var a := 1.0e9
+	var b := 0.0
+	for cz in range(int(z0) / Blocks.CHUNK_SIZE, ceili(z1 / Blocks.CHUNK_SIZE)):
+		for cx in range(int(x0) / Blocks.CHUNK_SIZE, ceili(x1 / Blocks.CHUNK_SIZE)):
+			a = minf(a, lo[cx + cz * cw])
+			b = maxf(b, hi[cx + cz * cw])
+	return Vector2(a, b)
+
+
+## Does the box of a node (x0..x1, z0..z1, heights `y`) lie outside one of the planes by more than `margin`?
+static func _outside(planes: Array, margin: float, x0: float, z0: float, x1: float, z1: float, y: Vector2) -> bool:
 	for pl: Plane in planes:
 		var n := pl.normal
 		# the corner of the box that lies furthest inside this plane
-		var p := Vector3(x0 if n.x > 0.0 else x1, 0.0 if n.y > 0.0 else WORLD_HEIGHT, z0 if n.z > 0.0 else z1)
+		var p := Vector3(x0 if n.x > 0.0 else x1, y.x if n.y > 0.0 else y.y, z0 if n.z > 0.0 else z1)
 		if pl.distance_to(p) > margin:
 			return true
 	return false
@@ -183,6 +227,8 @@ func _on_chunk_meshed(cpos: Vector3i) -> void:
 
 
 func _on_block_changed(p: Vector3i) -> void:
+	if not _lo.is_empty():
+		_measure_column(p.x / Blocks.CHUNK_SIZE, p.z / Blocks.CHUNK_SIZE)
 	for lod in range(1, MAX_LOD + 1):
 		var span := GRID << lod
 		var key := key_of(lod, p.x / span, p.z / span)
