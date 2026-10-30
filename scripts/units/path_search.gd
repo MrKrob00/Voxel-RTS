@@ -27,6 +27,7 @@ var _start_key := 0
 var _best_key := 0
 var _best_h := 0.0
 var _goal_key := -1
+var _cost_cap := INF
 
 
 func _init(n: Navigation, start: Vector3i, goal: Vector3i, near := 0.0) -> void:
@@ -49,6 +50,7 @@ func _init(n: Navigation, start: Vector3i, goal: Vector3i, near := 0.0) -> void:
 	Navigation._push(_open_f, _open_n, Navigation._heuristic(from, to), _start_key)
 	_best_key = _start_key
 	_best_h = Navigation._heuristic(from, to)
+	_cost_cap = Navigation.COST_FACTOR * _best_h + Navigation.COST_EXTRA
 
 
 ## The whole search, on a worker thread.
@@ -86,7 +88,9 @@ func advance(usec: int) -> int:
 			if _closed.has(nk):
 				continue
 			var ng: float = cur_g + r[1]
-			if not _g.has(nk) or ng < _g[nk]:
+			if ng > _cost_cap:
+				continue
+			if not _g.has(nk) or ng + Navigation.COST_EPSILON < _g[nk]:
 				_g[nk] = ng
 				_came[nk] = cur_key
 				Navigation._push(_open_f, _open_n, ng + Navigation._heuristic(r[0], to), nk)

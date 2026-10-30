@@ -73,6 +73,38 @@ static func world_material(double_sided := false, water := false) -> ShaderMater
 	return m
 
 
+## The material of the ground: the shader with its terrain part on and the texture of the grass blobs of a map of this size.
+static func terrain_material(size_blocks: Vector3i) -> ShaderMaterial:
+	var m := world_material()
+	m.set_shader_parameter("terrain", true)
+	m.set_shader_parameter("blob_tex", blob_texture(size_blocks))
+	m.set_shader_parameter("blob_size", Vector2(size_blocks.x, size_blocks.z))
+	return m
+
+
+static var _blob_textures := {}
+
+
+## MapPreset.blob (both of the blobs that colour the grass) at the middle of every square of BLOB_CELL blocks of the map: R the first,
+## G the second. The shader reads it instead of working the sines out for each pixel.
+static func blob_texture(size_blocks: Vector3i) -> ImageTexture:
+	var key := Vector2i(size_blocks.x, size_blocks.z)
+	if _blob_textures.has(key):
+		return _blob_textures[key]
+	var cell := 4
+	var w := maxi(size_blocks.x / cell, 1)
+	var h := maxi(size_blocks.z / cell, 1)
+	var img := Image.create(w, h, false, Image.FORMAT_RG8)
+	for j in h:
+		for i in w:
+			var x := (i + 0.5) * size_blocks.x / w
+			var z := (j + 0.5) * size_blocks.z / h
+			img.set_pixel(i, j, Color(MapPreset.blob(x, z, 1.0), MapPreset.blob(x - 90.0, z + 55.0, 0.55), 0.0))
+	var tex := ImageTexture.create_from_image(img)
+	_blob_textures[key] = tex
+	return tex
+
+
 func _ready() -> void:
 	ensure_globals()
 	if world_environment != null:

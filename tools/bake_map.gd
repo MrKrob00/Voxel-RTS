@@ -31,11 +31,13 @@ func _run() -> void:
 		frames += 1
 	print("generated after %d frames: %s" % [frames, _world.stats()])
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_out + "/chunks"))
-	var solid: ShaderMaterial = DayCycle.world_material()
-	solid.set_shader_parameter("terrain", true)
+	# The texture of the grass blobs is one file that every material points to (not a copy in each of them).
+	ResourceSaver.save(DayCycle.blob_texture(_world.size_blocks()), _out + "/blob.res", ResourceSaver.FLAG_CHANGE_PATH)
+	var solid: ShaderMaterial = DayCycle.terrain_material(_world.size_blocks())
 	var water: Material = DayCycle.world_material(false, true)
 	ResourceSaver.save(solid, _out + "/solid.tres")
 	ResourceSaver.save(water, _out + "/water.tres")
+	var blob_res := load(_out + "/blob.res")
 	var solid_res := load(_out + "/solid.tres")
 	var water_res := load(_out + "/water.tres")
 	var map := Node3D.new()
@@ -53,7 +55,9 @@ func _run() -> void:
 			var m := mesh.surface_get_material(i)
 			surface_materials.append(m)
 			own.append(m is ShaderMaterial and (m as ShaderMaterial).get_shader_parameter("ao_tex") != null)
-			if not own[i]:
+			if own[i]:
+				(m as ShaderMaterial).set_shader_parameter("blob_tex", blob_res)   # the file, not a copy of the texture inside every mesh
+			else:
 				mesh.surface_set_material(i, null)    # the other materials are shared files, not copies inside every mesh
 		var path := "%s/chunks/%s.res" % [_out, mi.name]
 		ResourceSaver.save(mesh, path, ResourceSaver.FLAG_COMPRESS)

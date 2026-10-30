@@ -16,6 +16,12 @@ extends RefCounted
 const MAX_STEP_UP := 1
 const MAX_DROP := 3
 const NODE_LIMIT := 60000   ## a search gives up (and returns the closest it got) after expanding this many nodes
+## ...and does not go on to places that cost more than this to reach: COST_FACTOR times the distance to the goal plus COST_EXTRA (a way
+## that is longer than that round a cliff is not looked for; idea of Zylann's VoxelAStarGrid3D, `max_path_cost`)
+const COST_FACTOR := 5.0
+const COST_EXTRA := 100.0
+## Costs that differ by less than this are the same (float noise made searches look at places again, as the same plugin notes)
+const COST_EPSILON := 0.001
 const SQRT2 := 1.41421356
 const JUMP_COST := 3.2
 

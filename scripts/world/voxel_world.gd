@@ -84,8 +84,7 @@ var relief_texture: ImageTexture   ## the shade of the high ground on the low (R
 
 
 func _ready() -> void:
-	_solid_material = DayCycle.world_material()
-	_solid_material.set_shader_parameter("terrain", true)   # the ground: the shader finishes what the mesher merged
+	_solid_material = DayCycle.terrain_material(size_blocks())   # the ground: the shader finishes what the mesher merged
 	_water_material = DayCycle.world_material(false, true)
 	relief_texture = ImageTexture.create_from_image(Image.create(size_blocks().x, size_blocks().z, false, Image.FORMAT_R8))
 	_solid_material.set_shader_parameter("relief_tex", relief_texture)
