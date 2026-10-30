@@ -41,12 +41,9 @@ uniform vec2 relief_size = vec2(448.0, 448.0);
 
 varying vec3 world_pos;
 varying vec3 world_normal;
-varying vec3 local_pos;
-varying vec3 local_normal;
 varying float v_flags;              // UV.x (a whole number: see above)
 varying float v_layer;      // UV2.x: the layer of the pictures of the chunk (GroundLayers)
 varying float v_jitter;             // UV.y
-varying float v_dist;               // distance from the camera, for the detail
 
 // A number in 0..1 from three whole numbers (the pixel of the world a fragment is in): integer arithmetic only.
 float hash_i(ivec3 c) {
@@ -77,12 +74,9 @@ void face_light(vec3 nrm, out vec3 amb, out vec3 sun) {
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
-	local_pos = VERTEX;
-	local_normal = NORMAL;
 	v_flags = UV.x;
 	v_jitter = UV.y;
 	v_layer = UV2.x;
-	v_dist = -(MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).z;   // the depth in front of the camera
 }
 
 // How lit the corners of the block face under this point are (the way ChunkMesher bakes it): 0.5 .. 1.0, smooth over the face.
@@ -117,10 +111,11 @@ float corner_light(vec3 p, vec3 nrm, int layer) {
 
 void fragment() {
 	// how much of the detail this pixel gets: 1 near, 0 far
-	float lod = features >= 3.0 ? clamp((detail_far - v_dist) / (detail_far - detail_near), 0.0, 1.0) : 0.0;
+	float lod = features >= 3.0 ? clamp((detail_far + VERTEX.z) / (detail_far - detail_near), 0.0, 1.0) : 0.0;
 	// the pixel this fragment is in (nudged a hair so a block edge does not flicker between two pixels)
 	ivec3 cell = ivec3(floor(world_pos / pixel_size + 0.002));
 	vec3 n = dot(world_normal, world_normal) > 0.25 ? normalize(world_normal) : vec3(0.0, 1.0, 0.0);
+	vec3 local_pos = world_pos - MODEL_MATRIX[3].xyz;   // (a chunk is only moved: no varying for the place in the chunk)
 	vec3 face = FRONT_FACING ? n : -n;   // (the back of a two-sided thing is lit the other way)
 	vec3 base = COLOR.rgb;
 	if (terrain) {
@@ -134,7 +129,7 @@ void fragment() {
 			fl &= 2;
 		}
 		if ((fl & 2) != 0 && features >= 1.0 && (features < 3.0 || lod > 0.0)) {
-			base *= mix(1.0, corner_light(local_pos, normalize(round(local_normal)), layer), features >= 3.0 ? lod : 1.0);
+			base *= mix(1.0, corner_light(local_pos, normalize(round(n)), layer), features >= 3.0 ? lod : 1.0);
 		}
 		// where the grass is worn the earth shows through in single pixels: a pixel is earth when the wear is more than its own noise
 		float worn = 0.0;
