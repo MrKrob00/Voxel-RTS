@@ -15,6 +15,7 @@ const SUITES := {
 	"wall": "res://tests/suites/wall_suite.gd",
 	"brick": "res://tests/suites/brick_suite.gd",
 	"threads": "res://tests/suites/threads_suite.gd",
+	"colliders": "res://tests/suites/colliders_suite.gd",
 }
 
 
