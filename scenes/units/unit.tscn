@@ -1,6 +1,6 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://bjtenstkf4b23"]
 
-[ext_resource type="Script" path="res://scripts/units/unit.gd" id="1_qgilm"]
+[ext_resource type="Script" uid="uid://dmxhersthbcj0" path="res://scripts/units/unit.gd" id="1_qgilm"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6e3tn"]
 albedo_color = Color(0.9529412, 0.7607843, 0.16862746, 1)

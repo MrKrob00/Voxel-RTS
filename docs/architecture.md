@@ -109,8 +109,8 @@ picture is final; later stamps rebuild only the chunks they touch (`stamp_cover_
   on slopes or half-dug blocks, not over bricks or another stockpile):
   - the **plank platform** (24 bags; wood and ores);
   - the **crate** (before: "frame"), four low walls round the pile (16 bags; stone and plants). Stone shows as a heap of gravel that grows with every
-    bag. When the crate is filled with stone to the brim it disappears and **4 stone bricks of 2x1x1** (two layers of two, the 2x2x2
-    volume) stand in its place as ordinary `BrickWorld` bricks.
+	bag. When the crate is filled with stone to the brim it disappears and **4 stone bricks of 2x1x1** (two layers of two, the 2x2x2
+	volume) stand in its place as ordinary `BrickWorld` bricks.
   A stockpile holds one kind at a time and takes another once it is empty. With no stockpile that takes the kind, the worker
   keeps its bag and says "No free stockpile for stone".
 - **Quarry** (a dig task with depth > 1, the `+/-` buttons next to "mark dig area"): it digs **layer by layer** (`DigTask.update`

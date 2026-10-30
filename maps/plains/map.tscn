@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://rc47of2l3we1"]
 
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_14_3_15.res" id="1_x58nt"]
 [ext_resource type="ArrayMesh" path="res://maps/plains/chunks/Chunk_14_2_14.res" id="2_6r3mu"]

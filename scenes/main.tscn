@@ -1,20 +1,20 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene format=3 uid="uid://6w7vn7hekwh7"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/world/voxel_world.gd" id="2_world"]
-[ext_resource type="Script" path="res://scripts/world/prop_field.gd" id="3_props"]
-[ext_resource type="Script" path="res://scripts/physics/ground_colliders.gd" id="4_colliders"]
-[ext_resource type="Script" path="res://scripts/building/brick_world.gd" id="5_bricks"]
-[ext_resource type="Script" path="res://scripts/items/loose_items.gd" id="6_loose"]
-[ext_resource type="Script" path="res://scripts/camera/rts_camera.gd" id="7_camera"]
-[ext_resource type="Script" path="res://scripts/units/unit_manager.gd" id="8_units"]
-[ext_resource type="Script" path="res://scripts/economy/economy.gd" id="9_economy"]
-[ext_resource type="Script" path="res://scripts/tasks/task_board.gd" id="10_tasks"]
-[ext_resource type="Script" path="res://scripts/tools/aim_preview.gd" id="11_aim"]
-[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="12_hud"]
-[ext_resource type="Script" path="res://scripts/world/day_cycle.gd" id="13_day"]
-[ext_resource type="Script" path="res://scripts/world/relief_shadow.gd" id="14_relief"]
-[ext_resource type="Script" path="res://scripts/world/horizon_culling.gd" id="15_horizon"]
+[ext_resource type="Script" uid="uid://j8tvukr75xvy" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://d4g8ib4niwset" path="res://scripts/world/voxel_world.gd" id="2_world"]
+[ext_resource type="Script" uid="uid://530nhaiy8rgl" path="res://scripts/world/prop_field.gd" id="3_props"]
+[ext_resource type="Script" uid="uid://pv7cey5vthg1" path="res://scripts/physics/ground_colliders.gd" id="4_colliders"]
+[ext_resource type="Script" uid="uid://c5tnjyuwy7y6y" path="res://scripts/building/brick_world.gd" id="5_bricks"]
+[ext_resource type="Script" uid="uid://br6eqkxahyxw2" path="res://scripts/items/loose_items.gd" id="6_loose"]
+[ext_resource type="Script" uid="uid://dxhd7kxonomr0" path="res://scripts/camera/rts_camera.gd" id="7_camera"]
+[ext_resource type="Script" uid="uid://cv8xkm366vtr5" path="res://scripts/units/unit_manager.gd" id="8_units"]
+[ext_resource type="Script" uid="uid://c3kei6fe4w152" path="res://scripts/economy/economy.gd" id="9_economy"]
+[ext_resource type="Script" uid="uid://c3h6dbbmj8v0o" path="res://scripts/tasks/task_board.gd" id="10_tasks"]
+[ext_resource type="Script" uid="uid://bkthosaf6cit7" path="res://scripts/tools/aim_preview.gd" id="11_aim"]
+[ext_resource type="Script" uid="uid://t2888q4tbcmm" path="res://scripts/ui/hud.gd" id="12_hud"]
+[ext_resource type="Script" uid="uid://bu3mignpxxf5j" path="res://scripts/world/day_cycle.gd" id="13_day"]
+[ext_resource type="Script" uid="uid://c2w8w1bw655ao" path="res://scripts/world/relief_shadow.gd" id="14_relief"]
+[ext_resource type="Script" uid="uid://0lbrpyxwlwm4" path="res://scripts/world/horizon_culling.gd" id="15_horizon"]
 
 [sub_resource type="Environment" id="Environment_sky"]
 background_mode = 1
@@ -23,57 +23,55 @@ ambient_light_source = 2
 ambient_light_color = Color(0.72, 0.76, 0.85, 1)
 ambient_light_energy = 0.9
 
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" unique_id=1995266937]
 script = ExtResource("1_main")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1848020374]
 environment = SubResource("Environment_sky")
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=652006043]
 transform = Transform3D(0.8, -0.4, 0.45, 0, 0.75, 0.66, -0.6, -0.53, 0.6, 0, 40, 0)
 
-[node name="DayCycle" type="Node" parent="." node_paths=PackedStringArray("sun", "world_environment")]
+[node name="DayCycle" type="Node" parent="." unique_id=1376173127 node_paths=PackedStringArray("sun", "world_environment")]
 script = ExtResource("13_day")
 sun = NodePath("../Sun")
 world_environment = NodePath("../WorldEnvironment")
-time_of_day = 0.4
-day_seconds = 300.0
 
-[node name="ReliefShadow" type="Node" parent="."]
+[node name="ReliefShadow" type="Node" parent="." unique_id=339923597]
 script = ExtResource("14_relief")
 
-[node name="HorizonCulling" type="Node" parent="."]
+[node name="HorizonCulling" type="Node" parent="." unique_id=1255106108]
 script = ExtResource("15_horizon")
 
-[node name="World" type="Node3D" parent="."]
+[node name="World" type="Node3D" parent="." unique_id=1420239478]
 script = ExtResource("2_world")
 
-[node name="Props" type="Node3D" parent="."]
+[node name="Props" type="Node3D" parent="." unique_id=1550047468]
 script = ExtResource("3_props")
 
-[node name="GroundColliders" type="Node3D" parent="."]
+[node name="GroundColliders" type="Node3D" parent="." unique_id=705240985]
 script = ExtResource("4_colliders")
 
-[node name="Bricks" type="Node3D" parent="."]
+[node name="Bricks" type="Node3D" parent="." unique_id=1103523390]
 script = ExtResource("5_bricks")
 
-[node name="LooseItems" type="Node3D" parent="."]
+[node name="LooseItems" type="Node3D" parent="." unique_id=1718041545]
 script = ExtResource("6_loose")
 
-[node name="Camera" type="Node3D" parent="."]
+[node name="Camera" type="Node3D" parent="." unique_id=1750052889]
 script = ExtResource("7_camera")
 
-[node name="Units" type="Node3D" parent="."]
+[node name="Units" type="Node3D" parent="." unique_id=753645317]
 script = ExtResource("8_units")
 
-[node name="Economy" type="Node3D" parent="."]
+[node name="Economy" type="Node3D" parent="." unique_id=98280969]
 script = ExtResource("9_economy")
 
-[node name="Tasks" type="Node3D" parent="."]
+[node name="Tasks" type="Node3D" parent="." unique_id=1410716573]
 script = ExtResource("10_tasks")
 
-[node name="AimPreview" type="Node3D" parent="."]
+[node name="AimPreview" type="Node3D" parent="." unique_id=901731708]
 script = ExtResource("11_aim")
 
-[node name="Hud" type="CanvasLayer" parent="."]
+[node name="Hud" type="CanvasLayer" parent="." unique_id=1845148157]
 script = ExtResource("12_hud")
