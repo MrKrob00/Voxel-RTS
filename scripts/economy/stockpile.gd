@@ -2,8 +2,8 @@ class_name Stockpile
 extends Node3D
 ## A 2x2 place where units put what they carry. It is ONE structure: what it looks like depends on what is in it (its `form`):
 ##   PLATFORM  a plank platform with the goods lying on it: logs, planks, rope, ores (and when it is empty)
-##   CRATE     stone or grass: the platform with a copy of it standing up on each of the four sides, a solid crate of 2 x 2 x 2 blocks
-##             with the loose stuff in it. When it is filled with stone to the brim, the crate becomes ...
+##   CRATE     stone, coal, iron or grass: the platform with a copy of it standing up on each of the four sides, a solid crate of 2 x 2 x 2
+##             blocks with the loose stuff in it, filling the whole floor and rising from the bottom to the top as the amount grows. When it is filled with stone to the brim, the crate becomes ...
 ##   STACK     ... a stack of stone bricks (2x1x1, 4 of them: the 2x2x2 volume), without the floor; as bricks are taken it shrinks,
 ##             and the empty stockpile is a platform again.
 ## A stockpile holds one kind at a time (it takes a new kind once it is empty). How much fits depends on the kind: bags are half
@@ -29,6 +29,10 @@ const CAPACITY := {
 }
 ## What a stockpile costs, paid from the planks in the stockpiles (a guess: the original's price is not known here).
 const COST := {Resources.Kind.PLANK: 3}
+## The loose kinds that fill a crate (amber is still a heap on the platform).
+const FILL_KINDS := [Resources.Kind.STONE, Resources.Kind.PLANT, Resources.Kind.COAL, Resources.Kind.IRON]
+const FILL_GAP := 0.1          ## between the walls and what is inside
+const FILL_CHUNKS := 40        ## pieces of rubble on the surface of what is inside
 
 var origin := Vector3i.ZERO
 var holding := Resources.Kind.NONE       ## what it holds right now (NONE when empty)
@@ -36,6 +40,10 @@ var count := 0                           ## how many of them
 var _piles: Node3D
 var _floor: Node3D
 var _walls: Node3D
+var _fill: Node3D                        ## what a crate holds: a body that fills it up to the amount, and rubble on top (made once, kept)
+var _fill_body: MeshInstance3D
+var _fill_rubble: MultiMeshInstance3D
+var _fill_kind := Resources.Kind.NONE
 var _label: Label3D
 
 
@@ -79,7 +87,7 @@ func capacity() -> int:
 ## What it looks like now: by what is in it.
 func form() -> int:
 	match holding:
-		Resources.Kind.STONE, Resources.Kind.PLANT:
+		Resources.Kind.STONE, Resources.Kind.PLANT, Resources.Kind.COAL, Resources.Kind.IRON:
 			return Form.CRATE
 		Resources.Kind.BRICK:
 			return Form.STACK
@@ -171,6 +179,18 @@ func build(cell: Vector3i) -> void:
 	_plank_panel(_walls, Transform3D(Basis(Vector3.UP, Vector3.FORWARD, Vector3.LEFT), Vector3(SIZE, 0.0, SIZE)))
 	_piles = Node3D.new()
 	add_child(_piles)
+	_fill = Node3D.new()
+	add_child(_fill)
+	_fill_body = MeshInstance3D.new()
+	_fill_body.mesh = BoxMesh.new()
+	_fill.add_child(_fill_body)
+	var rubble := MultiMesh.new()
+	rubble.transform_format = MultiMesh.TRANSFORM_3D
+	rubble.mesh = _chunk_mesh()
+	rubble.instance_count = FILL_CHUNKS
+	_fill_rubble = MultiMeshInstance3D.new()
+	_fill_rubble.multimesh = rubble
+	_fill.add_child(_fill_rubble)
 	_label = Label3D.new()
 	_label.font_size = 22
 	_label.pixel_size = 0.0045
@@ -227,10 +247,13 @@ static func _fract(x: float) -> float:
 func _refresh() -> void:
 	_floor.visible = form() != Form.STACK     # a stack of bricks stands on the bare ground
 	_walls.visible = form() == Form.CRATE
+	_fill.visible = count > 0 and FILL_KINDS.has(holding)
 	for c in _piles.get_children():
 		c.queue_free()
 	if count > 0:
 		match holding:
+			Resources.Kind.STONE, Resources.Kind.PLANT, Resources.Kind.COAL, Resources.Kind.IRON:
+				_show_fill()
 			Resources.Kind.LOG:
 				_show_logs()
 			Resources.Kind.PLANK:
@@ -244,7 +267,30 @@ func _refresh() -> void:
 	_label.text = "%s %d/%d" % [Resources.label(holding), count, capacity_for(holding)] if count > 0 else "empty"
 
 
-## Loose stuff (stone, ore, grass): a heap of rubble that grows with every bag, like the gravel in the original. Chunk k lies on
+## Stone, coal, iron and grass in a crate: what is in it fills the whole floor and rises from the bottom as the amount grows, to the top of the
+## crate when it is full. A body of the colour of the kind, with rubble lying on its surface (the same pieces, only lifted).
+func _show_fill() -> void:
+	var full := capacity_for(holding)
+	var room := WALL_HEIGHT - PLATFORM_HEIGHT - 0.12
+	var h := maxf(float(count) / full * room, 0.06)
+	var inner := SIZE - 2.0 * FILL_GAP
+	var col: Color = Resources.COLORS.get(holding, Color.GRAY)
+	if _fill_kind != holding:
+		_fill_kind = holding
+		_fill_body.material_override = _mat(col.darkened(0.3))
+		_fill_rubble.material_override = _chunk_material(holding)
+	_fill_body.scale = Vector3(inner, h, inner)
+	_fill_body.position = Vector3(SIZE * 0.5, PLATFORM_HEIGHT + h * 0.5, SIZE * 0.5)
+	var half := inner * 0.5 - 0.12
+	for k in FILL_CHUNKS:
+		var u := _fract((k + 1) * _GOLDEN_U) * 2.0 - 1.0
+		var v := _fract((k + 1) * _GOLDEN_V) * 2.0 - 1.0
+		var size := 0.26 + 0.14 * _fract(sin(k * 12.9898) * 43758.5453)
+		var basis := Basis(Vector3.UP, _fract(sin(k * 78.233) * 43758.5453) * TAU).scaled(Vector3(size, size * 0.7, size))
+		_fill_rubble.multimesh.set_instance_transform(k, Transform3D(basis, Vector3(SIZE * 0.5 + u * half, PLATFORM_HEIGHT + h - size * 0.25, SIZE * 0.5 + v * half)))
+
+
+## Loose stuff (amber on the platform): a heap of rubble that grows with every bag, like the gravel in the original. Chunk k lies on
 ## the surface of the heap as it was when k chunks were in it, so a bag adds to the top and the heap does not jump about.
 func _show_heap() -> void:
 	var full := capacity_for(holding)
