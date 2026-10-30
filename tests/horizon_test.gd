@@ -24,6 +24,22 @@ func _init() -> void:
 	var high := Vector3(100.0, 80.0, 100.0)
 	var horizon_high := HorizonCulling.make_horizon(high, heights, cw, cd)
 	failed += _check(not HorizonCulling.chunk_hidden(high, horizon_high, 90.0, 180.0, 106.0, 196.0, 20.0), "from high above nothing is hidden by the ridge")
+	# the picture: the camera looks down at 35 degrees; far ahead the ground lies above the top edge of the picture
+	var proj := Projection.create_perspective(60.0, 16.0 / 9.0, 0.1, 1400.0)
+	var pitch := deg_to_rad(35.0)
+	var eye := Transform3D(Basis.looking_at(Vector3(0, -sin(pitch), cos(pitch)), Vector3.UP), Vector3(100, 10, 100))
+	var probe := eye * Vector3(0, 0, -50)
+	var planes := PackedFloat32Array()
+	for k in 6:
+		var pl: Plane = eye * proj.get_projection_plane(k)
+		if pl.distance_to(probe) > 0.0:
+			pl = Plane(-pl.normal, -pl.d)   # outward, as Camera3D.get_frustum
+		planes.append_array([pl.normal.x, pl.normal.y, pl.normal.z, pl.d])
+	failed += _check(not HorizonCulling.outside_picture(planes, 0.0, 90.0, 120.0, 106.0, 136.0, 4.0, 5.0), "ground a little way ahead is in the picture")
+	failed += _check(HorizonCulling.outside_picture(planes, 0.0, 90.0, 200.0, 106.0, 216.0, 4.0, 5.0), "ground far ahead lies above the top edge of the picture: out")
+	failed += _check(not HorizonCulling.outside_picture(planes, 0.0, 90.0, 200.0, 106.0, 216.0, -11.0, 5.0), "the box of its whole mesh, reaching down into the cliffs, would still count as in it")
+	failed += _check(HorizonCulling.outside_picture(planes, 0.0, 90.0, 20.0, 106.0, 36.0, 4.0, 5.0), "ground behind the camera is out")
+	failed += _check(not HorizonCulling.outside_picture(planes, 60.0, 90.0, 200.0, 106.0, 216.0, 4.0, 5.0), "a big margin lets it in")
 	print("HORIZON DONE: %d failed" % failed)
 	quit(1 if failed > 0 else 0)
 

@@ -37,6 +37,22 @@ func _init() -> void:
 	var high := FarTerrain.select_leaves(Vector3(224, 300, 224), 250.0, width, depth)
 	failed += _check(high.size() > 0 and high.size() < low.size() + 40, "a camera high above sees the ground as far nodes (%d, against %d from a low one)" % [high.size(), low.size()])
 
+	# with the camera's frustum: what is behind the camera is left out
+	var proj := Projection.create_perspective(60.0, 16.0 / 9.0, 0.1, 1400.0)
+	var eye := Transform3D(Basis.looking_at(Vector3(0, -10, 176).normalized(), Vector3.UP), Vector3(224, 60, 224))   # looks along +z
+	var planes: Array = []
+	var probe := eye * Vector3(0, 0, -50)   # a point in front of the camera: inside every plane
+	for k in 6:
+		var pl: Plane = eye * proj.get_projection_plane(k)
+		planes.append(pl if pl.distance_to(probe) < 0.0 else Plane(-pl.normal, -pl.d))   # (the planes face outward, like Camera3D.get_frustum)
+	var in_view := FarTerrain.select_leaves(Vector3(224, 60, 224), 10.0, width, depth, planes, 24.0)
+	var all_leaves := FarTerrain.select_leaves(Vector3(224, 60, 224), 10.0, width, depth)
+	var behind := 0
+	for leaf: Array in in_view:
+		var span: int = 16 << leaf[0]
+		if (leaf[2] + 1) * span < 224 - 24:
+			behind += 1
+	failed += _check(behind == 0 and in_view.size() < all_leaves.size(), "far nodes behind the camera are left out (%d of %d, none behind)" % [in_view.size(), all_leaves.size()])
 	# a node: flat ground
 	var levels := PackedInt32Array()
 	levels.resize(width * depth)

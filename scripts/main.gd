@@ -99,7 +99,7 @@ func _process(delta: float) -> void:
 		_panel_timer = 0.5
 		_refresh_tasks_panel()
 		_refresh_units_label()
-	hud.set_status("%d fps | %s | bricks %d | far %d (chunk columns %d), behind hills %d, drawn %d" % [Engine.get_frames_per_second(), world.stats(), bricks.brick_count(), far_terrain.far_leaf_count(), far_terrain.hidden_columns(), horizon.hidden_count(), RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)])
+	hud.set_status("%d fps | %s | bricks %d | far %d (chunk columns %d), behind hills %d, outside %d, drawn %d" % [Engine.get_frames_per_second(), world.stats(), bricks.brick_count(), far_terrain.far_leaf_count(), far_terrain.hidden_columns(), horizon.hidden_count(), horizon.outside_count(), RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)])
 	_update_hover()
 
 
