@@ -15,8 +15,8 @@
 [ext_resource type="Script" uid="uid://bu3mignpxxf5j" path="res://scripts/world/day_cycle.gd" id="13_day"]
 [ext_resource type="Script" uid="uid://c2w8w1bw655ao" path="res://scripts/world/relief_shadow.gd" id="14_relief"]
 [ext_resource type="Script" uid="uid://0lbrpyxwlwm4" path="res://scripts/world/horizon_culling.gd" id="15_horizon"]
-[ext_resource type="Script" path="res://scripts/world/far_terrain.gd" id="16_far"]
-[ext_resource type="Script" path="res://scripts/world/ground_occluder.gd" id="17_occ"]
+[ext_resource type="Script" uid="uid://jfcb3ng20586" path="res://scripts/world/far_terrain.gd" id="16_far"]
+[ext_resource type="Script" uid="uid://bqcyp0t74bnu8" path="res://scripts/world/ground_occluder.gd" id="17_occ"]
 
 [sub_resource type="Environment" id="Environment_sky"]
 background_mode = 1
@@ -45,10 +45,10 @@ script = ExtResource("14_relief")
 [node name="HorizonCulling" type="Node" parent="." unique_id=1255106108]
 script = ExtResource("15_horizon")
 
-[node name="FarTerrain" type="Node3D" parent="."]
+[node name="FarTerrain" type="Node3D" parent="." unique_id=1979337029]
 script = ExtResource("16_far")
 
-[node name="GroundOccluder" type="Node3D" parent="."]
+[node name="GroundOccluder" type="Node3D" parent="." unique_id=174753829]
 script = ExtResource("17_occ")
 
 [node name="World" type="Node3D" parent="." unique_id=1420239478]
