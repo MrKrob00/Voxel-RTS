@@ -51,6 +51,8 @@ var _dock: PanelContainer
 var _plus: Button
 var _ribbon_scroll: ScrollContainer
 var _ribbon: HBoxContainer
+var _cards: Array[Control] = []     # the cards of the ribbon, made once (see set_tasks)
+var _no_tasks: Label
 var _home: Button
 var _probe: Button          # measures what a frame costs on this device, layer by layer (FrameProbe)
 var _probe_label: Label
@@ -149,17 +151,25 @@ func set_resources(lines: Dictionary) -> void:
 		_resources.add_child(l)
 
 
+## Fills the ribbon. The cards are made once and kept (a card is a button with three labels and a cross): a task takes the next one of the
+## pool and only its texts are changed, so a refresh makes and frees no node.
 func set_tasks(tasks: Array) -> void:
-	for c in _ribbon.get_children():
-		c.queue_free()
-	tasks = tasks.filter(func(t: WorkTask) -> bool: return t.shown())
-	for t in tasks:
-		_ribbon.add_child(_task_card(t))
-	if tasks.is_empty():
-		var hint := Label.new()
-		hint.text = "No tasks. Press + to start one."
-		hint.modulate = Color(1, 1, 1, 0.55)
-		_ribbon.add_child(hint)
+	var shown := 0
+	for t: WorkTask in tasks:
+		if not t.shown():
+			continue
+		if shown == _cards.size():
+			_cards.append(_make_card())
+		_fill_card(_cards[shown], t)
+		shown += 1
+	for i in range(shown, _cards.size()):
+		_cards[i].visible = false
+	if _no_tasks == null:
+		_no_tasks = Label.new()
+		_no_tasks.text = "No tasks. Press + to start one."
+		_no_tasks.modulate = Color(1, 1, 1, 0.55)
+		_ribbon.add_child(_no_tasks)
+	_no_tasks.visible = shown == 0
 
 
 func set_tool(mode: int) -> void:
@@ -450,14 +460,15 @@ func _build_bottom() -> void:
 	_root.add_child(_probe_label)
 
 
-## One card of the ribbon, like the original's: the kind of task, its workers as dots, and what can be done with it.
-func _task_card(t: WorkTask) -> Control:
+## One card of the ribbon, like the original's: the kind of task, its workers as dots, and what can be done with it. It belongs to no task
+## yet: `_fill_card` gives it one (the task it shows is in its meta "task").
+func _make_card() -> Control:
 	# The whole card is one button (it selects the task: its workers, its ring in the world); the only other thing on it is the cross
 	# that closes the task.
 	var card := Button.new()
 	card.custom_minimum_size = Vector2(132, 96)
 	card.focus_mode = Control.FOCUS_NONE
-	card.pressed.connect(func() -> void: task_select.emit(t))
+	card.pressed.connect(func() -> void: task_select.emit(card.get_meta("task")))
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	col.offset_left = 8.0
@@ -466,19 +477,18 @@ func _task_card(t: WorkTask) -> Control:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(col)
 	var head := Label.new()
-	head.text = _short_title(t)
+	head.name = "Head"
 	head.add_theme_color_override("font_color", ACCENT)
 	head.add_theme_font_size_override("font_size", 15)
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(head)
 	var dots := Label.new()
-	var n := t.workers.size()
-	dots.text = "●".repeat(n) + "○".repeat(maxi(mini(t.max_workers, 6) - n, 0)) + ("  +%d" % (n - 6) if n > 6 else "")
+	dots.name = "Dots"
 	dots.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	dots.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(dots)
 	var detail := Label.new()
-	detail.text = t.detail()
+	detail.name = "Detail"
 	detail.add_theme_font_size_override("font_size", 12)
 	detail.modulate = Color(1, 1, 1, 0.8)
 	detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -492,9 +502,20 @@ func _task_card(t: WorkTask) -> Control:
 	close.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	close.offset_left = -34.0
 	close.offset_bottom = 32.0
-	close.pressed.connect(func() -> void: task_cancel.emit(t))
+	close.pressed.connect(func() -> void: task_cancel.emit(card.get_meta("task")))
 	card.add_child(close)
+	_ribbon.add_child(card)
 	return card
+
+
+func _fill_card(card: Control, t: WorkTask) -> void:
+	card.set_meta("task", t)
+	card.visible = true
+	var col := card.get_child(0)
+	(col.get_node("Head") as Label).text = _short_title(t)
+	var n := t.workers.size()
+	(col.get_node("Dots") as Label).text = "●".repeat(n) + "○".repeat(maxi(mini(t.max_workers, 6) - n, 0)) + ("  +%d" % (n - 6) if n > 6 else "")
+	(col.get_node("Detail") as Label).text = t.detail()
 
 
 static func _short_title(t: WorkTask) -> String:

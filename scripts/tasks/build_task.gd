@@ -1,62 +1,147 @@
 class_name BuildTask
 extends WorkTask
-## The job of a blueprint. Like a station's, it is a standing job: whenever a stockpile has one of the things the blueprint still needs,
-## an idle unit comes, fetches it (one load: a log, three planks), carries it over and puts it in. When everything is in, the blueprint
-## is replaced by the real building and the job ends.
+## The ONE job of every planned structure (stockpile, stump, rope machine...), as WallTask is the one job of the planned blocks: a new
+## blueprint joins the job that is already there, and a job is made only when there is none. Like a station's it is a standing job: whenever
+## a stockpile has one of the things a blueprint still needs, an idle unit comes, fetches it (one load: a log, three planks), carries it to
+## the blueprint that needs it and puts it in. A blueprint that has all it needs is replaced by the real building and leaves the job; the
+## job ends when the last one has gone.
 
-var blueprint: Blueprint
+var blueprints: Array[Blueprint] = []
 
 
-func _init(bp: Blueprint) -> void:
-	blueprint = bp
-	title = "Build " + bp.title.to_lower()
+func _init(bp: Blueprint = null) -> void:
 	persistent = true
-	max_workers = 2
+	max_workers = 4
+	if bp != null:
+		add_blueprint(bp)
+	_retitle()
 
 
-## Every frame: a log in somebody's hands that is on its way to this plan hangs over it as a ghost log (the place is taken, the work not begun).
+func add_blueprint(bp: Blueprint) -> void:
+	blueprints.append(bp)
+	_retitle()
+
+
+func remove_blueprint(bp: Blueprint) -> void:
+	blueprints.erase(bp)
+	_retitle()
+
+
+## The blueprints still to be built (a freed one, or one that stands now, is not).
+func live() -> Array[Blueprint]:
+	var out: Array[Blueprint] = []
+	for bp in blueprints:
+		if is_instance_valid(bp) and not bp.done:
+			out.append(bp)
+	return out
+
+
+func _retitle() -> void:
+	var l := live()
+	title = "Build " + (l[0].title.to_lower() if l.size() == 1 else "structures")
+
+
+## Every frame: a log in somebody's hands that is on its way to a plan hangs over it as a ghost log (the place is taken, the work not begun).
 func update(_brd: TaskBoard) -> void:
-	if blueprint == null or not is_instance_valid(blueprint) or blueprint.done:
+	var l := live()
+	if l.is_empty():
 		return
-	var coming := false
-	if blueprint.remaining().has(Resources.Kind.LOG):
-		for u in workers:
-			if is_instance_valid(u) and u.carried_kind() == Resources.Kind.LOG and u.carried_amount() > 0:
-				coming = true
-	blueprint.show_incoming_log(coming)
+	var coming := {}
+	for u in workers:
+		if is_instance_valid(u) and u.carried_kind() == Resources.Kind.LOG and u.carried_amount() > 0:
+			var bp := _nearest_needing(l, Resources.Kind.LOG, u.cell)
+			if bp != null:
+				coming[bp] = true
+	for bp in l:
+		bp.show_incoming_log(coming.has(bp))
+	if l.size() != blueprints.size():
+		blueprints.assign(l)   # the ones that stand now are out of the job
+		_retitle()
+
+
+static func _nearest_needing(from_list: Array[Blueprint], kind: int, from: Vector3i) -> Blueprint:
+	var best: Blueprint = null
+	var best_d := INF
+	for bp in from_list:
+		if not bp.remaining().has(kind):
+			continue
+		var d := Vector2(bp.origin.x - from.x, bp.origin.z - from.z).length()
+		if d < best_d:
+			best_d = d
+			best = bp
+	return best
 
 
 func is_finished() -> bool:
-	return blueprint == null or not is_instance_valid(blueprint) or blueprint.done
+	return live().is_empty()
 
 
 func summary() -> String:
-	return "%s: %s%s" % [title, blueprint.needs_text() if not is_finished() else "done", "  (%d working)" % workers.size() if not workers.is_empty() else ""]
+	return "%s: %s%s" % [title, detail(), "  (%d working)" % workers.size() if not workers.is_empty() else ""]
 
 
+## What the plans still need, all together ("planks 2/6, log 0/1"), or the plan's own line when there is one.
 func detail() -> String:
-	return blueprint.needs_text() if not is_finished() else "done"
+	var l := live()
+	if l.is_empty():
+		return "done"
+	if l.size() == 1:
+		return l[0].needs_text()
+	var cost := {}
+	var have := {}
+	for bp in l:
+		for k in bp.cost:
+			cost[k] = cost.get(k, 0) + bp.cost[k]
+			have[k] = have.get(k, 0) + bp.delivered.get(k, 0)
+	var parts := PackedStringArray()
+	for k in cost:
+		parts.append("%s %d/%d" % [Resources.label(k).to_lower(), have[k], cost[k]])
+	return "%d plans: %s" % [l.size(), ", ".join(parts)]
 
 
-## What is to be fetched next: a load of the first thing still missing.
-func input_needed() -> Dictionary:
-	if is_finished():
-		return {}   # the blueprint is done and gone (a worker may still be on the job): nothing more to fetch
-	var rem := blueprint.remaining()
+## The first thing a plan still misses, as a load.
+static func _need_of(bp: Blueprint) -> Dictionary:
+	var rem := bp.remaining()
 	for k in rem:
 		return {"kind": k, "amount": mini(rem[k], Resources.carry_capacity(k))}
 	return {}
 
 
+## What is to be fetched next: a load of what the first plan that can be served right now misses (else of what the first one misses).
+func input_needed() -> Dictionary:
+	return input_needed_by(null)
+
+
+## The same, but a unit that carries something that a plan needs goes on with that.
+func input_needed_by(unit: Unit) -> Dictionary:
+	var first := {}
+	for bp in live():
+		var need := _need_of(bp)
+		if need.is_empty():
+			continue
+		if unit != null and unit.carried_amount() > 0 and bp.remaining().has(unit.carried_kind()):
+			return {"kind": unit.carried_kind(), "amount": mini(bp.remaining()[unit.carried_kind()], Resources.carry_capacity(unit.carried_kind()))}
+		if first.is_empty():
+			first = need
+		if board != null and board.economy.find_stock(Vector3i(bp.origin), need.kind, need.amount) != null:
+			if unit == null or unit.carried_amount() == 0:
+				return need
+	return first
+
+
 func wants_workers(brd: TaskBoard) -> bool:
-	if is_finished() or workers.size() >= max_workers:
+	if workers.size() >= max_workers:
 		return false
-	var need := input_needed()
-	return not need.is_empty() and brd.economy.find_stock(Vector3i(blueprint.origin), need.kind, need.amount) != null
+	for bp in live():
+		var need := _need_of(bp)
+		if not need.is_empty() and brd.economy.find_stock(Vector3i(bp.origin), need.kind, need.amount) != null:
+			return true
+	return false
 
 
-func claim(_unit: Unit, _from: Vector3i, _now: float) -> Variant:
-	return null if is_finished() else blueprint
+## The nearest plan that needs what the unit carries.
+func claim(unit: Unit, from: Vector3i, _now: float) -> Variant:
+	return _nearest_needing(live(), unit.carried_kind(), from)
 
 
 func release(_target: Variant, _retry_after := 0.0) -> void:
@@ -67,34 +152,43 @@ func complete(_target: Variant) -> void:
 	pass
 
 
+func _is_live(target: Variant) -> bool:
+	return target is Blueprint and is_instance_valid(target) and not (target as Blueprint).done and blueprints.has(target)
+
+
 func holds(target: Variant) -> bool:
-	return target == blueprint and not is_finished()
+	return _is_live(target)
 
 
 func valid(target: Variant, _brd: TaskBoard) -> bool:
-	return target == blueprint and not is_finished()
+	return _is_live(target)
 
 
-func stand_cells(_target: Variant, brd: TaskBoard) -> Array[Vector3i]:
-	if is_finished():
+func stand_cells(target: Variant, brd: TaskBoard) -> Array[Vector3i]:
+	if not _is_live(target):
 		return []
-	return blueprint.access_cells(brd.nav)
+	return (target as Blueprint).access_cells(brd.nav)
 
 
-func face_point(_target: Variant) -> Vector3:
-	return blueprint.center() if is_instance_valid(blueprint) else Vector3.ZERO
+## A point to send the nearest idle unit towards: the first plan.
+func face_point(target: Variant) -> Vector3:
+	if _is_live(target):
+		return (target as Blueprint).center()
+	var l := live()
+	return l[0].center() if not l.is_empty() else Vector3.ZERO
 
 
 func work_time(_target: Variant) -> float:
 	return 0.8
 
 
-## Puts what the unit carries into the blueprint; when it is all there, the building stands.
-func perform(_target: Variant, brd: TaskBoard, unit: Unit = null) -> Dictionary:
+## Puts what the unit carries into the plan; when it is all there, the building stands.
+func perform(target: Variant, brd: TaskBoard, unit: Unit = null) -> Dictionary:
+	var bp := target as Blueprint
 	if unit != null and unit.carried_amount() > 0:
 		var kind := unit.carried_kind()
-		var left := unit.carried_amount() - blueprint.deliver(kind, unit.carried_amount())
-		unit.carry(kind if left > 0 else Resources.Kind.NONE, left)   # what the blueprint did not need stays in the hands
-	if blueprint.is_complete():
-		brd.finish_blueprint(blueprint)
+		var left := unit.carried_amount() - bp.deliver(kind, unit.carried_amount())
+		unit.carry(kind if left > 0 else Resources.Kind.NONE, left)   # what the plan did not need stays in the hands
+	if bp.is_complete():
+		brd.finish_blueprint(bp)
 	return {"done": true}

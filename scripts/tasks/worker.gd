@@ -117,7 +117,7 @@ func _leave_or_wait() -> void:
 	if task.persistent and unit.carried_amount() > 0 and task.keeps_load(unit):
 		state = State.WAIT_TARGET   # the job will open up (the next course): keep the brick and wait
 		_timer = 1.0
-	elif task.persistent and unit.carried_amount() > 0 and not task.input_needed().is_empty() and state != State.WAIT_STOCK:
+	elif task.persistent and unit.carried_amount() > 0 and not task.input_needed_by(unit).is_empty() and state != State.WAIT_STOCK:
 		_find_stockpile()   # a leftover (half a brick) that the job cannot use now: back to a stockpile
 	elif task.persistent and unit.carried_amount() == 0:
 		board.resume_or_free(unit)   # a station with nothing to do: back to the earlier job, or a free unit
@@ -130,10 +130,10 @@ func _leave_or_wait() -> void:
 
 func _seek() -> void:
 	unit.status = ""
-	if unit.carried_amount() > 0 and task.input_needed().is_empty():
+	if unit.carried_amount() > 0 and task.input_needed_by(unit).is_empty():
 		_find_stockpile()   # still has something from before: that first
 		return
-	var need := task.input_needed()
+	var need := task.input_needed_by(unit)
 	var enough: int = need.get("min", need.get("amount", 0))   # a task can start with less than a full load (a half brick for a cube)
 	if not need.is_empty() and not (unit.carried_kind() == need.kind and unit.carried_amount() >= enough):
 		if unit.carried_amount() > 0 and unit.carried_kind() != need.kind:
@@ -420,7 +420,7 @@ func _put() -> void:
 		return
 	unit.carry(Resources.Kind.NONE, 0)
 	# Back to the same target if there is still something of it left and nothing has to be fetched, else to the next one.
-	if target != null and task.holds(target) and task.input_needed().is_empty():
+	if target != null and task.holds(target) and task.input_needed_by(unit).is_empty():
 		if task.valid(target, board) and _walk_to_work():
 			return
 	if target != null:

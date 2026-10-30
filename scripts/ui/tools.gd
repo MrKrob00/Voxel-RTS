@@ -7,7 +7,7 @@ enum Mode {
 	SELECT,
 	MARK_TREES, MARK_GRASS,
 	MARK_DIG,
-	STOCKPILE, STUMP, ROPE_MACHINE,
+	STOCKPILE, STUMP, ROPE_MACHINE, REMOVE_PLAN,
 	DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE,
 }
 
@@ -16,7 +16,7 @@ enum Mode {
 const TABS := {
 	"stone": {"title": "Stone Blocks", "icon": "brick", "sections": ["Stone Blocks", "Plugs", "Round Bricks", "Crenelations"]},
 	"wood": {"title": "Wood Blocks", "icon": "log", "sections": ["Wood Blocks"]},
-	"structures": {"title": "Structures", "icon": "platform", "sections": ["Storage", "Production"]},
+	"structures": {"title": "Structures", "icon": "platform", "sections": ["Storage", "Production", "Plans"]},
 }
 const TAB_ORDER := ["stone", "wood", "structures"]
 ## The tool of the block number i of the BlockCatalog is BLOCK_BASE + i.
@@ -44,7 +44,7 @@ static func defs() -> Array[Dictionary]:
 ## The icon of a tool that has no model to photograph (felling, quarry...), from assets/icons (game-icons.net), or null.
 static func icon_texture(mode: int) -> Texture2D:
 	var name: String = {
-		Mode.MARK_TREES: "fell_trees", Mode.MARK_GRASS: "cut_grass", Mode.MARK_DIG: "quarry", OPEN_BLOCKS: "build", STOP: "stop",
+		Mode.MARK_TREES: "fell_trees", Mode.MARK_GRASS: "cut_grass", Mode.MARK_DIG: "quarry", OPEN_BLOCKS: "build", STOP: "stop", Mode.REMOVE_PLAN: "stop",
 		Mode.DIG: "dig_now", Mode.VOXEL: "fill_ground", Mode.STONE_BRICK: "free_stone", Mode.STONE_CUBE: "free_stone",
 		Mode.WOOD_BRICK: "free_wood", Mode.WOOD_CUBE: "free_wood",
 	}.get(mode, "")
@@ -75,6 +75,7 @@ static func _fixed_defs() -> Array[Dictionary]:
 		{"mode": Mode.STOCKPILE, "category": "Construction", "label": "Stockpile 2x2", "section": "Storage", "tab": "structures", "short": "Stockpile", "hint": "Where units put what they carry. It looks like a platform for logs and planks, a crate for stone and grass, a stack of bricks. Costs 3 planks, brought by units."},
 		{"mode": Mode.STUMP, "category": "Construction", "label": "Stump with axe", "section": "Production", "tab": "structures", "short": "Stump", "hint": "Makes 3 planks of a log. Costs a log. Free units use it by themselves."},
 		{"mode": Mode.ROPE_MACHINE, "category": "Construction", "label": "Rope machine", "section": "Production", "tab": "structures", "short": "Rope", "hint": "Makes a rope of 2 sacks of grass. Costs 2 planks."},
+		{"mode": Mode.REMOVE_PLAN, "category": "Construction", "label": "Remove plans", "section": "Plans", "tab": "structures", "short": "Remove", "hint": "Tap a plan (a planned structure or wall), tap it again to remove it. What its units brought is lost."},
 		{"mode": Mode.DIG, "category": "Sandbox", "label": "Dig now", "short": "Dig now", "hint": "Dig a block at once (no units)."},
 		{"mode": Mode.VOXEL, "category": "Sandbox", "label": "Fill ground", "short": "Fill", "hint": "Fill a cell with ground at once."},
 		{"mode": Mode.STONE_BRICK, "category": "Sandbox", "label": "Free stone brick", "short": "Brick S", "hint": "Put a brick down at once."},

@@ -83,6 +83,11 @@ func input_needed() -> Dictionary:
 	return {}
 
 
+## The same for one unit: a job that serves several things at once (the plans of structures) lets a unit go on with what it carries.
+func input_needed_by(_unit: Unit) -> Dictionary:
+	return input_needed()
+
+
 ## Does a persistent task have something to do right now (so that an idle unit should come)?
 func wants_workers(_board: TaskBoard) -> bool:
 	return false

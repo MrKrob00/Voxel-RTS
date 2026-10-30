@@ -21,6 +21,7 @@ var now := 0.0                       ## seconds since start, for retry timers
 var _workers := {}                   ## Unit -> Worker
 var _next_id := 1
 var _redraw_timer := 0.0
+var _overlays: Array[MeshInstance3D] = []   ## overlay nodes no task uses now
 var _auto_timer := 0.0
 var _return_to := {}                 ## Unit -> the task it left for a detour (a log taken to a stump), to go back to
 
@@ -58,16 +59,30 @@ func _process(delta: float) -> void:
 			t.redraw(self)
 
 
+## The marks of a task are drawn by a node of the pool (made once with its material, kept hidden when no task has it), not by a new one.
 func _make_overlay(t: WorkTask) -> void:
-	t.overlay = MeshInstance3D.new()
+	if not _overlays.is_empty():
+		t.overlay = _overlays.pop_back()
+		t.overlay.visible = true
+	else:
+		t.overlay = MeshInstance3D.new()
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.vertex_color_use_as_albedo = true
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		t.overlay.material_override = m
+		add_child(t.overlay)
 	t.overlay.name = "Task%d" % t.id
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.vertex_color_use_as_albedo = true
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	t.overlay.material_override = m
-	add_child(t.overlay)
+
+
+func _free_overlay(t: WorkTask) -> void:
+	if t.overlay == null:
+		return
+	t.overlay.mesh = null
+	t.overlay.visible = false
+	_overlays.append(t.overlay)
+	t.overlay = null
 
 
 func add_task(t: WorkTask, with_overlay := true) -> void:
@@ -200,8 +215,20 @@ func place_blueprint(type: String, kind: int, origin: Vector3i) -> Blueprint:
 	var bp := economy.place_blueprint(type, kind, origin)
 	if bp == null:
 		return null
-	add_task(BuildTask.new(bp), false)
+	_structures_task().add_blueprint(bp)
+	changed.emit()
 	return bp
+
+
+## The one job that builds the planned structures: made when the first plan is put down, joined by every next one while it stands.
+func _structures_task() -> BuildTask:
+	for t in tasks:
+		var bt := t as BuildTask
+		if bt != null and not bt.is_finished():
+			return bt
+	var made := BuildTask.new()
+	add_task(made, false)
+	return made
 
 
 ## A blueprint has all it needs: the building stands (a station also gets its standing job).
@@ -262,8 +289,10 @@ func cancel_wall(plan: WallPlan) -> void:
 
 func cancel_blueprint(bp: Blueprint) -> void:
 	for t in tasks.duplicate():
-		if t is BuildTask and t.blueprint == bp:
-			remove_task(t)
+		if t is BuildTask and t.blueprints.has(bp):
+			t.remove_blueprint(bp)
+			if t.live().is_empty():
+				remove_task(t)
 	economy.cancel_blueprint(bp)
 
 
@@ -283,9 +312,11 @@ func remove_task(t: WorkTask) -> void:
 		for p in t.plans.duplicate():
 			if is_instance_valid(p):
 				economy.cancel_wall(p)   # the plans go with their job
+	if t is BuildTask:
+		for bp in t.live():
+			economy.cancel_blueprint(bp)   # the plans go with their job
 	tasks.erase(t)
-	if t.overlay != null:
-		t.overlay.queue_free()
+	_free_overlay(t)
 	for u in loaded:
 		dispose_load(u)   # whoever was carrying something for this job does not stand there with it
 	changed.emit()
@@ -375,7 +406,7 @@ func free_loose_log(from: Vector3i) -> LooseLog:
 func build_task_needing(kind: int) -> BuildTask:
 	for t in tasks:
 		var bt := t as BuildTask
-		if bt != null and not bt.is_finished() and bt.workers.size() < bt.max_workers and bt.blueprint.remaining().has(kind):
+		if bt != null and bt.workers.size() < bt.max_workers and bt.live().any(func(bp: Blueprint) -> bool: return bp.remaining().has(kind)):
 			return bt
 	return null
 

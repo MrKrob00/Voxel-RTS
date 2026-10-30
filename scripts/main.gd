@@ -32,6 +32,7 @@ var _ghost_mat: StandardMaterial3D
 var _hover: MeshInstance3D
 var _pending := {}              ## the placement shown as a ghost, waiting for the second tap: {"mode", "origin", "dir"}
 var _pending_ghost: Node3D
+var _remove_marker: MeshInstance3D   ## the red box over the plan the remove tool has marked (one node, kept)
 
 
 ## Debug switches for the command line (after `--`): --extras=0..4 more islands, --seed=N, --noprops. Applied before the world starts.
@@ -242,10 +243,7 @@ func _assign_crew(t: WorkTask) -> void:
 
 
 func _cancel_task(t: WorkTask) -> void:
-	if t is BuildTask:
-		board.cancel_blueprint(t.blueprint)
-	else:
-		board.remove_task(t)   # a wall's plan goes with its job
+	board.remove_task(t)   # the plans go with their job
 
 
 func _refresh_units_label() -> void:
@@ -354,6 +352,9 @@ func _on_primary(pos: Vector2) -> void:
 			units.clear_selection()
 		else:
 			units.select_only(u)
+		return
+	if mode == Tools.Mode.REMOVE_PLAN:
+		_remove_plan(pos)   # found by the ray through the plan (a wall hangs in the air), not by the ground
 		return
 	var hit := _pick(pos)
 	if hit.is_empty():
@@ -593,8 +594,77 @@ func _confirm(origin: Vector3i, dir: Vector2i) -> bool:
 	return same
 
 
+## The plan under the finger as {"plan": Blueprint or WallPlan, "box": AABB}, or {}: the nearest plan that the ray of the tap goes through.
+func _plan_at(screen_pos: Vector2) -> Dictionary:
+	var from := rig.camera.project_ray_origin(screen_pos)
+	var dir := rig.camera.project_ray_normal(screen_pos)
+	var best := {}
+	var best_t := INF
+	for bp: Blueprint in economy.blueprints:
+		if is_instance_valid(bp):
+			best_t = _nearer_plan(best, best_t, bp, AABB(Vector3(bp.origin), Vector3(bp.size.x, 1.5, bp.size.y)), from, dir)
+	for w: WallPlan in economy.walls:
+		if not is_instance_valid(w):
+			continue
+		var box := AABB()
+		var any := false
+		for sl: WallPlan.Slot in w.slots:
+			if sl.done:
+				continue
+			for c in sl.cells():
+				box = box.expand(Vector3(c)) if any else AABB(Vector3(c), Vector3.ZERO)
+				box = box.expand(Vector3(c) + Vector3.ONE)
+				any = true
+		if any:
+			best_t = _nearer_plan(best, best_t, w, box, from, dir)
+	return best
+
+
+func _nearer_plan(best: Dictionary, best_t: float, plan: Node, box: AABB, from: Vector3, dir: Vector3) -> float:
+	var at: Variant = box.intersects_ray(from, dir)
+	if at == null:
+		return best_t
+	var t := from.distance_to(at)
+	if t >= best_t:
+		return best_t
+	best.clear()
+	best.plan = plan
+	best.box = box
+	return t
+
+
+## The remove tool: the first tap marks the plan in red, the second one on the same plan takes it away (what was brought to it is lost).
+func _remove_plan(screen_pos: Vector2) -> void:
+	var found := _plan_at(screen_pos)
+	if found.is_empty():
+		_clear_pending()
+		return
+	if not _pending.is_empty() and _pending.get("plan") == found.plan:
+		var plan: Node = found.plan
+		_clear_pending()
+		if plan is Blueprint:
+			board.cancel_blueprint(plan)
+		else:
+			board.cancel_wall(plan)
+		return
+	_pending = {"mode": mode, "plan": found.plan}
+	if _remove_marker == null:
+		_remove_marker = MeshInstance3D.new()
+		_remove_marker.mesh = BoxMesh.new()
+		var m := _ghost_material()
+		m.albedo_color = Color(0.95, 0.25, 0.2, 0.5)
+		_remove_marker.material_override = m
+		add_child(_remove_marker)   # made once; hidden and moved afterwards
+	var box: AABB = found.box
+	_remove_marker.position = box.get_center()
+	_remove_marker.scale = box.size + Vector3.ONE * 0.06
+	_remove_marker.visible = true
+
+
 func _clear_pending() -> void:
 	_pending = {}
+	if _remove_marker != null:
+		_remove_marker.visible = false
 	if _pending_ghost != null:
 		_pending_ghost.queue_free()
 		_pending_ghost = null

@@ -82,6 +82,16 @@ func run() -> void:
 	_board.cancel_blueprint(third)
 	check(_economy.blueprints.is_empty() and _board.tasks.size() == tasks_before - 1, "a cancelled plan goes with its job")
 
+	# Every plan of a structure joins the one building job; the job goes with its last plan.
+	var plan_a := _board.place_blueprint("stockpile", 0, base + Vector3i(10, 0, 12))
+	var plan_b := _board.place_blueprint("station", Station.Kind.ROPE_MACHINE, base + Vector3i(14, 0, 12))
+	var build_jobs := _board.tasks.filter(func(t: WorkTask) -> bool: return t is BuildTask)
+	check(plan_a != null and plan_b != null and build_jobs.size() == 1 and build_jobs[0].blueprints.size() == 2, "two plans are one building job")
+	_board.cancel_blueprint(plan_a)
+	check(_board.tasks.has(build_jobs[0]) and build_jobs[0].blueprints.size() == 1, "cancelling one plan leaves the job with the other")
+	_board.cancel_blueprint(plan_b)
+	check(not _board.tasks.has(build_jobs[0]) and _economy.blueprints.is_empty(), "the job goes with its last plan")
+
 	# The only stockpile holds logs (no room for planks) and a second one is only planned: the stump makes planks of a log and they
 	# go straight to the blueprint, nobody waits for a stockpile that does not exist yet.
 	_economy.remove_stockpile(bank)
