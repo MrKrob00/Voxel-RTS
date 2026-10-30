@@ -15,6 +15,7 @@ signal level_changed(level: int)
 signal select_all_pressed
 signal select_idle_pressed
 signal home_pressed
+signal probe_pressed
 signal turn_pressed
 signal task_select(task: WorkTask)
 signal task_cancel(task: WorkTask)
@@ -51,6 +52,8 @@ var _plus: Button
 var _ribbon_scroll: ScrollContainer
 var _ribbon: HBoxContainer
 var _home: Button
+var _probe: Button          # measures what a frame costs on this device, layer by layer (FrameProbe)
+var _probe_label: Label
 var _toast: Label
 var _toast_time := 0.0
 var _cell_info: Label
@@ -101,6 +104,19 @@ func set_status(text: String) -> void:
 
 func set_cell_info(text: String) -> void:
 	_cell_info.text = text
+
+
+## The table of the probe (or what it is doing now); empty hides it.
+func set_probe_text(text: String) -> void:
+	_probe_label.text = text
+	_probe_label.visible = text != ""
+	_probe_label.reset_size()
+	_place_probe()
+
+
+## The table hangs under the home button, its right edge on the screen's.
+func _place_probe() -> void:
+	_probe_label.position = Vector2(_home.position.x + _home.custom_minimum_size.x - _probe_label.size.x, _home.position.y + MIN_TOUCH + 8.0)
 
 
 func show_message(text: String) -> void:
@@ -424,6 +440,14 @@ func _build_bottom() -> void:
 	_home.tooltip_text = "Home"
 	_home.pressed.connect(func() -> void: home_pressed.emit())
 	_root.add_child(_home)
+	_probe = _button("Probe", Vector2(MIN_TOUCH + 24, MIN_TOUCH))
+	_probe.tooltip_text = "Measure what each layer of the picture costs on this device (the table is copied)"
+	_probe.pressed.connect(func() -> void: probe_pressed.emit())
+	_root.add_child(_probe)
+	_probe_label = _outlined_label(12)
+	_probe_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_probe_label.visible = false
+	_root.add_child(_probe_label)
 
 
 ## One card of the ribbon, like the original's: the kind of task, its workers as dots, and what can be done with it.
@@ -544,6 +568,8 @@ func _relayout() -> void:
 	# Actions of the tool: above the ribbon, at the right.
 	_rotate.position = Vector2(size.x - ir - _rotate.size.x - 4.0, ribbon_y - _rotate.size.y - 12.0)
 	_home.position = Vector2(size.x - ir - _home.custom_minimum_size.x, top)
+	_probe.position = Vector2(_home.position.x - _probe.custom_minimum_size.x - 6.0, top)
+	_place_probe()
 	_picker.position = Vector2(size.x - ir - _picker.size.x, minf(top + 76.0, size.y - _picker.size.y - ib - 90.0))
 	_cell_info.position = Vector2(il + (0.0 if _compact else side_w + 8.0), _dock.position.y - 22.0 if _compact else ribbon_y - 24.0)
 	_relayout_toast()

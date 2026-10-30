@@ -100,6 +100,8 @@ func _process(delta: float) -> void:
 		_panel_timer = 0.5
 		_refresh_tasks_panel()
 		_refresh_units_label()
+	if is_instance_valid(_probe) and _probe.status != "":
+		hud.set_probe_text(_probe.status)
 	hud.set_status("%d fps | %s | bricks %d | far %d (chunk columns %d), behind hills %d, outside %d, drawn %d" % [Engine.get_frames_per_second(), world.stats(), bricks.brick_count(), far_terrain.far_leaf_count(), far_terrain.hidden_columns(), horizon.hidden_count(), horizon.outside_count(), RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)])
 	_update_hover()
 
@@ -188,6 +190,23 @@ func _setup_hover() -> void:
 	add_child(_hover)
 
 
+## The Probe button: the device measures what each layer of the picture costs (FrameProbe); the table stays on the screen until the next
+## press, and is on the clipboard.
+var _probe: FrameProbe
+
+
+func _run_probe() -> void:
+	if is_instance_valid(_probe):
+		return
+	hud.set_probe_text("")
+	_probe = FrameProbe.new()
+	add_child(_probe)
+	_probe.finished.connect(func(text: String) -> void:
+		hud.set_probe_text(text + "\n(copied)")
+		_probe.queue_free())
+	_probe.run(self)
+
+
 func _setup_ui() -> void:
 	hud.tool_chosen.connect(_choose_tool)
 	hud.level_changed.connect(_set_depth)
@@ -197,6 +216,7 @@ func _setup_ui() -> void:
 	hud.home_pressed.connect(func() -> void:
 		var sp := world.spawn_point()
 		rig.focus = Vector3(sp.x, sp.y, sp.z))
+	hud.probe_pressed.connect(_run_probe)
 	hud.task_cancel.connect(_cancel_task)
 	hud.task_select.connect(_select_task)
 	units.selection_changed.connect(func(_s: Array) -> void: _refresh_units_label())
