@@ -1,8 +1,8 @@
 class_name Stockpile
 extends Node3D
 ## A 2x2 place where units put what they carry. It is ONE structure: what it looks like depends on what is in it (its `form`):
-##   PLATFORM  a plank platform with the goods lying on it: logs, planks, rope, ores (and when it is empty)
-##   CRATE     stone, coal, iron or grass: the platform with a copy of it standing up on each of the four sides, a solid crate of 2 x 2 x 2
+##   PLATFORM  a plank platform with the goods lying on it: logs, planks, rope, iron ingots (and when it is empty)
+##   CRATE     stone, amber, iron ore or grass: the platform with a copy of it standing up on each of the four sides, a solid crate of 2 x 2 x 2
 ##             blocks with the loose stuff in it, filling the whole floor and rising from the bottom to the top as the amount grows. When it is filled with stone to the brim, the crate becomes ...
 ##   STACK     ... a stack of stone bricks (2x1x1, 4 of them: the 2x2x2 volume), without the floor; as bricks are taken it shrinks,
 ##             and the empty stockpile is a platform again.
@@ -23,14 +23,14 @@ const PLANK_SIZE := Vector3(2.0, 1.0 / 3.0, 1.0)
 ## How many of a kind it holds when full; what is not in the list it does not take.
 const CAPACITY := {
 	Resources.Kind.LOG: 4, Resources.Kind.PLANK: 12, Resources.Kind.ROPE: 20,
-	Resources.Kind.IRON: 24, Resources.Kind.COAL: 24, Resources.Kind.AMBER: 24,
+	Resources.Kind.IRON: 24, Resources.Kind.AMBER: 24, Resources.Kind.INGOT: 16,
 	Resources.Kind.STONE: 16, Resources.Kind.PLANT: 16,
 	Resources.Kind.BRICK: 8,   # 4 bricks of 2x1x1 = 8 halves, two layers of two (made of a full crate of stone)
 }
 ## What a stockpile costs, paid from the planks in the stockpiles (a guess: the original's price is not known here).
 const COST := {Resources.Kind.PLANK: 3}
-## The loose kinds that fill a crate (amber is still a heap on the platform).
-const FILL_KINDS := [Resources.Kind.STONE, Resources.Kind.PLANT, Resources.Kind.COAL, Resources.Kind.IRON]
+## The loose kinds that fill a crate.
+const FILL_KINDS := [Resources.Kind.STONE, Resources.Kind.PLANT, Resources.Kind.AMBER, Resources.Kind.IRON]
 const FILL_GAP := 0.1          ## between the walls and what is inside
 const FILL_CHUNKS := 40        ## pieces of rubble on the surface of what is inside
 const SHARDS := 72             ## the iron ore: flat angular chips of metal heaped on the surface (one box each, lighter and darker ones)
@@ -89,7 +89,7 @@ func capacity() -> int:
 ## What it looks like now: by what is in it.
 func form() -> int:
 	match holding:
-		Resources.Kind.STONE, Resources.Kind.PLANT, Resources.Kind.COAL, Resources.Kind.IRON:
+		Resources.Kind.STONE, Resources.Kind.PLANT, Resources.Kind.AMBER, Resources.Kind.IRON:
 			return Form.CRATE
 		Resources.Kind.BRICK:
 			return Form.STACK
@@ -248,7 +248,6 @@ static func _mat(c: Color) -> StandardMaterial3D:
 
 # --- what lies on it -----------------------------------------------------------------------------------
 
-const CHUNKS_PER_UNIT := 8
 const _GOLDEN_U := 0.6180339887
 const _GOLDEN_V := 0.7548776662
 
@@ -265,7 +264,7 @@ func _refresh() -> void:
 		c.queue_free()
 	if count > 0:
 		match holding:
-			Resources.Kind.STONE, Resources.Kind.PLANT, Resources.Kind.COAL, Resources.Kind.IRON:
+			Resources.Kind.STONE, Resources.Kind.PLANT, Resources.Kind.AMBER, Resources.Kind.IRON:
 				_show_fill()
 			Resources.Kind.LOG:
 				_show_logs()
@@ -275,8 +274,8 @@ func _refresh() -> void:
 				_show_ropes()
 			Resources.Kind.BRICK:
 				_show_bricks()
-			_:
-				_show_heap()
+			Resources.Kind.INGOT:
+				_show_ingots()
 	_label.text = "%s %d/%d" % [Resources.label(holding), count, capacity_for(holding)] if count > 0 else "empty"
 
 
@@ -319,34 +318,6 @@ func _show_fill() -> void:
 		_fill_rubble.multimesh.set_instance_transform(k, Transform3D(basis, Vector3(SIZE * 0.5 + u * half, PLATFORM_HEIGHT + h - size * 0.25, SIZE * 0.5 + v * half)))
 
 
-## Loose stuff (amber on the platform): a heap of rubble that grows with every bag, like the gravel in the original. Chunk k lies on
-## the surface of the heap as it was when k chunks were in it, so a bag adds to the top and the heap does not jump about.
-func _show_heap() -> void:
-	var full := capacity_for(holding)
-	var shown := count * CHUNKS_PER_UNIT
-	var total := full * CHUNKS_PER_UNIT
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = _chunk_mesh()
-	mm.instance_count = shown
-	var inner := 0.28 if form() == Form.CRATE else 0.18
-	var half := SIZE * 0.5 - inner
-	var top := (WALL_HEIGHT - PLATFORM_HEIGHT - 0.15) if form() == Form.CRATE else 0.8
-	for k in shown:
-		var u := _fract((k + 1) * _GOLDEN_U) * 2.0 - 1.0
-		var v := _fract((k + 1) * _GOLDEN_V) * 2.0 - 1.0
-		var fill := float(k + 1) / float(total)
-		var size := 0.2 + 0.16 * _fract(sin(k * 12.9898) * 43758.5453)
-		var shape := 1.0 - 0.3 * clampf((u * u + v * v) * 0.5, 0.0, 1.0)   # a mound: highest in the middle
-		var pos := Vector3(SIZE * 0.5 + u * half, PLATFORM_HEIGHT + fill * top * shape - size * 0.35, SIZE * 0.5 + v * half)
-		var basis := Basis(Vector3.UP, _fract(sin(k * 78.233) * 43758.5453) * TAU).scaled(Vector3(size, size * 0.85, size))
-		mm.set_instance_transform(k, Transform3D(basis, pos))
-	var inst := MultiMeshInstance3D.new()
-	inst.multimesh = mm
-	inst.material_override = _chunk_material(holding)
-	_piles.add_child(inst)
-
-
 ## Up to four logs: two lying side by side, the next two on top of them.
 func _show_logs() -> void:
 	var m := _mat(Resources.COLORS[Resources.Kind.LOG])
@@ -379,6 +350,18 @@ func _show_planks() -> void:
 		mi.material_override = m
 		mi.position = Vector3(1.0, PLATFORM_HEIGHT + (layer + 0.5) * PLANK_SIZE.y, side) if along_x else Vector3(side, PLATFORM_HEIGHT + (layer + 0.5) * PLANK_SIZE.y, 1.0)
 		_piles.add_child(mi)
+
+
+## Iron ingots (0.92 x 0.3 x 0.46) lie in layers of eight, every layer across the one below: 16 of them are two layers.
+func _show_ingots() -> void:
+	var m := _mat(Resources.COLORS[Resources.Kind.INGOT])
+	for i in count:
+		var layer := i / 8
+		var k := i % 8
+		var along_x := layer % 2 == 0
+		var a := 0.5 + (k % 2) * 1.0
+		var b := 0.25 + (k / 2) * 0.5
+		_box(_piles, Vector3(0.92, 0.3, 0.46) if along_x else Vector3(0.46, 0.3, 0.92), Vector3(a, PLATFORM_HEIGHT + 0.15 + layer * 0.31, b) if along_x else Vector3(b, PLATFORM_HEIGHT + 0.15 + layer * 0.31, a), m)
 
 
 ## A stack of stone bricks, two layers of two (the crate's 2 x 2 x 2): one brick per two halves, a lone half as a cube on top.

@@ -130,7 +130,7 @@ func _leave_or_wait() -> void:
 
 func _seek() -> void:
 	unit.status = ""
-	if unit.carried_amount() > 0 and task.input_needed_by(unit).is_empty():
+	if unit.carried_amount() > 0 and task.input_needed_by(unit).is_empty() and not task.gathers(unit):
 		_find_stockpile()   # still has something from before: that first
 		return
 	var need := task.input_needed_by(unit)
@@ -338,7 +338,16 @@ func _work(delta: float) -> void:
 		target = null
 	var kind: int = res.get("kind", Resources.Kind.NONE)
 	if kind != Resources.Kind.NONE and res.get("amount", 0) > 0:
-		unit.carry(kind, res.amount)   # carried away before the next stage
+		var have := unit.carried_amount() if unit.carried_kind() == kind else 0
+		unit.carry(kind, have + res.amount)   # carried away before the next stage (a few small things go together)
+		var room := unit.carried_amount() < Resources.carry_capacity(kind)
+		if target != null and room and task.holds(target):
+			state = State.WORK   # the same block gives more (a second stage): on with it before anything is carried
+			_timer = 0.0
+			return
+		if target == null and task.gathers(unit):
+			state = State.SEEK
+			return
 		# A log goes to a free stump first, to be made into planks (what is made of it is what goes on the stockpile).
 		if kind == Resources.Kind.LOG and task.logs_go_to_stump() and board.detour_to_stump(unit):
 			return

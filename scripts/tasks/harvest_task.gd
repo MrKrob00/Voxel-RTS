@@ -179,12 +179,25 @@ func summary() -> String:
 
 
 ## Logs lying about come first (they are what a felling is for), then the nearest tree or tuft.
+## A unit with a few tufts in its hands goes on cutting while there is a free one.
+func gathers(unit: Unit) -> bool:
+	if unit.carried_kind() != Resources.Kind.PLANT or unit.carried_amount() >= Resources.carry_capacity(Resources.Kind.PLANT):
+		return false
+	for t in targets:
+		if t.type == "plant" and t.claimed == null and t.failures < MAX_FAILURES and t.blocked_until <= (board.now if board != null else 0.0):
+			return true
+	return false
+
+
 func claim(unit: Unit, from: Vector3i, now: float) -> Variant:
 	var best: Target = null
 	var best_score := INF
+	var carrying_plants := unit.carried_kind() == Resources.Kind.PLANT and unit.carried_amount() > 0
 	for t in targets:
 		if t.claimed != null or t.blocked_until > now or t.failures >= MAX_FAILURES:
 			continue
+		if carrying_plants and t.type != "plant":
+			continue   # the hands are full of grass: only grass is taken now
 		# A log is only picked up when there is somewhere to take it: otherwise it stays where it lies.
 		if t.type == "log" and board != null and not board.log_has_destination(from):
 			continue

@@ -88,6 +88,12 @@ func input_needed_by(_unit: Unit) -> Dictionary:
 	return input_needed()
 
 
+## A unit that has picked up something small (a bag, a tuft) goes on picking up the same before it takes the load home, while its hands
+## are not full and there is more of it within reach.
+func gathers(_unit: Unit) -> bool:
+	return false
+
+
 ## Does a persistent task have something to do right now (so that an idle unit should come)?
 func wants_workers(_board: TaskBoard) -> bool:
 	return false

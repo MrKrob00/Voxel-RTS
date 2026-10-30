@@ -81,7 +81,7 @@ func carry(kind: int, n: int) -> void:
 	_rebuild_carry()
 
 
-## What is on the unit's back: a sack for stone, ore and grass, a log across the shoulders, three planks lying flat, a coil of rope.
+## What is on the unit's back: up to three small pieces of stone, ore, amber or grass, a log and three planks standing on end, ingots, a coil of rope.
 func _rebuild_carry() -> void:
 	if _pack == null:
 		return
@@ -96,15 +96,24 @@ func _rebuild_carry() -> void:
 		Resources.Kind.LOG:
 			_carry_part(_cylinder(LooseLog.RADIUS, LooseLog.LENGTH), Vector3(0.0, 0.2, 0.0), Vector3.ZERO, col)   # the real log, standing upright on the back
 		Resources.Kind.PLANK:
+			# the real planks, up to three, standing on end like the log (side by side, front to back)
 			for i in n:
-				_carry_part(_box(Stockpile.PLANK_SIZE - Vector3(0.0, 0.02, 0.04)), Vector3(0.0, 0.1 + i * Stockpile.PLANK_SIZE.y, 0.0), Vector3(0.0, 0.0, 0.0), col)   # the real planks, a stack of up to three
+				_carry_part(_box(Vector3(Stockpile.PLANK_SIZE.y - 0.02, Stockpile.PLANK_SIZE.x * 0.8, Stockpile.PLANK_SIZE.z - 0.04)), Vector3(0.0, 0.2, (i - (n - 1) * 0.5) * Stockpile.PLANK_SIZE.y), Vector3.ZERO, col)
 		Resources.Kind.ROPE:
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.1
 			ring.outer_radius = 0.26
 			_carry_part(ring, Vector3(0.0, 0.0, 0.0), Vector3(deg_to_rad(90.0), 0.0, 0.0), col)
+		Resources.Kind.INGOT:
+			for i in n:
+				_carry_part(_box(Vector3(0.46, 0.14, 0.24)), Vector3(0.0, -0.1 + i * 0.15, 0.0), Vector3.ZERO, col)   # ingots, a stack of up to three
+		Resources.Kind.STONE, Resources.Kind.IRON, Resources.Kind.AMBER, Resources.Kind.PLANT:
+			# up to three small pieces in a heap on the back (the kind in its colour)
+			var spots := [Vector3(-0.15, -0.1, 0.0), Vector3(0.15, -0.1, 0.0), Vector3(0.0, 0.12, 0.0)]
+			for i in n:
+				_carry_part(_box(Vector3(0.26, 0.22, 0.24)), spots[i], Vector3(0.3 * i, 0.5 * i, 0.2 * i), col)
 		_:
-			_carry_part(_box(Vector3(0.5, 0.5, 0.28)), Vector3.ZERO, Vector3.ZERO, col)   # a sack
+			_carry_part(_box(Vector3(0.5, 0.5, 0.28)), Vector3.ZERO, Vector3.ZERO, col)   # a brick or whatever else
 
 
 func _carry_part(mesh: Mesh, pos: Vector3, rot: Vector3, col: Color) -> void:

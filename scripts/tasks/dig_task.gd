@@ -21,7 +21,7 @@ var cells := {}          ## Vector3i -> Unit that claimed it (or null) -- the bl
 var blocked := {}        ## Vector3i -> time until which nobody tries it again (unreachable just now)
 ## Which of the things this task digs up are brought home. The rest (and all earth) is broken and thrown away: a quarry can be
 ## told to bring iron only, and the stone it breaks on the way just disappears.
-var collect := {Resources.Kind.STONE: true, Resources.Kind.COAL: true, Resources.Kind.IRON: true, Resources.Kind.AMBER: true}
+var collect := {Resources.Kind.STONE: true, Resources.Kind.IRON: true, Resources.Kind.AMBER: true}
 
 
 func _init() -> void:
@@ -81,12 +81,32 @@ func has_free_cell() -> bool:
 	return false
 
 
+## What digging this block would put in the hands (NONE: nothing, it is thrown away).
+func _yield_of(c: Vector3i, board: TaskBoard) -> int:
+	var kind := Resources.from_block(Blocks.mat(board.world.get_block(c)))
+	return kind if collects(kind) else Resources.Kind.NONE
+
+
+## A unit with a few pieces in its hands goes on digging while there is a free block that gives the same.
+func gathers(unit: Unit) -> bool:
+	var kind := unit.carried_kind()
+	if board == null or kind == Resources.Kind.NONE or unit.carried_amount() >= Resources.carry_capacity(kind):
+		return false
+	for c in cells:
+		if cells[c] == null and blocked.get(c, 0.0) <= board.now and _yield_of(c, board) == kind:
+			return true
+	return false
+
+
 func claim(unit: Unit, from: Vector3i, now: float) -> Variant:
 	var best: Variant = null
 	var best_d := INF
+	var carrying := unit.carried_kind() if unit.carried_amount() > 0 else Resources.Kind.NONE
 	for c in cells:
 		if cells[c] != null or blocked.get(c, 0.0) > now:
 			continue
+		if carrying != Resources.Kind.NONE and board != null and _yield_of(c, board) != carrying:
+			continue   # the hands are full of something else: only what gives the same is taken now
 		var d := Vector2(c.x - from.x, c.z - from.z).length() + absf(c.y - from.y) * 0.5
 		if d < best_d:
 			best_d = d
