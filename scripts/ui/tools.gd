@@ -7,7 +7,7 @@ enum Mode {
 	SELECT,
 	MARK_TREES, MARK_GRASS,
 	MARK_DIG,
-	STOCKPILE, STUMP, ROPE_MACHINE, BRIDGE, REMOVE_PLAN,
+	STOCKPILE, STUMP, ROPE_MACHINE, FURNACE, BRIDGE, REMOVE_PLAN,
 	DIG, VOXEL, STONE_BRICK, STONE_CUBE, WOOD_BRICK, WOOD_CUBE,
 }
 
@@ -44,7 +44,7 @@ static func defs() -> Array[Dictionary]:
 ## The icon of a tool that has no model to photograph (felling, quarry...), from assets/icons (game-icons.net), or null.
 static func icon_texture(mode: int) -> Texture2D:
 	var name: String = {
-		Mode.MARK_TREES: "fell_trees", Mode.MARK_GRASS: "cut_grass", Mode.MARK_DIG: "quarry", OPEN_BLOCKS: "build", STOP: "stop", Mode.REMOVE_PLAN: "stop", Mode.BRIDGE: "rope",
+		Mode.MARK_TREES: "fell_trees", Mode.MARK_GRASS: "cut_grass", Mode.MARK_DIG: "quarry", OPEN_BLOCKS: "build", STOP: "stop", Mode.REMOVE_PLAN: "stop", Mode.BRIDGE: "rope", Mode.FURNACE: "build",
 		Mode.DIG: "dig_now", Mode.VOXEL: "fill_ground", Mode.STONE_BRICK: "free_stone", Mode.STONE_CUBE: "free_stone",
 		Mode.WOOD_BRICK: "free_wood", Mode.WOOD_CUBE: "free_wood",
 	}.get(mode, "")
@@ -75,7 +75,8 @@ static func _fixed_defs() -> Array[Dictionary]:
 		{"mode": Mode.STOCKPILE, "category": "Construction", "label": "Stockpile 2x2", "section": "Storage", "tab": "structures", "short": "Stockpile", "hint": "Where units put what they carry. It looks like a platform for logs and planks, a crate for stone and grass, a stack of bricks. Costs 3 planks, brought by units."},
 		{"mode": Mode.STUMP, "category": "Construction", "label": "Stump with axe", "section": "Production", "tab": "structures", "short": "Stump", "hint": "Makes 3 planks of a log. Costs a log. Free units use it by themselves."},
 		{"mode": Mode.ROPE_MACHINE, "category": "Construction", "label": "Rope machine", "section": "Production", "tab": "structures", "short": "Rope", "hint": "Makes a rope of 2 sacks of grass. Costs 2 planks."},
-		{"mode": Mode.BRIDGE, "category": "Construction", "label": "Rope bridge", "section": "Production", "tab": "structures", "short": "Bridge", "hint": "Press at one edge and drag to the other without lifting the finger: blue is a bridge that can be built (up to 12 blocks, two wide, a gap under it and two blocks of air over it), red is not. Let go on blue to plan it. Every block of it costs a plank."},
+		{"mode": Mode.FURNACE, "category": "Construction", "label": "Furnace", "section": "Production", "tab": "structures", "short": "Furnace", "hint": "Tap to see it, drag the way its front looks (or the turn button, R), tap again to plan it. 3 x 2 blocks, 3 high, 4 bricks. Order ingots from its round menu: each takes 10 iron ore and 2 amber."},
+		{"mode": Mode.BRIDGE, "category": "Construction", "label": "Rope bridge", "section": "Production", "tab": "structures", "short": "Bridge", "hint": "Press at one edge and drag to the other without lifting the finger: blue is a bridge that can be built (up to 12 blocks, two wide, a gap under it and two blocks of air over it), red is not. Let go on blue to plan it. It costs 2 planks and a plank for every block."},
 		{"mode": Mode.REMOVE_PLAN, "category": "Construction", "label": "Remove plans", "section": "Plans", "tab": "structures", "short": "Remove", "hint": "Tap a plan (a planned structure or wall), tap it again to remove it. What its units brought is lost."},
 		{"mode": Mode.DIG, "category": "Sandbox", "label": "Dig now", "short": "Dig now", "hint": "Dig a block at once (no units)."},
 		{"mode": Mode.VOXEL, "category": "Sandbox", "label": "Fill ground", "short": "Fill", "hint": "Fill a cell with ground at once."},

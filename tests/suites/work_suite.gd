@@ -93,17 +93,17 @@ func _stockpile_rules(bricks: BrickWorld, base: Vector3i) -> void:
 	var crate := _economy.place_stockpile(at)
 	check(crate.form() == Stockpile.Form.PLATFORM and not crate.blocks(at + Vector3i(1, 1, 1)), "an empty stockpile is a platform")
 	crate.add(Resources.Kind.STONE, 1)
-	check(crate.form() == Stockpile.Form.CRATE and crate.capacity() == 16 and Stockpile.BAGS_PER_BRICK * 4 == crate.capacity(), "with stone in it it is a crate of 2 x 2 x 2 blocks: 16 bags, 4 bricks of 4 bags")
+	check(crate.form() == Stockpile.Form.CRATE and crate.capacity() == 80, "with stone in it it is a crate of 2 x 2 x 2 blocks: 80 bags")
 	check(crate.blocks(at + Vector3i(1, 1, 1)) and not crate.blocks(at + Vector3i(0, 2, 0)) and not crate.blocks(at + Vector3i(2, 0, 0)), "a crate is solid, two blocks high")
 	crate.take(Resources.Kind.STONE, 1)
 	check(crate.form() == Stockpile.Form.PLATFORM and not crate.blocks(at + Vector3i(1, 1, 1)), "emptied, it is a platform again")
 	_economy.remove_stockpile(crate)
 	var plat := _economy.place_stockpile(at)
 	check(not plat.blocks(at), "a platform can be walked over")
-	check(plat.capacity_for(Resources.Kind.LOG) == 4 and plat.capacity_for(Resources.Kind.ROPE) == 20 and plat.capacity_for(Resources.Kind.PLANK) == 12, "a platform holds 4 logs, 12 planks or 20 ropes")
+	check(plat.capacity_for(Resources.Kind.LOG) == 4 and plat.capacity_for(Resources.Kind.ROPE) == 8 and plat.capacity_for(Resources.Kind.PLANK) == 12 and plat.capacity_for(Resources.Kind.INGOT) == 16, "a platform holds 4 logs, 12 planks, 8 ropes or 16 ingots")
 	check(plat.add(Resources.Kind.LOG, 9) == 4 and not plat.accepts(Resources.Kind.LOG), "the fifth log does not fit")
 	plat.take(Resources.Kind.LOG, 4)
-	check(plat.add(Resources.Kind.ROPE, 30) == 20, "twenty ropes fit: a quarter of the area and a fifth of the height each")
+	check(plat.add(Resources.Kind.ROPE, 30) == 8, "eight ropes fit")
 	_economy.remove_stockpile(plat)
 	# What a stockpile costs when put down at once: three planks in a stockpile (units bring them to a blueprint instead).
 	var bank := _economy.place_stockpile(at)
@@ -131,10 +131,11 @@ func _run_task(task: DigTask, crew: Array, limit := 20000) -> int:
 
 
 func _dig_and_haul(base: Vector3i) -> void:
-	# Stone ground to dig: 2 x 4 columns = 8 blocks = 16 bags, exactly one frame full.
+	# Stone ground to dig: 2 x 4 columns = 8 blocks = 16 bags; the frame has 64 already, so these fill it (80) and it packs into bricks.
 	var quarry := base + Vector3i(10, 0, 10)
 	_surface_of(quarry, 2, 4, Blocks.STONE)
 	var frame := _economy.place_stockpile(base + Vector3i(2, 0, 2))
+	frame.add(Resources.Kind.STONE, 64)
 	var crew := _units.spawn_squad(base + Vector3i(5, 0, 5), 2, 1)
 	var task := _board.create_dig(quarry.x, quarry.z, quarry.x + 1, quarry.z + 3)
 	check(task != null and task.cell_count() == 8, "marking 2 x 4 columns makes a task of 8 blocks")

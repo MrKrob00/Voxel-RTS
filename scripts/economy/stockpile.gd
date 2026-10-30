@@ -7,7 +7,7 @@ extends Node3D
 ##   STACK     ... a stack of stone bricks (2x1x1, 4 of them: the 2x2x2 volume), without the floor; as bricks are taken it shrinks,
 ##             and the empty stockpile is a platform again.
 ## A stockpile holds one kind at a time (it takes a new kind once it is empty). How much fits depends on the kind: bags are half
-## blocks (a crate holds 16 of stone, a brick is four), a platform holds 4 logs, 24 planks or 20 ropes (a rope takes a quarter
+## blocks (a crate holds 80 of stone, 4 of them are a brick when it is packed), a platform holds 4 logs, 12 planks, 16 ingots or 8 ropes (a rope takes a quarter
 ## of the area and a fifth of the height).
 ##
 ## `origin` is the lowest-x/z cell of the platform at the height of the cell ABOVE the ground (where feet stand on it).
@@ -17,14 +17,12 @@ enum Form { PLATFORM, CRATE, STACK }
 const SIZE := 2
 const PLATFORM_HEIGHT := 0.18
 const WALL_HEIGHT := 2.0
-const BAGS_PER_BRICK := 4
 ## A plank is a 2 x 1 x 1 block cut into three slabs: 2 long, a third of a block thick, 1 wide. A log makes three of them.
 const PLANK_SIZE := Vector3(2.0, 1.0 / 3.0, 1.0)
 ## How many of a kind it holds when full; what is not in the list it does not take.
 const CAPACITY := {
-	Resources.Kind.LOG: 4, Resources.Kind.PLANK: 12, Resources.Kind.ROPE: 20,
-	Resources.Kind.IRON: 24, Resources.Kind.AMBER: 24, Resources.Kind.INGOT: 16,
-	Resources.Kind.STONE: 16, Resources.Kind.PLANT: 16,
+	Resources.Kind.LOG: 4, Resources.Kind.PLANK: 12, Resources.Kind.ROPE: 8, Resources.Kind.INGOT: 16,
+	Resources.Kind.IRON: 80, Resources.Kind.AMBER: 80, Resources.Kind.STONE: 80, Resources.Kind.PLANT: 80,
 	Resources.Kind.BRICK: 8,   # 4 bricks of 2x1x1 = 8 halves, two layers of two (made of a full crate of stone)
 }
 ## What a stockpile costs, paid from the planks in the stockpiles (a guess: the original's price is not known here).
@@ -37,6 +35,7 @@ const SHARDS := 72             ## the iron ore: flat angular chips of metal heap
 
 var origin := Vector3i.ZERO
 var holding := Resources.Kind.NONE       ## what it holds right now (NONE when empty)
+var auto_bricks := true                  ## a crate filled to the brim with stone turns into four bricks by itself (the round menu of the stockpile switches it)
 var count := 0                           ## how many of them
 var _piles: Node3D
 var _floor: Node3D
@@ -105,6 +104,10 @@ func blocks(c: Vector3i) -> bool:
 	return form() != Form.PLATFORM and (c.y == origin.y or c.y == origin.y + 1) and c.x >= origin.x and c.x < origin.x + SIZE and c.z >= origin.z and c.z < origin.z + SIZE
 
 
+func center_point() -> Vector3:
+	return Vector3(origin.x + SIZE * 0.5, origin.y, origin.z + SIZE * 0.5)
+
+
 func free_space() -> int:
 	return capacity() - count
 
@@ -148,7 +151,7 @@ func take(kind: int, n: int) -> int:
 
 ## True when a crate has been filled with stone to the brim: time to turn it into bricks.
 func packed_stone() -> bool:
-	return holding == Resources.Kind.STONE and count >= capacity_for(Resources.Kind.STONE)
+	return auto_bricks and holding == Resources.Kind.STONE and count >= capacity_for(Resources.Kind.STONE)
 
 
 ## Where a unit may stand to use it: any standable cell touching the platform (from the 12 around it).

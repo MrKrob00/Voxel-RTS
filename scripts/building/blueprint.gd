@@ -11,6 +11,7 @@ var size := Vector2i(2, 2)
 var cost := {}                   ## Resources.Kind -> how many
 var delivered := {}              ## Resources.Kind -> how many have arrived
 var done := false
+var facing := 0                   ## a furnace: the way it looks
 var builder: Unit                ## the one unit that builds it (BuildTask lets nobody else in while this one is on the job)
 var title := ""
 var _label: Label3D
@@ -112,7 +113,13 @@ func build(type: String, k: int, at: Vector3i, sz: Vector2i, price: Dictionary, 
 func _make_ghost() -> float:
 	var model: Node3D
 	if kind_type == "station":
-		var st := Station.new()
+		var st: Station
+		if kind == Station.Kind.FURNACE:
+			var furnace := Furnace.new()
+			furnace.facing = facing
+			st = furnace
+		else:
+			st = Station.new()
 		add_child(st)
 		st.build(kind, Vector3i.ZERO)
 		model = st

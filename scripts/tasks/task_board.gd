@@ -196,8 +196,8 @@ func create_harvest_circle(kind: int, center: Vector2, radius: float) -> Harvest
 
 
 ## Sets a station up (paying for it) and gives it its standing job.
-func place_station(kind: int, origin: Vector3i, pay := true) -> Station:
-	var st := economy.place_station(kind, origin, pay)
+func place_station(kind: int, origin: Vector3i, pay := true, facing := 0) -> Station:
+	var st := economy.place_station(kind, origin, pay, facing)
 	if st == null:
 		return null
 	_give_station_its_job(st)
@@ -205,14 +205,17 @@ func place_station(kind: int, origin: Vector3i, pay := true) -> Station:
 
 
 func _give_station_its_job(st: Station) -> void:
+	if st is Furnace:
+		add_task(FurnaceTask.new(st), false)   # (its job is its own: ore and amber in, ingots out)
+		return
 	var t := CraftTask.new(st)
 	st.task = t
 	add_task(t, false)
 
 
 ## The player's way to build: a blueprint, and the job of bringing what it costs. Units come by themselves when the stockpiles have it.
-func place_blueprint(type: String, kind: int, origin: Vector3i) -> Blueprint:
-	var bp := economy.place_blueprint(type, kind, origin)
+func place_blueprint(type: String, kind: int, origin: Vector3i, facing := 0) -> Blueprint:
+	var bp := economy.place_blueprint(type, kind, origin, facing)
 	if bp == null:
 		return null
 	_structures_task().add_blueprint(bp)
@@ -314,6 +317,9 @@ func cancel_blueprint(bp: Blueprint) -> void:
 func remove_station(st: Station) -> void:
 	if st.task != null:
 		remove_task(st.task)
+	for t in tasks.duplicate():
+		if t is FurnaceTask and t.furnace == st:
+			remove_task(t)
 	economy.remove_station(st)
 
 

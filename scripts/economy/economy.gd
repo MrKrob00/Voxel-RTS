@@ -52,8 +52,11 @@ func place_stockpile(origin: Vector3i) -> Stockpile:
 
 
 ## Puts a station up and takes its price out of the stockpiles. Returns null and the reason in `last_error` when it cannot be done.
-func place_station(kind: int, origin: Vector3i, pay := true) -> Station:
-	last_error = Station.can_place(world, bricks, kind, origin, stockpiles + blueprints, stations)
+func place_station(kind: int, origin: Vector3i, pay := true, facing := 0) -> Station:
+	if kind == Station.Kind.FURNACE:
+		last_error = Furnace.can_place_at(world, bricks, origin, facing, stockpiles + blueprints, stations)
+	else:
+		last_error = Station.can_place(world, bricks, kind, origin, stockpiles + blueprints, stations)
 	if last_error != "":
 		return null
 	var cost: Dictionary = Station.DEFS[kind].cost
@@ -64,7 +67,13 @@ func place_station(kind: int, origin: Vector3i, pay := true) -> Station:
 				return null
 		for k in cost:
 			spend(k, cost[k])
-	var st := Station.new()
+	var st: Station
+	if kind == Station.Kind.FURNACE:
+		var furnace := Furnace.new()
+		furnace.facing = facing
+		st = furnace
+	else:
+		st = Station.new()
 	add_child(st)
 	st.build(kind, origin)
 	stations.append(st)
@@ -76,7 +85,7 @@ func place_station(kind: int, origin: Vector3i, pay := true) -> Station:
 
 ## The player's way to build: a plan on the ground. Returns null (and the reason in `last_error`) when it cannot stand there.
 ## `type` is "stockpile" (kind unused) or "station" (kind: Station.Kind).
-func place_blueprint(type: String, kind: int, origin: Vector3i) -> Blueprint:
+func place_blueprint(type: String, kind: int, origin: Vector3i, facing := 0) -> Blueprint:
 	var cost: Dictionary
 	var size: Vector2i
 	var title: String
@@ -86,13 +95,18 @@ func place_blueprint(type: String, kind: int, origin: Vector3i) -> Blueprint:
 		size = Vector2i(Stockpile.SIZE, Stockpile.SIZE)
 		title = "Stockpile"
 	else:
-		last_error = Station.can_place(world, bricks, kind, origin, stockpiles + blueprints, stations)
+		if kind == Station.Kind.FURNACE:
+			last_error = Furnace.can_place_at(world, bricks, origin, facing, stockpiles + blueprints, stations)
+			size = Furnace.footprint(facing)
+		else:
+			last_error = Station.can_place(world, bricks, kind, origin, stockpiles + blueprints, stations)
+			size = Station.DEFS[kind].size
 		cost = Station.DEFS[kind].cost
-		size = Station.DEFS[kind].size
 		title = Station.DEFS[kind].name
 	if last_error != "":
 		return null
 	var bp := Blueprint.new()
+	bp.facing = facing
 	add_child(bp)
 	bp.build(type, kind, origin, size, cost, title)
 	blueprints.append(bp)
@@ -124,7 +138,7 @@ func finish_blueprint(bp: Blueprint) -> Node:
 		made = place_stockpile(bp.origin)
 		charge_for_stockpiles = was
 	else:
-		made = place_station(bp.kind, bp.origin, false)
+		made = place_station(bp.kind, bp.origin, false, bp.facing)
 	changed.emit()
 	return made
 
@@ -358,6 +372,12 @@ func deposit(s: Stockpile, kind: int, n: int) -> int:
 	return put
 
 
+## The switch of a stockpile was turned on while it is full of stone: it packs now.
+func pack_now(s: Stockpile) -> void:
+	_pack_into_bricks(s)
+	changed.emit()
+
+
 ## The full crate of stone becomes a stack of 4 stone bricks of 2x1x1 (two layers of two): the material of walls. The same stockpile,
 ## now holding bricks (it looks like a stack: see Stockpile.form).
 func _pack_into_bricks(s: Stockpile) -> void:
@@ -428,11 +448,12 @@ func blocked_cells() -> Dictionary:
 						out[c] = true
 	for st in stations:
 		var size: Vector2i = st.size()
-		for dz in size.y:
-			for dx in size.x:
-				var c := Vector3i(st.origin.x + dx, st.origin.y, st.origin.z + dz)
-				if st.blocks(c):
-					out[c] = true
+		for dy in (Furnace.HEIGHT if st is Furnace else 1):
+			for dz in size.y:
+				for dx in size.x:
+					var c := Vector3i(st.origin.x + dx, st.origin.y + dy, st.origin.z + dz)
+					if st.blocks(c):
+						out[c] = true
 	return out
 
 
@@ -442,7 +463,7 @@ func obstacle_signature() -> int:
 	for s in stockpiles:
 		sig = sig * 31 + s.form() + s.origin.x * 3 + s.origin.z * 5 + s.origin.y * 11
 	for st in stations:
-		sig = sig * 31 + st.origin.x * 3 + st.origin.z * 5 + st.origin.y * 11 + st.kind
+		sig = sig * 31 + st.origin.x * 3 + st.origin.z * 5 + st.origin.y * 11 + st.kind + (st.facing * 17 if st is Furnace else 0)
 	return sig
 
 

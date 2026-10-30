@@ -147,6 +147,8 @@ func _rotate_brick() -> void:
 	brick_axis = (brick_axis + 1) % 4   # 0..3: +x, +z, -x, -z (the sandbox bricks use only the axis)
 	if not _pending.is_empty() and Tools.is_block(mode):
 		_show_block_ghost(_pending.origin, _axis_step())   # the ghost turns with it
+	elif not _pending.is_empty() and mode == Tools.Mode.FURNACE:
+		_show_furnace_ghost(_pending.at, brick_axis)
 
 
 func _is_brick_mode() -> bool:
@@ -329,6 +331,9 @@ func _station_at(hit: Dictionary) -> Station:
 
 ## The round menu of a station: switch its production on or off.
 func _station_menu(st: Station) -> void:
+	if st is Furnace:
+		_furnace_menu(st)
+		return
 	if st.def().get("auto", true):
 		return   # a stump works by itself, it is the units' own logic: no menu
 	var d := st.def()
@@ -339,6 +344,69 @@ func _station_menu(st: Station) -> void:
 		{"mode": Tools.STOP, "label": "Stop", "active": not st.enabled, "call": func() -> void: _set_station(st, false)},
 	]
 	hud.open_radial(rig.camera.unproject_position(st.center() + Vector3(0.0, 1.0, 0.0)), d.verb, d.about, cost, items)
+
+
+## The furnace's round menu: one more ingot (it stays open to press again: as many as the player wants, up to the slots of the tray).
+func _furnace_menu(f: Furnace) -> void:
+	var about := "%d ordered, %d ready: %d of %d slots" % [f.queued, f.made, f.queued + f.made, Furnace.SLOTS]
+	var cost := "10 iron ore + 2 amber -> 1 ingot"
+	var items := [
+		{"mode": Tools.Mode.FURNACE, "label": "+1 ingot", "active": false, "keep": true, "call": func() -> void:
+			if not f.order():
+				hud.show_message("All eight slots are taken")
+			_furnace_menu(f)},
+	]
+	hud.open_radial(rig.camera.unproject_position(f.center() + Vector3(0.0, 1.0, 0.0)), "Smelt Iron", about, cost, items)
+
+
+func _stockpile_under(screen_pos: Vector2) -> Stockpile:
+	var from := rig.camera.project_ray_origin(screen_pos)
+	var dir := rig.camera.project_ray_normal(screen_pos)
+	for s in economy.stockpiles:
+		if AABB(Vector3(s.origin), Vector3(Stockpile.SIZE, Stockpile.WALL_HEIGHT, Stockpile.SIZE)).intersects_ray(from, dir) != null:
+			return s
+	return null
+
+
+## The round menu of a stockpile: whether a crate filled to the brim with stone turns into four bricks by itself.
+func _stockpile_menu(s: Stockpile) -> void:
+	var items := [
+		{"mode": Tools.Mode.STONE_CUBE, "label": "Bricks", "active": s.auto_bricks, "call": func() -> void:
+			s.auto_bricks = not s.auto_bricks
+			hud.show_message("Stockpile: a full crate of stone %s" % ("turns into 4 bricks" if s.auto_bricks else "stays a crate"))
+			if s.auto_bricks and s.packed_stone():
+				economy.pack_now(s)},
+	]
+	var held := "%s %d/%d" % [Resources.label(s.holding), s.count, s.capacity_for(s.holding)] if s.count > 0 else "empty"
+	hud.open_radial(rig.camera.unproject_position(s.center_point() + Vector3(0.0, 1.0, 0.0)), "Stockpile", held, "A full crate of stone (80) makes 4 bricks, when this is on", items)
+
+
+func _furnace_under(screen_pos: Vector2) -> Furnace:
+	var from := rig.camera.project_ray_origin(screen_pos)
+	var dir := rig.camera.project_ray_normal(screen_pos)
+	var best: Furnace = null
+	var best_t := INF
+	for st in economy.stations:
+		if st is Furnace:
+			var at: Variant = AABB(Vector3(st.origin), Vector3(st.size().x, Furnace.HEIGHT, st.size().y)).intersects_ray(from, dir)
+			if at != null and from.distance_to(at) < best_t:
+				best_t = from.distance_to(at)
+				best = st
+	return best
+
+
+## A tap on a blue slot of a furnace takes one order back (what is in the fire stays). True when a slot was hit.
+func _tap_furnace_slot(screen_pos: Vector2) -> bool:
+	var from := rig.camera.project_ray_origin(screen_pos)
+	var dir := rig.camera.project_ray_normal(screen_pos)
+	for st in economy.stations:
+		if st is Furnace and st.ghost_at(from, dir) >= 0:
+			if st.cancel_order():
+				hud.show_message("An ingot less: %d ordered" % st.queued)
+			else:
+				hud.show_message("That ingot is in the fire already")
+			return true
+	return false
 
 
 func _set_station(st: Station, on: bool) -> void:
@@ -356,6 +424,18 @@ func _on_primary(pos: Vector2) -> void:
 		else:
 			units.select_only(u)
 		return
+	if mode == Tools.Mode.SELECT and _tap_furnace_slot(pos):
+		return
+	if mode == Tools.Mode.SELECT and units.selection.is_empty():
+		var pile := _stockpile_under(pos)
+		if pile != null:
+			_stockpile_menu(pile)   # (with units selected a tap on it is a move order, as ever)
+			return
+	if mode == Tools.Mode.SELECT:
+		var furnace := _furnace_under(pos)   # (the ray goes through it to the ground behind: it has no collision, so it is aimed by its box)
+		if furnace != null:
+			_furnace_menu(furnace)
+			return
 	if mode == Tools.Mode.REMOVE_PLAN:
 		_remove_plan(pos)   # found by the ray through the plan (a wall hangs in the air), not by the ground
 		return
@@ -382,6 +462,8 @@ func _on_primary(pos: Vector2) -> void:
 			_place_stockpile(hit)
 		Tools.Mode.STUMP, Tools.Mode.ROPE_MACHINE:
 			_place_station(hit)
+		Tools.Mode.FURNACE:
+			_plan_furnace(hit, brick_axis)
 		Tools.Mode.BRIDGE:
 			hud.show_message("Press at one edge and drag to the other, without lifting the finger")
 		Tools.Mode.DIG:
@@ -434,7 +516,7 @@ func _on_box(rect: Rect2) -> void:
 
 ## Tools that are aimed by dragging from one point on the ground to another (the camera is moved with two fingers meanwhile).
 func _is_aim_tool() -> bool:
-	return Tools.is_block(mode) or mode in [Tools.Mode.MARK_DIG, Tools.Mode.MARK_TREES, Tools.Mode.MARK_GRASS, Tools.Mode.BRIDGE]
+	return Tools.is_block(mode) or mode in [Tools.Mode.MARK_DIG, Tools.Mode.MARK_TREES, Tools.Mode.MARK_GRASS, Tools.Mode.BRIDGE, Tools.Mode.FURNACE]
 
 
 ## The finger moves: what the order would be, drawn through the blocks.
@@ -498,6 +580,12 @@ func _on_aim_finished(from: Vector2, to: Vector2) -> void:
 	var b := _pick(to)
 	if a.is_empty() or b.is_empty():
 		return
+	if mode == Tools.Mode.FURNACE:
+		var fd := Vector2i(b.cell.x - a.cell.x, b.cell.z - a.cell.z)
+		if fd != Vector2i.ZERO:
+			brick_axis = (0 if fd.x > 0 else 2) if absi(fd.x) >= absi(fd.y) else (1 if fd.y > 0 else 3)   # the way the front looks
+		_plan_furnace(a, brick_axis)
+		return
 	if Tools.is_block(mode):
 		# The way of the drag, along the longer side, says how the block lies / which way it rises.
 		var d := Vector2i(b.cell.x - a.cell.x, b.cell.z - a.cell.z)
@@ -535,6 +623,43 @@ func _place_station(hit: Dictionary) -> void:
 		return
 	_pending = {"mode": mode, "origin": origin, "dir": Vector2i.ZERO}
 	_show_structure_ghost("station", kind, origin, Station.DEFS[kind])
+
+
+## The furnace on the cell above the point (that is about the middle of it), its front looking `facing` (0 +x, 1 +z, 2 -x, 3 -z): the first
+## tap shows how it will stand (a turn button or R turns it), the second one on the same place plans it.
+func _plan_furnace(hit: Dictionary, facing: int) -> void:
+	if hit.brick:
+		return
+	var sz := Furnace.footprint(facing)
+	var at: Vector3i = _cell_above(hit) - Vector3i((sz.x - 1) / 2, 0, (sz.y - 1) / 2)
+	var same: bool = not _pending.is_empty() and _pending.mode == mode and _pending.at == at and _pending.dir == Vector2i(facing, 0)
+	if same:
+		_clear_pending()
+		if board.place_blueprint("station", Station.Kind.FURNACE, at, facing) == null:
+			hud.show_message("Cannot plan it here: " + economy.last_error)
+		return
+	var why := Furnace.can_place_at(world, bricks, at, facing, economy.stockpiles + economy.blueprints, economy.stations)
+	if why != "":
+		_clear_pending()
+		hud.show_message("Cannot plan it here: " + why)
+		return
+	_pending = {"mode": mode, "origin": at, "at": at, "dir": Vector2i(facing, 0)}
+	_show_furnace_ghost(at, facing)
+
+
+func _show_furnace_ghost(at: Vector3i, facing: int) -> void:
+	if _pending_ghost != null:
+		_pending_ghost.queue_free()
+	var bp := Blueprint.new()
+	bp.facing = facing
+	add_child(bp)
+	bp.build("station", Station.Kind.FURNACE, at, Furnace.footprint(facing), Station.DEFS[Station.Kind.FURNACE].cost, "Furnace")
+	var m := _ghost_material()
+	for n in bp.find_children("*", "MeshInstance3D", true, false):
+		(n as MeshInstance3D).material_override = m
+	_pending_ghost = bp
+	_pending.dir = Vector2i(facing, 0)
+	_pending.at = at
 
 
 func _set_depth(d: int) -> void:

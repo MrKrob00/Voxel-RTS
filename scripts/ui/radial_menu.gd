@@ -41,7 +41,8 @@ func open(center: Vector2, title: String, description: String, cost: String, ite
 		tile.button_pressed = d.get("active", false)
 		tile.pressed.connect(func() -> void:
 			d.call.call()
-			close())
+			if not d.get("keep", false):   # an item that is pressed again and again (the ingots) leaves the menu open
+				close())
 		add_child(tile)
 		_items.append(tile)
 	_box = PanelContainer.new()

@@ -201,7 +201,7 @@ func set_tool(mode: int) -> void:
 	_picker.levels = 12
 	_level_name = d.get("level_name", "level")
 	_refresh_level()
-	_rotate.visible = Tools.is_block(mode) or mode in [Tools.Mode.STONE_BRICK, Tools.Mode.WOOD_BRICK]
+	_rotate.visible = Tools.is_block(mode) or mode in [Tools.Mode.STONE_BRICK, Tools.Mode.WOOD_BRICK, Tools.Mode.FURNACE]
 	_set_palette(false)
 	_relayout()
 	_relayout.call_deferred()   # the labels settle their height one frame later
@@ -532,20 +532,40 @@ func _make_card() -> Control:
 ## Holding a card for HOLD_TIME lets it be dragged left and right: it changes places with the card it passes, and where it is let go is its
 ## place in the order of the tasks (the first has the first call on idle units).
 func _card_input(e: InputEvent, card: Control) -> void:
+	# a finger gives touches and drags, a mouse gives buttons and motion: both are the same here (the position is the card's own)
+	var pressed := false
+	var released := false
+	var moved := false
+	var at := Vector2.ZERO
 	var button := e as InputEventMouseButton
+	var touch := e as InputEventScreenTouch
 	if button != null and button.button_index == MOUSE_BUTTON_LEFT:
-		if button.pressed:
-			_drag_ended = false
-			_hold_card = card
-			_hold_time = 0.0
-			_hold_from = card.get_global_mouse_position()
-		else:
-			_release_card(card)
-	elif e is InputEventMouseMotion and _hold_card == card:
-		var at := card.get_global_mouse_position()
+		pressed = button.pressed
+		released = not button.pressed
+		at = button.position
+	elif touch != null:
+		pressed = touch.pressed
+		released = not touch.pressed
+		at = touch.position
+	elif e is InputEventMouseMotion:
+		moved = true
+		at = (e as InputEventMouseMotion).position
+	elif e is InputEventScreenDrag:
+		moved = true
+		at = (e as InputEventScreenDrag).position
+	var global := card.get_global_transform() * at
+	if pressed:
+		_drag_ended = false
+		_hold_card = card
+		_hold_time = 0.0
+		_hold_from = global
+	elif released:
+		_release_card(card)
+	elif moved and _hold_card == card:
 		if _drag_card == card:
-			_drag_over(card, at.x)
-		elif at.distance_to(_hold_from) > HOLD_SLOP:
+			_drag_over(card, global.x)
+			card.accept_event()   # the ribbon must not scroll with it
+		elif global.distance_to(_hold_from) > HOLD_SLOP:
 			_hold_card = null   # it slid before the hold was long enough: not a hold
 
 

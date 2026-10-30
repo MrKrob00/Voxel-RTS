@@ -12,6 +12,7 @@ const SUITES := {
 	"logs": "res://tests/suites/logs_suite.gd",
 	"build": "res://tests/suites/build_suite.gd",
 	"bridge": "res://tests/suites/bridge_suite.gd",
+	"furnace": "res://tests/suites/furnace_suite.gd",
 	"stump": "res://tests/suites/stump_suite.gd",
 	"wall": "res://tests/suites/wall_suite.gd",
 	"brick": "res://tests/suites/brick_suite.gd",

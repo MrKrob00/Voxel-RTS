@@ -8,7 +8,7 @@ extends Node3D
 ##
 ## `origin` is the lowest-x/z cell of the footprint at the height of the cell above the ground.
 
-enum Kind { STUMP, ROPE_MACHINE }
+enum Kind { STUMP, ROPE_MACHINE, FURNACE }
 
 const DEFS := {
 	Kind.STUMP: {
@@ -18,6 +18,10 @@ const DEFS := {
 	Kind.ROPE_MACHINE: {
 		"name": "Rope machine", "verb": "Produce Rope", "about": "Continually transform plants into rope", "auto": false, "size": Vector2i(2, 1), "cost": {Resources.Kind.PLANK: 2},
 		"input": {"kind": Resources.Kind.PLANT, "amount": 2}, "output": {"kind": Resources.Kind.ROPE, "amount": 1}, "time": 4.0,
+	},
+	Kind.FURNACE: {
+		"name": "Furnace", "verb": "Smelt Iron", "about": "Smelts iron ingots to order", "auto": false, "size": Vector2i(3, 2), "cost": {Resources.Kind.BRICK: 8},
+		"input": {"kind": Resources.Kind.IRON, "amount": 10}, "output": {"kind": Resources.Kind.INGOT, "amount": 1}, "time": 8.0,
 	},
 }
 
