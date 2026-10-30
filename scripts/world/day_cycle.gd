@@ -79,6 +79,8 @@ static func terrain_material(size_blocks: Vector3i) -> ShaderMaterial:
 	m.set_shader_parameter("terrain", true)
 	m.set_shader_parameter("blob_tex", blob_texture(size_blocks))
 	m.set_shader_parameter("blob_size", Vector2(size_blocks.x, size_blocks.z))
+	# project setting `voxel/render/shader_features` (0..3, default 3): for finding which part of the ground shader a card cannot do
+	m.set_shader_parameter("features", float(ProjectSettings.get_setting("voxel/render/shader_features", 3)))
 	return m
 
 

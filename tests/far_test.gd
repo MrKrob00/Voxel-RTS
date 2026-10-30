@@ -72,6 +72,21 @@ func _init() -> void:
 	var void_nodes = FarTerrain.build_arrays(half, mats, width, depth, 1, 10, 10, preset, null)
 	failed += _check(void_nodes == null, "a node over nothing has no mesh")
 	failed += _check(cut == null or (cut[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() > 0, "a node at the edge of the ground is made")
+	# the occluder lies under the ground everywhere and has nothing where the ground ends
+	var occ := GroundOccluder.make_arrays(levels, width, depth)
+	var verts_o: PackedVector3Array = occ[0]
+	var high_ok := true
+	for v in verts_o:
+		high_ok = high_ok and v.y <= 40.0 - GroundOccluder.UNDER + 0.001
+	failed += _check(high_ok and (occ[1] as PackedInt32Array).size() == (width / GroundOccluder.STEP) * (depth / GroundOccluder.STEP) * 6, "the occluder of flat ground is a flat sheet one block under it")
+	var occ_cut := GroundOccluder.make_arrays(half, width, depth)
+	var over_void := false
+	for t in (occ_cut[1] as PackedInt32Array).size() / 3:
+		for k in 3:
+			var vv: Vector3 = (occ_cut[0] as PackedVector3Array)[(occ_cut[1] as PackedInt32Array)[t * 3 + k]]
+			if vv.x > 104.0:
+				over_void = true
+	failed += _check(not over_void, "and none where the ground ends")
 	print("FAR DONE: %d failed" % failed)
 	quit(1 if failed > 0 else 0)
 

@@ -17,6 +17,7 @@ extends Node3D
 @onready var relief: ReliefShadow = $ReliefShadow
 @onready var horizon: HorizonCulling = $HorizonCulling
 @onready var far_terrain: FarTerrain = $FarTerrain
+@onready var occluder: GroundOccluder = $GroundOccluder
 var props: PropField          # null when started with --noprops
 const START_UNITS := 5
 
@@ -55,6 +56,7 @@ func _ready() -> void:
 	relief.setup(world, day)
 	horizon.setup(world, rig.camera)
 	far_terrain.setup(world, rig.camera)
+	occluder.setup(world)
 	bricks.setup(world, colliders)
 	loose.setup(world, colliders)
 
