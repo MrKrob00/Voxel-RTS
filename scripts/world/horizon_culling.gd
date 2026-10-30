@@ -23,10 +23,12 @@ const POLL := 0.2
 const MOVED := 1.0                ## blocks the camera has to move for a new picture
 const STALE := 4.0                ## blocks the camera may have moved while it was made
 const FRUSTUM_MARGIN := 4.0       ## blocks outside the picture that still count as in it
+const PROP_ABOVE := 14.0          ## blocks over the ground that trees, bushes and rocks reach (their group boxes are tested like chunks)
 const TURNED := 0.99              ## the camera has turned (dot of its backwards direction with the old one) for a new picture
 
 var enabled := true
 var _world: VoxelWorld
+var props: PropField               ## its groups of trees, rocks and grass are cut by the same tests as the chunks (null: none)
 var _camera: Camera3D
 var _cw := 0                      # width and depth of the height map in squares
 var _cd := 0
@@ -196,6 +198,23 @@ func _start(cam: Vector3) -> void:
 		boxes.append(mi.position.z + box.end.z)
 		boxes.append(mi.position.y + box.end.y)        # the highest point of the chunk (for what hides behind a hill)
 		boxes.append(mi.position.y + box.position.y)   # the lowest
+	var aboves := PackedFloat32Array()
+	aboves.resize(nodes.size())
+	aboves.fill(1.0)
+	if props != null:
+		for child in props.get_children():
+			var mmi := child as MultiMeshInstance3D
+			if mmi == null or mmi.multimesh == null or mmi.name.begins_with("Stumps_"):
+				continue
+			var pbox := mmi.global_transform * mmi.multimesh.get_aabb()
+			nodes.append(mmi)
+			aboves.append(PROP_ABOVE)
+			boxes.append(pbox.position.x)
+			boxes.append(pbox.position.z)
+			boxes.append(pbox.end.x)
+			boxes.append(pbox.end.z)
+			boxes.append(pbox.end.y)
+			boxes.append(pbox.position.y)
 	var planes := PackedFloat32Array()
 	for pl: Plane in _camera.get_frustum():
 		planes.append(pl.normal.x)
@@ -206,10 +225,10 @@ func _start(cam: Vector3) -> void:
 	_job_cam = cam
 	_job_back = _camera.global_transform.basis.z
 	_job_nodes = nodes
-	WorkerThreadPool.add_task(_job.bind(cam, boxes, planes))
+	WorkerThreadPool.add_task(_job.bind(cam, boxes, planes, aboves))
 
 
-func _job(cam: Vector3, boxes: PackedFloat32Array, planes: PackedFloat32Array) -> void:
+func _job(cam: Vector3, boxes: PackedFloat32Array, planes: PackedFloat32Array, aboves: PackedFloat32Array) -> void:
 	var horizon := make_horizon(cam, _heights, _cw, _cd)
 	var hidden := PackedByteArray()
 	var outside := PackedByteArray()
@@ -218,8 +237,8 @@ func _job(cam: Vector3, boxes: PackedFloat32Array, planes: PackedFloat32Array) -
 	outside.resize(count)
 	for i in count:
 		var b := i * 6
-		hidden[i] = 1 if chunk_hidden(cam, horizon, boxes[b], boxes[b + 1], boxes[b + 2], boxes[b + 3], boxes[b + 4]) else 0
-		outside[i] = 1 if chunk_outside(planes, FRUSTUM_MARGIN, boxes[b], boxes[b + 1], boxes[b + 2], boxes[b + 3], boxes[b + 5], boxes[b + 4], _cell_lo, _cell_hi, _cw, _cd) else 0
+		hidden[i] = 1 if surface_hidden(cam, horizon, boxes[b], boxes[b + 1], boxes[b + 2], boxes[b + 3], boxes[b + 5], boxes[b + 4], aboves[i], _cell_lo, _cell_hi, _cw, _cd) else 0
+		outside[i] = 1 if chunk_outside(planes, FRUSTUM_MARGIN, boxes[b], boxes[b + 1], boxes[b + 2], boxes[b + 3], boxes[b + 5], boxes[b + 4], aboves[i], _cell_lo, _cell_hi, _cw, _cd) else 0
 	_job_hidden = hidden
 	_job_outside = outside
 	_job_done = true
@@ -272,7 +291,7 @@ static func outside_picture(planes: PackedFloat32Array, margin: float, x0: float
 ## Is a chunk outside the picture? Its mesh (x0..x1, z0..z1, mesh_lo..mesh_hi) is taken square by square of the height map: in each only the
 ## part of the mesh between the ground that lies there (and the lowest ground next to it: the cliffs) and the highest is counted, and the
 ## chunk is out when every square is.
-static func chunk_outside(planes: PackedFloat32Array, margin: float, x0: float, z0: float, x1: float, z1: float, mesh_lo: float, mesh_hi: float, cell_lo: PackedFloat32Array, cell_hi: PackedFloat32Array, cw: int, cd: int) -> bool:
+static func chunk_outside(planes: PackedFloat32Array, margin: float, x0: float, z0: float, x1: float, z1: float, mesh_lo: float, mesh_hi: float, above: float, cell_lo: PackedFloat32Array, cell_hi: PackedFloat32Array, cw: int, cd: int) -> bool:
 	if cell_lo.is_empty():
 		return outside_picture(planes, margin, x0, z0, x1, z1, mesh_lo, mesh_hi)
 	var i0 := clampi(int(floorf(x0 / CELL)), 0, cw - 1)
@@ -282,7 +301,7 @@ static func chunk_outside(planes: PackedFloat32Array, margin: float, x0: float, 
 	for j in range(j0, j1 + 1):
 		for i in range(i0, i1 + 1):
 			var lo := maxf(mesh_lo, cell_lo[i + j * cw])
-			var hi := minf(mesh_hi, cell_hi[i + j * cw] + 1.0)
+			var hi := minf(mesh_hi, cell_hi[i + j * cw] + above)
 			if lo > hi:
 				lo = mesh_lo   # the ground is not where the mesh is (a mesh of something that stands on it): the whole height
 				hi = mesh_hi
@@ -318,6 +337,27 @@ static func chunk_hidden(cam: Vector3, horizon: PackedFloat32Array, x0: float, z
 	return true
 
 
+## Is what can be seen of a chunk (or of a group of trees, `above` blocks over the ground) behind the ground in front of it? Not the highest point of
+## the whole mesh, but square by square of the height map: in each only the ground that lies there (its highest column, the walls under
+## it hang from it) and what stands on it. A chunk is hidden when every square is: the corners and the middle of each one are under the line.
+static func surface_hidden(cam: Vector3, horizon: PackedFloat32Array, x0: float, z0: float, x1: float, z1: float, mesh_lo: float, mesh_hi: float, above: float, cell_lo: PackedFloat32Array, cell_hi: PackedFloat32Array, cw: int, cd: int) -> bool:
+	if cell_hi.is_empty():
+		return chunk_hidden(cam, horizon, x0, z0, x1, z1, mesh_hi)
+	var i0 := clampi(int(floorf(x0 / CELL)), 0, cw - 1)
+	var i1 := clampi(int(ceilf(x1 / CELL)) - 1, 0, cw - 1)
+	var j0 := clampi(int(floorf(z0 / CELL)), 0, cd - 1)
+	var j1 := clampi(int(ceilf(z1 / CELL)) - 1, 0, cd - 1)
+	for j in range(j0, j1 + 1):
+		for i in range(i0, i1 + 1):
+			var lo := maxf(mesh_lo, cell_lo[i + j * cw])
+			var top := minf(mesh_hi, cell_hi[i + j * cw] + above)
+			if lo > top:
+				top = mesh_hi   # the ground is not where the mesh is: the whole height
+			if not chunk_hidden(cam, horizon, maxf(float(i * CELL), x0), maxf(float(j * CELL), z0), minf(float(i * CELL + CELL), x1), minf(float(j * CELL + CELL), z1), top):
+				return false
+	return true
+
+
 func hidden_count() -> int:
 	return _hidden_count
 
@@ -335,7 +375,7 @@ func _apply() -> void:
 	for i in _job_nodes.size():
 		_hidden_count += _job_hidden[i]
 		_outside_count += _job_outside[i]
-		var mi: MeshInstance3D = _job_nodes[i]
+		var mi: Node3D = _job_nodes[i]
 		if is_instance_valid(mi):
 			ChunkHide.set_hidden(mi, "horizon", _job_hidden[i] != 0)
 			ChunkHide.set_hidden(mi, "picture", _job_outside[i] != 0)
@@ -343,7 +383,10 @@ func _apply() -> void:
 
 func _show_all() -> void:
 	_all_shown = true
-	for child in _world.get_children():
-		if child is MeshInstance3D:
+	var shown: Array[Node] = _world.get_children()
+	if props != null:
+		shown.append_array(props.get_children())
+	for child in shown:
+		if child is MeshInstance3D or child is MultiMeshInstance3D:
 			ChunkHide.set_hidden(child, "horizon", false)
 			ChunkHide.set_hidden(child, "picture", false)

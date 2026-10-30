@@ -55,6 +55,7 @@ func _ready() -> void:
 	colliders.setup(world)
 	relief.setup(world, day)
 	horizon.setup(world, rig.camera)
+	horizon.props = props
 	far_terrain.setup(world, rig.camera)
 	occluder.setup(world)
 	bricks.setup(world, colliders)
