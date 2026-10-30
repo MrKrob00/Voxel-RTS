@@ -133,7 +133,7 @@ func input_needed_by(unit: Unit) -> Dictionary:
 	if bp == null:
 		return {}
 	if unit != null and unit.carried_amount() > 0 and bp.remaining().has(unit.carried_kind()):
-		return {"kind": unit.carried_kind(), "amount": mini(bp.remaining()[unit.carried_kind()], Resources.carry_capacity(unit.carried_kind()))}
+		return {"kind": unit.carried_kind(), "amount": mini(bp.remaining()[unit.carried_kind()], unit.carried_amount())}   # what it has in the hands is enough to begin
 	return _need_of(bp)
 
 

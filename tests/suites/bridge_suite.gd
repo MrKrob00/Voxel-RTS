@@ -54,7 +54,7 @@ func run() -> void:
 
 	# The plan: planks pay four blocks each; it joins the building job.
 	var plan := _board.place_bridge(a, b, 1)
-	check(plan != null and plan.count == 4 and plan.cost == {Resources.Kind.PLANK: 1}, "a bridge of four blocks asks for one plank")
+	check(plan != null and plan.count == 4 and plan.cost == {Resources.Kind.PLANK: 4}, "a bridge of four blocks asks for four planks, one for every block")
 	var jobs := _board.tasks.filter(func(t: WorkTask) -> bool: return t is BuildTask)
 	check(jobs.size() == 1 and jobs[0].blueprints.has(plan), "it is a plan of the building job")
 	check(_board.place_bridge(a + Vector3i(0, 0, 1), b + Vector3i(0, 0, 1), 1) == null, "a second bridge over the first one's lane is refused")
@@ -63,7 +63,7 @@ func run() -> void:
 
 	# The planks come, a unit lays them one by one from the end it comes from.
 	var bank := _economy.place_stockpile(base + Vector3i(1, 0, 8))
-	bank.add(Resources.Kind.PLANK, 3)
+	bank.add(Resources.Kind.PLANK, 12)
 	var crew := _units.spawn_squad(base + Vector3i(1, 0, 5), 3, 1)
 	var order: Array[int] = []
 	var most_carrying := [0]
@@ -79,16 +79,16 @@ func run() -> void:
 		most_carrying[0] = maxi(most_carrying[0], carrying)
 		return plan.finished, 6000)
 	check(most_carrying[0] == 1, "only one unit builds it (%d carried planks at once)" % most_carrying[0])
-	check(most_planks[0] == 1, "it took the one plank the bridge costs, not more (%d)" % most_planks[0])
+	check(most_planks[0] == 3, "it carries three planks at most (%d)" % most_planks[0])
 	check(plan.finished and plan.placed == 4, "all four pieces are laid (%d)" % plan.placed)
 	check(order.size() >= 4, "they were laid one after another, not all at once (%s)" % str(order))
 	check(plan.from_end == 0, "from the end the unit came from")
 	check(_economy.bridges.has(plan) and not _economy.blueprints.has(plan) and _board.tasks.filter(func(t: WorkTask) -> bool: return t is BuildTask).is_empty(), "the plan is a bridge now and the job is gone")
-	check(_economy.stock_of(Resources.Kind.PLANK) == 2, "it cost one plank (%d left)" % _economy.stock_of(Resources.Kind.PLANK))
+	check(_economy.stock_of(Resources.Kind.PLANK) == 8, "it cost four planks (%d left)" % _economy.stock_of(Resources.Kind.PLANK))
 
-	# A bridge of five blocks costs two planks: the unit takes two, lays four pieces, spends a plank on the fourth and one on the fifth.
+	# A bridge of five blocks costs five planks: three at a time, one is spent on every piece.
 	var plan5 := _board.place_bridge(base + Vector3i(3, 0, 9), base + Vector3i(9, 0, 9), 1)
-	check(plan5 != null and plan5.count == 5 and plan5.cost == {Resources.Kind.PLANK: 2}, "five blocks cost two planks")
+	check(plan5 != null and plan5.count == 5 and plan5.cost == {Resources.Kind.PLANK: 5}, "five blocks cost five planks")
 	var took := [0]
 	var spent_at: Array[int] = []
 	var paid := [0]
@@ -101,9 +101,9 @@ func run() -> void:
 			paid[0] = now_paid
 			spent_at.append(plan5.placed)   # the plank is spent when the piece is laid
 		return plan5.finished, 8000)
-	check(plan5.finished and took[0] == 2, "it took exactly two planks (%d)" % took[0])
-	check(spent_at == [4, 5], "a plank went on the fourth piece and one on the last (%s)" % str(spent_at))
-	check(_economy.stock_of(Resources.Kind.PLANK) == 0, "nothing is left over (%d)" % _economy.stock_of(Resources.Kind.PLANK))
+	check(plan5.finished and took[0] == 3, "it carried three at a time (%d)" % took[0])
+	check(spent_at == [1, 2, 3, 4, 5], "a plank was spent on every piece (%s)" % str(spent_at))
+	check(_economy.stock_of(Resources.Kind.PLANK) == 3, "twelve minus four minus five are left (%d)" % _economy.stock_of(Resources.Kind.PLANK))
 
 	# A floor: the feet cell over a plank is standable, the arc lowers the feet in the middle, the ends are level with the ground.
 	var mid := a + Vector3i(2, 0, 0)

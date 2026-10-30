@@ -3,15 +3,14 @@ extends Blueprint
 ## A rope bridge over a gap: two blocks wide, a plank for every block of its length (up to MAX_LENGTH), a post with a rope on each side at
 ## both ends, hanging in an arc of ARC at its ends. It is a plan like a stockpile's (a unit brings planks to it) with one difference: the
 ## pieces of the bridge are laid one after another by the one unit that builds it, from the end that is nearer to that unit. The unit
-## comes with all the planks the bridge costs in its hands (a plank pays for PER_PLANK pieces) and spends one on every PER_PLANK-th piece
-## and on the last one. The posts and the ropes stand with the first piece.
+## comes with planks in its hands (as many as it can carry, no more than are still to be paid) and spends one on every piece; with the
+## hands empty it goes for more. The posts and the ropes stand with the first piece.
 ##
 ## Cells: `a` and `b` are the cells the units stand in at the ends (lane 0; the second lane is next to it, on `side`). The pieces fill the
 ## cells between them; a piece stands at the height of the straight line between the ends (rounded to a cell), the feet follow the line
 ## less the sag of the arc, and the planks of the piece are in the cell under the feet (a floor for Navigation, see BrickWorld.add_deck).
 
 const MAX_LENGTH := 12
-const PER_PLANK := 4
 const ARC := deg_to_rad(10.0)
 const WOOD := Color("a8763f")
 const WOOD_DARK := Color("7a5229")
@@ -102,7 +101,7 @@ func setup_bridge(bricks: BrickWorld, a_cell: Vector3i, b_cell: Vector3i, lane_s
 	size = Vector2i(1, 1)
 	kind_type = "bridge"
 	title = "Rope bridge"
-	cost = {Resources.Kind.PLANK: ceili(float(count) / PER_PLANK)}
+	cost = {Resources.Kind.PLANK: count}   # a plank for every piece
 	name = "Bridge_%d_%d" % [a.x, a.z]
 	_claims.clear()
 	var along := _along()
@@ -200,15 +199,12 @@ func access_cells(nav: Navigation) -> Array[Vector3i]:
 
 func perform_work(unit: Unit, brd: TaskBoard) -> void:
 	if placed < count:
-		var order := placed + 1   # the number of the piece that is laid now
-		var spends := order % PER_PLANK == 0 or order == count   # every fourth piece and the last one are paid with a plank in the hands
-		if spends and (unit == null or unit.carried_kind() != Resources.Kind.PLANK or unit.carried_amount() < 1):
-			return   # no plank to pay with: it is fetched, nothing is laid
+		if unit == null or unit.carried_kind() != Resources.Kind.PLANK or unit.carried_amount() < 1:
+			return   # no plank to pay the piece with: it is fetched, nothing is laid
 		lay_next()
-		if spends:
-			unit.carry(Resources.Kind.PLANK if unit.carried_amount() > 1 else Resources.Kind.NONE, unit.carried_amount() - 1)
-			delivered[Resources.Kind.PLANK] = delivered.get(Resources.Kind.PLANK, 0) + 1
-			_refresh()
+		unit.carry(Resources.Kind.PLANK if unit.carried_amount() > 1 else Resources.Kind.NONE, unit.carried_amount() - 1)
+		delivered[Resources.Kind.PLANK] = delivered.get(Resources.Kind.PLANK, 0) + 1
+		_refresh()
 	if placed >= count:
 		brd.finish_blueprint(self)
 
