@@ -75,7 +75,9 @@ func _ready() -> void:
 	rig.box_finished.connect(_on_box)
 	rig.drag_changed.connect(_on_aim_changed)
 	rig.drag_finished.connect(_on_aim_finished)
-	rig.drag_cancelled.connect(func() -> void: _aim.clear())
+	rig.drag_cancelled.connect(func() -> void:
+		_aim.clear()
+		_hide_bridge_preview())
 
 	units.setup(world, bricks)
 	economy.setup(world, bricks)
@@ -380,6 +382,8 @@ func _on_primary(pos: Vector2) -> void:
 			_place_stockpile(hit)
 		Tools.Mode.STUMP, Tools.Mode.ROPE_MACHINE:
 			_place_station(hit)
+		Tools.Mode.BRIDGE:
+			hud.show_message("Press at one edge and drag to the other, without lifting the finger")
 		Tools.Mode.DIG:
 			if hit.brick:
 				bricks.remove(bricks.brick_at(hit.cell))
@@ -430,7 +434,7 @@ func _on_box(rect: Rect2) -> void:
 
 ## Tools that are aimed by dragging from one point on the ground to another (the camera is moved with two fingers meanwhile).
 func _is_aim_tool() -> bool:
-	return Tools.is_block(mode) or mode in [Tools.Mode.MARK_DIG, Tools.Mode.MARK_TREES, Tools.Mode.MARK_GRASS]
+	return Tools.is_block(mode) or mode in [Tools.Mode.MARK_DIG, Tools.Mode.MARK_TREES, Tools.Mode.MARK_GRASS, Tools.Mode.BRIDGE]
 
 
 ## The finger moves: what the order would be, drawn through the blocks.
@@ -439,6 +443,9 @@ func _on_aim_changed(from: Vector2, to: Vector2) -> void:
 		var e := _pick(to)
 		if not e.is_empty() and board.tasks.has(_editing):
 			_aim.show_ring(world, _editing.center, _edit_radius(e))
+		return
+	if mode == Tools.Mode.BRIDGE:
+		_aim_bridge(from, to)
 		return
 	var a := _pick(from)
 	var b := _pick(to)
@@ -476,6 +483,9 @@ func _aim_radius(a: Dictionary, b: Dictionary) -> float:
 
 func _on_aim_finished(from: Vector2, to: Vector2) -> void:
 	_aim.clear()
+	if mode == Tools.Mode.BRIDGE:
+		_finish_bridge(from, to)
+		return
 	if _editing != null:
 		var e := _pick(to)
 		if not e.is_empty() and board.tasks.has(_editing):
@@ -603,7 +613,7 @@ func _plan_at(screen_pos: Vector2) -> Dictionary:
 	var best_t := INF
 	for bp: Blueprint in economy.blueprints:
 		if is_instance_valid(bp):
-			best_t = _nearer_plan(best, best_t, bp, AABB(Vector3(bp.origin), Vector3(bp.size.x, 1.5, bp.size.y)), from, dir)
+			best_t = _nearer_plan(best, best_t, bp, bp.plan_box(), from, dir)
 	for w: WallPlan in economy.walls:
 		if not is_instance_valid(w):
 			continue
@@ -708,6 +718,83 @@ func _show_structure_ghost(type: String, kind: int, origin: Vector3i, def: Dicti
 	for n in bp.find_children("*", "MeshInstance3D", true, false):
 		(n as MeshInstance3D).material_override = m
 	_pending_ghost = bp
+
+
+## The bridge as the finger drags from the first point to the second: the plan drawn blue where it can be built, red where not. Returns
+## {"ok", "why", "a", "b", "side", "ys"} (the cells are -1 while the points are not on ground).
+func _bridge_aim(from: Vector2, to: Vector2) -> Dictionary:
+	var out := {"ok": false, "why": "", "a": Vector3i(-1, -1, -1)}
+	var ah := _pick(from)
+	var bh := _pick(to)
+	if ah.is_empty() or bh.is_empty() or ah.brick:
+		out.why = "the first point is not on ground"
+		return out
+	var a: Vector3i = _cell_above(ah)
+	if not units.nav.standable(a):
+		out.why = "the first point is not a place to stand"
+		return out
+	var dx: int = bh.cell.x - a.x
+	var dz: int = bh.cell.z - a.z
+	var along_x := absi(dx) >= absi(dz)
+	var length := absi(dx) if along_x else absi(dz)
+	var off := dz if along_x else dx
+	var side := -1 if off < 0 else 1
+	var bx: int = a.x + (dx if along_x else 0)
+	var bz: int = a.z + (0 if along_x else dz)
+	var b := units.nav.standable_in_column(bx, bz, a.y, 6, 8)
+	out.a = a
+	out.side = side
+	if length < 2:
+		out.why = "too short: there is no gap"
+		return out
+	if b.x < 0:
+		b = Vector3i(bx, a.y, bz)   # no ground there: drawn red at the height of the start
+		out.why = "the second point is not on ground"
+		var n := length - 1
+		out.b = b
+		out.ys = BridgePlan.layers(a.y, b.y, n) if n <= BridgePlan.MAX_LENGTH else PackedInt32Array()
+		return out
+	var res := BridgePlan.check(world, units.nav, economy.stockpiles + economy.blueprints + economy.bridges, a, b, side)
+	out.b = b
+	out.ok = res.ok
+	out.why = res.why
+	out.ys = res.get("ys", PackedInt32Array())
+	return out
+
+
+var _bridge_preview: BridgePlan
+var _bridge_why := ""
+
+
+func _aim_bridge(from: Vector2, to: Vector2) -> void:
+	var aim := _bridge_aim(from, to)
+	if aim.get("ys", PackedInt32Array()).is_empty() or aim.a.x < 0:
+		_hide_bridge_preview()
+	else:
+		if _bridge_preview == null:
+			_bridge_preview = BridgePlan.new()
+			add_child(_bridge_preview)
+		_bridge_preview.visible = true
+		_bridge_preview.show_preview(bricks, aim.a, aim.b, aim.side, aim.ys, aim.ok)
+	if aim.why != _bridge_why:
+		_bridge_why = aim.why
+		if aim.why != "":
+			hud.show_message("Cannot build the bridge: " + aim.why)
+
+
+func _hide_bridge_preview() -> void:
+	_bridge_why = ""
+	if _bridge_preview != null:
+		_bridge_preview.visible = false
+
+
+## The finger is let go: on blue the bridge is planned (its job joins the building job), on red nothing happens.
+func _finish_bridge(from: Vector2, to: Vector2) -> void:
+	var aim := _bridge_aim(from, to)
+	_hide_bridge_preview()
+	if aim.ok:
+		if board.place_bridge(aim.a, aim.b, aim.side) == null:
+			hud.show_message("Cannot build the bridge: " + economy.last_error)
 
 
 func _refresh_tasks_panel() -> void:

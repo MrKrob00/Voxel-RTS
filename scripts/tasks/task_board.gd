@@ -231,6 +231,21 @@ func _structures_task() -> BuildTask:
 	return made
 
 
+## The player's bridge: a plan from the cell `a` to the cell `b` (standing cells on a line), the second lane on `side`; joins the building job.
+## Null and the reason in `economy.last_error` when it cannot be built there.
+func place_bridge(a: Vector3i, b: Vector3i, side: int) -> BridgePlan:
+	var res := BridgePlan.check(world, nav, economy.stockpiles + economy.blueprints + economy.bridges, a, b, side)
+	if not res.ok:
+		economy.last_error = res.why
+		return null
+	var bp := BridgePlan.new()
+	economy.add_bridge(bp)
+	bp.setup_bridge(economy.bricks, a, b, side, res.ys)
+	_structures_task().add_blueprint(bp)
+	changed.emit()
+	return bp
+
+
 ## A blueprint has all it needs: the building stands (a station also gets its standing job).
 func finish_blueprint(bp: Blueprint) -> void:
 	var made := economy.finish_blueprint(bp)

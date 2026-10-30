@@ -114,6 +114,8 @@ func input_needed() -> Dictionary:
 
 ## The same, but a unit that carries something that a plan needs goes on with that.
 func input_needed_by(unit: Unit) -> Dictionary:
+	if unit != null and unit.carried_amount() == 0 and live().any(func(bp: Blueprint) -> bool: return bp.has_work()):
+		return {}   # a free hand goes to what is paid for and waits to be laid, before fetching more
 	var first := {}
 	for bp in live():
 		var need := _need_of(bp)
@@ -133,6 +135,8 @@ func wants_workers(brd: TaskBoard) -> bool:
 	if workers.size() >= max_workers:
 		return false
 	for bp in live():
+		if bp.has_work():
+			return true
 		var need := _need_of(bp)
 		if not need.is_empty() and brd.economy.find_stock(Vector3i(bp.origin), need.kind, need.amount) != null:
 			return true
@@ -141,7 +145,15 @@ func wants_workers(brd: TaskBoard) -> bool:
 
 ## The nearest plan that needs what the unit carries.
 func claim(unit: Unit, from: Vector3i, _now: float) -> Variant:
-	return _nearest_needing(live(), unit.carried_kind(), from)
+	var bp := _nearest_needing(live(), unit.carried_kind(), from) if unit.carried_amount() > 0 else null
+	if bp == null:
+		for w in live():
+			if w.has_work():
+				bp = w   # something to lay that has been paid for
+				break
+	if bp != null:
+		bp.note_builder(from)
+	return bp
 
 
 func release(_target: Variant, _retry_after := 0.0) -> void:
@@ -184,11 +196,5 @@ func work_time(_target: Variant) -> float:
 
 ## Puts what the unit carries into the plan; when it is all there, the building stands.
 func perform(target: Variant, brd: TaskBoard, unit: Unit = null) -> Dictionary:
-	var bp := target as Blueprint
-	if unit != null and unit.carried_amount() > 0:
-		var kind := unit.carried_kind()
-		var left := unit.carried_amount() - bp.deliver(kind, unit.carried_amount())
-		unit.carry(kind if left > 0 else Resources.Kind.NONE, left)   # what the plan did not need stays in the hands
-	if bp.is_complete():
-		brd.finish_blueprint(bp)
+	(target as Blueprint).perform_work(unit, brd)
 	return {"done": true}

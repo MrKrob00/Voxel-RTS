@@ -104,6 +104,10 @@ func standable(c: Vector3i) -> bool:
 
 ## y of the unit's feet in world units, at a point (wx, wz) inside the cell.
 func feet_height(c: Vector3i, wx: float, wz: float) -> float:
+	if bricks is BrickWorld:
+		var deck: float = (bricks as BrickWorld).deck_feet(c, wx, wz)   # on the planks of a bridge: along its arc
+		if not is_nan(deck):
+			return deck
 	var flight := _flight(c)
 	if not flight.is_empty():
 		var rise: Vector2i = flight.rise

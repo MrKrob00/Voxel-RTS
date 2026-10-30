@@ -41,6 +41,31 @@ func deliver(k: int, n: int) -> int:
 	return took
 
 
+## What a unit standing at the plan does: puts in what it carries; when everything is there, the building stands.
+func perform_work(unit: Unit, brd: TaskBoard) -> void:
+	if unit != null and unit.carried_amount() > 0:
+		var kind := unit.carried_kind()
+		var left := unit.carried_amount() - deliver(kind, unit.carried_amount())
+		unit.carry(kind if left > 0 else Resources.Kind.NONE, left)   # what the plan did not need stays in the hands
+	if is_complete():
+		brd.finish_blueprint(self)
+
+
+## Is there work to do here that needs no delivery (the planks of a bridge that have been paid for and are not laid)?
+func has_work() -> bool:
+	return false
+
+
+## A unit is coming to work at the plan from this cell (a bridge is laid from the end that is nearer to it).
+func note_builder(_from: Vector3i) -> void:
+	pass
+
+
+## The box of the plan in the world (to point at it).
+func plan_box() -> AABB:
+	return AABB(Vector3(origin), Vector3(size.x, 1.5, size.y))
+
+
 func needs_text() -> String:
 	var parts := PackedStringArray()
 	for k in cost:

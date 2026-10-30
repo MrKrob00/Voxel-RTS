@@ -10,6 +10,7 @@ var stockpiles: Array[Stockpile] = []
 var stations: Array = []     ## Station nodes (stump, rope machine)
 var blueprints: Array = []   ## Blueprint nodes: planned buildings waiting for what they cost
 var walls: Array = []        ## WallPlan nodes: planned walls
+var bridges: Array = []      ## BridgePlan nodes of the bridges that stand (the planned ones are in `blueprints`)
 var _plan_cells := {}        # Vector3i -> WallPlan.Slot: the cells the planned (not yet laid) slots will fill
 var _reserved := {}          ## Stockpile -> {kind, count}: goods on their way there
 var _taking := {}            ## Stockpile -> how many of its goods someone is on the way to fetch
@@ -99,9 +100,21 @@ func place_blueprint(type: String, kind: int, origin: Vector3i) -> Blueprint:
 	return bp
 
 
+## A bridge that `BridgePlan.check` approved becomes a plan like the others (units bring it planks).
+func add_bridge(bp: BridgePlan) -> void:
+	add_child(bp)
+	blueprints.append(bp)
+	changed.emit()
+
+
 ## Everything has arrived: the blueprint goes and the real thing stands there. Returns the Stockpile or the Station.
 func finish_blueprint(bp: Blueprint) -> Node:
 	blueprints.erase(bp)
+	if bp is BridgePlan:
+		bp.complete()   # a bridge stays: its planks are laid
+		bridges.append(bp)
+		changed.emit()
+		return bp
 	bp.done = true
 	bp.queue_free()
 	var made: Node
@@ -265,6 +278,8 @@ func cancel_wall(plan: WallPlan) -> void:
 
 func cancel_blueprint(bp: Blueprint) -> void:
 	blueprints.erase(bp)
+	if bp is BridgePlan:
+		bp.discard()   # the planks that were laid go
 	bp.done = true
 	bp.queue_free()
 	changed.emit()

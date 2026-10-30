@@ -38,6 +38,8 @@ var max_debris := 120
 var debris_seconds := 25.0
 
 var _cells := {}        # Vector3i -> Brick
+var _decks := {}        # Vector3i -> BridgePlan: cells filled by the laid planks of a bridge (a floor for the feet, no brick)
+var _deck_version := 0
 var _bricks := {}       # int -> Brick
 var _next_id := 1
 var _meshes := {}       # length -> BoxMesh
@@ -76,7 +78,28 @@ func setup(w: VoxelWorld, shared_colliders: GroundColliders = null) -> void:
 # --- queries --------------------------------------------------------------------------------------
 
 func occupied(cell: Vector3i) -> bool:
-	return _cells.has(cell)
+	return _cells.has(cell) or _decks.has(cell)
+
+
+## A laid plank of a bridge fills this cell: units walk on it (it is a floor like a brick's top) and nothing else is built in it.
+func add_deck(cell: Vector3i, plan: Node) -> void:
+	_decks[cell] = plan
+	_deck_version += 1
+
+
+func remove_decks_of(plan: Node) -> void:
+	for c in _decks.keys():
+		if _decks[c] == plan:
+			_decks.erase(c)
+	_deck_version += 1
+
+
+## Where the feet stand on a bridge, at a point inside the cell `feet` (the cell above the planks): NAN when it is not a bridge.
+func deck_feet(feet: Vector3i, wx: float, wz: float) -> float:
+	var plan: Variant = _decks.get(feet + Vector3i(0, -1, 0))
+	if plan == null or not is_instance_valid(plan):
+		return NAN
+	return (plan as BridgePlan).deck_height(wx, wz)
 
 
 func brick_at(cell: Vector3i) -> Brick:
@@ -111,6 +134,8 @@ func steps_at(cell: Vector3i) -> Dictionary:
 ## A copy of what Navigation asks about the bricks, for a thread to read while the main thread goes on changing them.
 func snapshot() -> BrickSnapshot:
 	var snap := BrickSnapshot.new()
+	for c in _decks:
+		snap.cells[c] = true
 	for c in _cells:
 		snap.cells[c] = true
 		var flight := steps_at(c)
@@ -121,7 +146,7 @@ func snapshot() -> BrickSnapshot:
 
 ## Changes whenever a brick is placed or taken out (a new snapshot is needed when it does).
 func signature() -> int:
-	return _next_id * 100003 + _cells.size()
+	return _next_id * 100003 + _cells.size() + _deck_version * 7919
 
 
 func debris_count() -> int:
@@ -141,7 +166,7 @@ static func center_for(origin: Vector3i, axis: int, length: int = 2) -> Vector3:
 
 
 func _cell_free(cell: Vector3i) -> bool:
-	return world.in_bounds(cell) and not Blocks.is_solid(world.get_block(cell)) and not _cells.has(cell)
+	return world.in_bounds(cell) and not Blocks.is_solid(world.get_block(cell)) and not _cells.has(cell) and not _decks.has(cell)
 
 
 ## What a set of cells rests on (only cells directly below count):
