@@ -15,6 +15,7 @@ extends Node3D
 @onready var hud: Hud = $Hud
 @onready var day: DayCycle = $DayCycle
 @onready var relief: ReliefShadow = $ReliefShadow
+@onready var horizon: HorizonCulling = $HorizonCulling
 var props: PropField          # null when started with --noprops
 const START_UNITS := 5
 
@@ -51,6 +52,7 @@ func _ready() -> void:
 		props.setup(world)
 	colliders.setup(world)
 	relief.setup(world, day)
+	horizon.setup(world, rig.camera)
 	bricks.setup(world, colliders)
 	loose.setup(world, colliders)
 

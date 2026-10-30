@@ -4,6 +4,7 @@ extends Node3D
 ## The scatter is a pure function of the seed (same world, same trees) and runs on a worker thread.
 
 const STEP := 2   ## one candidate spot per STEP x STEP blocks
+const CELL := 32          ## blocks: the props of one square of this size are one MultiMesh, drawn or skipped (out of the picture) as a whole
 
 var world: VoxelWorld
 ## The trees and the tufts of grass as individual things: workers fell and cut them. Index i of `trees` is instance i of the
@@ -12,12 +13,22 @@ var trees: Array[Transform3D] = []
 var tufts: Array[Transform3D] = []
 var tree_alive := PackedByteArray()
 var tuft_alive := PackedByteArray()
-var _multimeshes := {}
+## The MultiMeshes of each kind, one set per CELL x CELL square of the map: Group of a square, per index of the kind the square and the
+## place in it. Only squares in the picture are drawn (a MultiMesh is culled as one thing).
+var _groups := {}       # kind -> Array[Group]
+var _group_of := {}     # kind -> PackedInt32Array: index -> Group
+var _slot_in := {}      # kind -> PackedInt32Array: index -> place in the MultiMeshes of its Group
 var _built := false
 var _task_id := -1
 var _result := {}
 var _mutex := Mutex.new()
 var _done := false
+
+
+class Group extends RefCounted:
+	var meshes: Array[MultiMesh] = []   ## the MultiMesh of the square (an array so that more than one model of the same instances can be added)
+	var stumps: MultiMesh               ## the stumps of the felled trees of this square, the first `stumps_used` are shown
+	var stumps_used := 0
 
 
 ## The scatter only needs the generator, so it starts at once and runs beside chunk generation. Meshing of the world waits
@@ -141,12 +152,16 @@ func reset() -> void:
 	for i in trees.size():
 		if tree_alive[i] == 0:
 			tree_alive[i] = 1
-			_multimeshes["pine"].set_instance_transform(i, trees[i])
-			_hide("stump", i, trees[i])
+			_place("pine", i, trees[i])
+	for kind in ["pine"]:
+		for g: Group in _groups.get(kind, []):
+			if g.stumps != null:
+				g.stumps_used = 0
+				g.stumps.visible_instance_count = 0
 	for i in tufts.size():
 		if tuft_alive[i] == 0:
 			tuft_alive[i] = 1
-			_multimeshes["tuft"].set_instance_transform(i, tufts[i])
+			_place("tuft", i, tufts[i])
 
 
 func is_built() -> bool:
@@ -175,9 +190,11 @@ func fell_tree(i: int) -> void:
 	if i >= 0 and i < trees.size() and tree_alive[i] == 1:
 		tree_alive[i] = 0
 		_hide("pine", i, trees[i])
-		var mm: MultiMesh = _multimeshes.get("stump")
-		if mm != null:
-			mm.set_instance_transform(i, Transform3D(Basis(Vector3.UP, i * 1.3).scaled(Vector3.ONE * 1.0), trees[i].origin))   # the stump stays
+		var g := _group("pine", i)
+		if g != null and g.stumps != null and g.stumps_used < g.stumps.instance_count:
+			g.stumps.set_instance_transform(g.stumps_used, Transform3D(Basis(Vector3.UP, i * 1.3), trees[i].origin))   # the stump stays
+			g.stumps_used += 1
+			g.stumps.visible_instance_count = g.stumps_used
 
 
 func cut_tuft(i: int) -> void:
@@ -186,10 +203,23 @@ func cut_tuft(i: int) -> void:
 		_hide("tuft", i, tufts[i])
 
 
+func _group(kind: String, i: int) -> Group:
+	var of: PackedInt32Array = _group_of.get(kind, PackedInt32Array())
+	return (_groups[kind] as Array)[of[i]] if i < of.size() else null
+
+
+## Puts instance `i` of a kind at `xf` in every MultiMesh that draws it.
+func _place(kind: String, i: int, xf: Transform3D) -> void:
+	var g := _group(kind, i)
+	if g == null:
+		return
+	var at: int = (_slot_in[kind] as PackedInt32Array)[i]
+	for mm in g.meshes:
+		mm.set_instance_transform(at, xf)
+
+
 func _hide(kind: String, i: int, xf: Transform3D) -> void:
-	var mm: MultiMesh = _multimeshes.get(kind)
-	if mm != null:
-		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), xf.origin))
+	_place(kind, i, Transform3D(Basis().scaled(Vector3.ZERO), xf.origin))
 
 
 func _surface(x: float, z: float) -> int:
@@ -346,39 +376,77 @@ func _xform(pos: Vector3, rng: RandomNumberGenerator, smin: float, smax: float) 
 
 
 func _build(res: Dictionary) -> void:
+	# kind -> [the model, its material]
 	var specs := {
 		"pine": [Props.pine(), Props.material(false)],
 		"boulder": [Props.boulder(3), Props.material(false)],
 		"crystal": [Props.crystals(), Props.material(false)],
 		"tuft": [Props.tuft(), Props.material(true)],
-		"stump": [Props.stump(), Props.material(false)],
 	}
-	# A stump for every tree, hidden until the tree is felled.
-	var hidden: Array = []
-	for xf: Transform3D in res.get("pine", []):
-		hidden.append(Transform3D(Basis().scaled(Vector3.ZERO), xf.origin))
-	res["stump"] = hidden
 	for kind in specs:
 		var list: Array = res.get(kind, [])
 		if list.is_empty():
 			continue
+		_build_kind(kind, list, specs[kind])
+	# A stump for every felled tree: made with the squares of the pines, shown one by one.
+	var stump_mesh := Props.stump()
+	var stump_material := Props.material(false)
+	var pine_groups: Array = _groups.get("pine", [])
+	for g: Group in pine_groups:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = specs[kind][0]
-		mm.instance_count = list.size()
-		for i in list.size():
-			mm.set_instance_transform(i, list[i])
+		mm.mesh = stump_mesh
+		mm.instance_count = g.meshes[0].instance_count
+		mm.visible_instance_count = 0
 		var inst := MultiMeshInstance3D.new()
-		inst.name = kind.capitalize()
+		inst.name = "Stumps_%d" % pine_groups.find(g)
 		inst.multimesh = mm
-		inst.material_override = specs[kind][1]
+		inst.material_override = stump_material
 		add_child(inst)
-		_multimeshes[kind] = mm
+		g.stumps = mm
+
+
+func _build_kind(kind: String, list: Array, spec: Array) -> void:
+	var cells := {}    # Vector2i -> Array of indices
+	for i in list.size():
+		var o: Vector3 = (list[i] as Transform3D).origin
+		var key := Vector2i(floori(o.x / CELL), floori(o.z / CELL))
+		if not cells.has(key):
+			cells[key] = []
+		cells[key].append(i)
+	var groups: Array[Group] = []
+	var of := PackedInt32Array()
+	of.resize(list.size())
+	var slot := PackedInt32Array()
+	slot.resize(list.size())
+	for key in cells:
+		var indices: Array = cells[key]
+		var g := Group.new()
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = spec[0]
+		mm.instance_count = indices.size()
+		for k in indices.size():
+			mm.set_instance_transform(k, list[indices[k]])
+		var inst := MultiMeshInstance3D.new()
+		inst.name = "%s_%d_%d" % [kind.capitalize(), key.x, key.y]
+		inst.multimesh = mm
+		inst.material_override = spec[1]
+		add_child(inst)
+		g.meshes.append(mm)
+		for k in indices.size():
+			of[indices[k]] = groups.size()
+			slot[indices[k]] = k
+		groups.append(g)
+	_groups[kind] = groups
+	_group_of[kind] = of
+	_slot_in[kind] = slot
 
 
 func counts() -> Dictionary:
 	var d := {}
 	for c in get_children():
 		if c is MultiMeshInstance3D:
-			d[c.name] = (c as MultiMeshInstance3D).multimesh.instance_count
+			var kind: String = c.name.get_slice("_", 0)
+			d[kind] = d.get(kind, 0) + (c as MultiMeshInstance3D).multimesh.instance_count
 	return d
