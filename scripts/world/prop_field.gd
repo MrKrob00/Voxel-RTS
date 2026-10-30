@@ -4,7 +4,7 @@ extends Node3D
 ## The scatter is a pure function of the seed (same world, same trees) and runs on a worker thread.
 
 const STEP := 2   ## one candidate spot per STEP x STEP blocks
-const CELL := 32          ## blocks: the props of one square of this size are one MultiMesh, drawn or skipped (out of the picture) as a whole
+const CELL := 16          ## blocks: the props of one square of this size are one MultiMesh, drawn or skipped (out of the picture) as a whole
 
 var world: VoxelWorld
 ## The trees and the tufts of grass as individual things: workers fell and cut them. Index i of `trees` is instance i of the

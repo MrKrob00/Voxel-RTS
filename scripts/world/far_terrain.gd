@@ -102,10 +102,16 @@ func _measure_column(cx: int, cz: int) -> void:
 	for z in range(cz * Blocks.CHUNK_SIZE, (cz + 1) * Blocks.CHUNK_SIZE):
 		for x in range(cx * Blocks.CHUNK_SIZE, (cx + 1) * Blocks.CHUNK_SIZE):
 			var h := float(_world.column_levels[x + z * size.x]) / Blocks.UNIT
-			lo = minf(lo, h)
+			if h > 0.0:
+				lo = minf(lo, h)   # (a column with no ground in it is not the lowest ground)
 			hi = maxf(hi, h)
-	_lo[cx + cz * _columns_w] = lo - SKIRT
-	_hi[cx + cz * _columns_w] = hi + ABOVE
+	var at := cx + cz * _columns_w
+	if hi <= 0.0:
+		_lo[at] = 1.0e9    # no ground in this column (over the void): there is nothing to draw (lo above hi)
+		_hi[at] = -1.0e9
+	else:
+		_lo[at] = lo - SKIRT
+		_hi[at] = hi + ABOVE
 
 
 ## The nodes of level 1 and up that draw the ground now, as [lod, gx, gz]; every chunk column not under one of them is drawn as chunks.
@@ -131,7 +137,10 @@ static func _descend(lod: int, gx: int, gz: int, cam: Vector3, height_above: flo
 	var z1 := minf(z0 + span, float(depth))
 	var dx := maxf(maxf(x0 - cam.x, 0.0), cam.x - x1)
 	var dz := maxf(maxf(z0 - cam.z, 0.0), cam.z - z1)
-	if not planes.is_empty() and _outside(planes, margin, x0, z0, x1, z1, _range(lo, hi, width, x0, z0, x1, z1)):
+	var y := _range(lo, hi, width, x0, z0, x1, z1)
+	if y.x > y.y:
+		return   # over the void
+	if not planes.is_empty() and _outside(planes, margin, x0, z0, x1, z1, y):
 		return
 	var d2 := dx * dx + dz * dz + height_above * height_above
 	if lod == 0:
@@ -140,6 +149,8 @@ static func _descend(lod: int, gx: int, gz: int, cam: Vector3, height_above: flo
 		for k in 4:
 			_descend(lod - 1, gx * 2 + (k & 1), gz * 2 + (k >> 1), cam, height_above, width, depth, planes, margin, lo, hi, out)
 		return
+	if not planes.is_empty() and not lo.is_empty() and _columns_outside(planes, margin, lo, hi, width, x0, z0, x1, z1):
+		return   # the box of the node touches the picture, but the ground in it does not
 	out.append([lod, gx, gz])
 
 
@@ -154,7 +165,20 @@ static func _range(lo: PackedFloat32Array, hi: PackedFloat32Array, width: int, x
 		for cx in range(int(x0) / Blocks.CHUNK_SIZE, ceili(x1 / Blocks.CHUNK_SIZE)):
 			a = minf(a, lo[cx + cz * cw])
 			b = maxf(b, hi[cx + cz * cw])
-	return Vector2(a, b)
+	return Vector2(a, b)   # (a > b: no ground under the node at all)
+
+
+## Is the ground of every chunk column under a node outside the picture? (a big box is lenient: it counts the empty corners of the picture too)
+static func _columns_outside(planes: Array, margin: float, lo: PackedFloat32Array, hi: PackedFloat32Array, width: int, x0: float, z0: float, x1: float, z1: float) -> bool:
+	var cw := width / Blocks.CHUNK_SIZE
+	for cz in range(int(z0) / Blocks.CHUNK_SIZE, ceili(z1 / Blocks.CHUNK_SIZE)):
+		for cx in range(int(x0) / Blocks.CHUNK_SIZE, ceili(x1 / Blocks.CHUNK_SIZE)):
+			var y := Vector2(lo[cx + cz * cw], hi[cx + cz * cw])
+			if y.x > y.y:
+				continue   # no ground there
+			if not _outside(planes, margin, float(cx * Blocks.CHUNK_SIZE), float(cz * Blocks.CHUNK_SIZE), float((cx + 1) * Blocks.CHUNK_SIZE), float((cz + 1) * Blocks.CHUNK_SIZE), y):
+				return false
+	return true
 
 
 ## Does the box of a node (x0..x1, z0..z1, heights `y`) lie outside one of the planes by more than `margin`?

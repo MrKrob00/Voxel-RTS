@@ -36,6 +36,10 @@ signal drag_cancelled
 @export var box_min_size := 12.0
 
 var yaw := deg_to_rad(35.0)
+const MAX_FAR := 1400.0
+const MIN_FAR := 60.0
+const FAR_MARGIN := 20.0          ## blocks past the point where the picture meets the floor
+const WORLD_FLOOR := 0.0          ## the lowest ground of the world
 var pitch := deg_to_rad(52.0)
 var distance := 55.0
 var focus := Vector3(128, 48, 128)
@@ -74,7 +78,7 @@ var _prev_pinch_mid := Vector2.ZERO
 
 func _ready() -> void:
 	camera = Camera3D.new()
-	camera.far = 1400.0
+	camera.far = MAX_FAR
 	camera.fov = 60.0
 	add_child(camera)
 	pointer = get_viewport().get_visible_rect().size * 0.5
@@ -294,8 +298,28 @@ func _pan_world(v: Vector2) -> void:
 	focus.z = clampf(focus.z, bounds.position.y, bounds.end.y)
 
 
+## The far plane of the picture is where the highest of the four corner rays meets the floor of the world (nothing is lower): with the
+## camera looking down from a few blocks up, that is a few dozen blocks, and everything that culls by the frustum (the engine, the chunks,
+## the far ground, the trees) drops what lies beyond. Looking at the horizon it is the whole MAX_FAR.
+func _fit_far_plane() -> void:
+	var size := get_viewport().get_visible_rect().size
+	var half_h := tan(deg_to_rad(camera.fov * 0.5))
+	var half_w := half_h * size.x / maxf(size.y, 1.0)
+	var forward := -global_transform.basis.z
+	var reach := 0.0
+	for sy in [-1.0, 1.0]:
+		for sx in [-1.0, 1.0]:
+			var ray := (global_transform.basis * Vector3(sx * half_w, sy * half_h, -1.0)).normalized()
+			if ray.y > -0.02:
+				reach = MAX_FAR
+			else:
+				reach = maxf(reach, (global_position.y - WORLD_FLOOR) / -ray.y * ray.dot(forward))
+	camera.far = clampf(reach + FAR_MARGIN, MIN_FAR, MAX_FAR)
+
+
 func _apply() -> void:
 	var offset := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch)) * distance
 	position = focus + offset
 	look_at(focus, Vector3.UP)
+	_fit_far_plane()
 	# Camera3D is a child at identity; the rig itself does the orbiting.
