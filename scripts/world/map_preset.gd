@@ -46,6 +46,13 @@ static func blob(x: float, z: float, scale: float) -> float:
 	return clampf((a + b + c * 1.3) / 3.3 * 0.5 + 0.5, 0.0, 1.0)
 
 
+## The green of the grass at a place (three blobs of colour). The ground shader does not work it out: it reads it from the ground image
+## of the chunk (VoxelWorld._mesh_task), one texel per column.
+func grass_colour(x: float, z: float) -> Color:
+	var base := surface_dark.lerp(surface_light, blob(x, z, 1.0))
+	return base.lerp(surface_deep, smoothstep(0.58, 0.72, blob(x - 90.0, z + 55.0, 0.55)) * 0.75)
+
+
 ## Colour of a vertex on a face. Top faces of the surface block blend light/dark ground cover and bare patches;
 ## `bare` (0..1, see GroundCover) is how much of the grass is gone there: under props and buildings, along cliff edges.
 func vertex_color(block: int, face_kind: int, wx: float, wz: float, bare := 0.0) -> Color:

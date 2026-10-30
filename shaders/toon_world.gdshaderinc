@@ -20,7 +20,7 @@ uniform float detail_far = 150.0;
 uniform float sparkle = 0.0;           // water: pixels that flicker
 // The ground (ChunkMesher merges whole stretches of flat faces into one quad, so what varied per block and per corner is done here).
 // UV.x is a sum of flags:
-//   1 = a face of the grass top: coloured by blobs of three greens from the world position (MapPreset.blob), worn to bare earth where
+//   1 = a face of the grass top: coloured by blobs of three greens (MapPreset.grass_colour, baked per column into cover_tex), worn to bare earth where
 //       cover_tex says (a ragged edge of single pixels, not a gradient);
 //   2 = the light in the corners of the block comes from ao_tex (the 4 corners x 6 faces of every block of the chunk, 2 bits each);
 //   4 = a slope of grass (colours are baked, COLOR.a is how much of the grass is worn away);
@@ -28,20 +28,13 @@ uniform float sparkle = 0.0;           // water: pixels that flicker
 // UV.y = how much each block of the face differs from the next (cobble on cliffs).
 uniform bool terrain = false;
 // How much of the ground's work is done (to find which part a graphics card cannot do): 0 only colour and light, 1 + the dark corners
-// (a texture), 2 + the grass blobs, the worn earth and the shade of the relief (textures), 3 everything (the noise of pixels).
+// (a texture), 2 + the worn earth and the shade of the relief (textures), 3 everything (the noise of pixels).
 uniform float features = 3.0;
 uniform sampler2D ao_tex : hint_default_black, filter_nearest, repeat_disable;   // 32 x 256 texels: (x * 2 + face / 4, y * 16 + z) of the block
-uniform sampler2D cover_tex : hint_default_black, filter_linear, repeat_disable;   // how much of the grass is worn away (GroundCover.slice of the chunk)
+uniform sampler2D cover_tex : hint_default_transparent, filter_linear, repeat_disable; // the grass of the chunk, a texel per column: rgb its green (MapPreset.grass_colour), a how much of it is worn away (GroundCover.slice)
 uniform vec2 cover_size = vec2(18.0, 1.0);                                         // its width in columns and the border of columns around the chunk
 uniform vec3 bare_color = vec3(0.5412, 0.4157, 0.2627);
 uniform vec3 side_earth = vec3(0.4784, 0.3529, 0.2275);      // the side of a grass block under its lip (Blocks earth)
-// The blobs the grass is coloured by (MapPreset.blob at the middle of each square of the map): R the first, G the second. A texture read
-// instead of ten sin() for every pixel of the ground.
-uniform sampler2D blob_tex : hint_default_black, filter_linear, repeat_disable;
-uniform vec2 blob_size = vec2(448.0, 448.0);                 // what the texture covers, in blocks
-uniform vec3 surface_dark = vec3(0.3098, 0.6039, 0.2039);    // MapPreset colours as the vertex colours carry them (no sRGB conversion)
-uniform vec3 surface_light = vec3(0.4157, 0.6588, 0.2353);
-uniform vec3 surface_deep = vec3(0.2392, 0.5176, 0.2039);
 // The shade the relief throws (ReliefShadow): one texel per block of the map, 0 = lit .. 1 = in the shadow of higher ground.
 uniform sampler2D relief_tex : hint_default_black, filter_linear, repeat_disable;
 uniform vec2 relief_size = vec2(448.0, 448.0);
@@ -66,13 +59,6 @@ float hash_i(ivec3 c) {
 // The noise a pixel is worn by: lumps of 2 x 2 pixels on top of single pixels.
 float wear_noise(ivec3 cell) {
 	return mix(hash_i(cell), hash_i((cell >> 1) + ivec3(17)), 0.35);
-}
-
-// The green of the grass at a place (three blobs of colour).
-vec3 grass_green(vec2 p) {
-	vec2 b = textureLod(blob_tex, p / blob_size, 0.0).rg;
-	vec3 g = mix(surface_dark, surface_light, b.x);
-	return mix(g, surface_deep, smoothstep(0.58, 0.72, b.y) * 0.75);
 }
 
 // The light a face of this normal gets: [ambient, sun].
@@ -137,6 +123,10 @@ void fragment() {
 	vec3 base = COLOR.rgb;
 	if (terrain) {
 		int fl = int(v_flags + 0.5);   // (the UV is the same on every vertex of a face, but interpolated it is not exact)
+		vec4 grass = vec4(0.0);        // the green of the grass here and how worn it is: one read of the picture of the chunk
+		if ((fl & 9) != 0) {
+			grass = textureLod(cover_tex, (local_pos.xz + cover_size.y) / cover_size.x, 0.0);
+		}
 		if (features < 2.0) {
 			fl &= 2;
 		}
@@ -146,7 +136,7 @@ void fragment() {
 		// where the grass is worn the earth shows through in single pixels: a pixel is earth when the wear is more than its own noise
 		float worn = 0.0;
 		if ((fl & 1) != 0) {
-			worn = textureLod(cover_tex, (local_pos.xz + cover_size.y) / cover_size.x, 0.0).r;
+			worn = grass.a;
 		} else if ((fl & 4) != 0) {
 			worn = COLOR.a;
 		}
@@ -159,19 +149,19 @@ void fragment() {
 				bare = worn > wear_noise(cell + ivec3(1, 0, 0)) || worn > wear_noise(cell - ivec3(1, 0, 0)) || worn > wear_noise(cell + ivec3(0, 0, 1)) || worn > wear_noise(cell - ivec3(0, 0, 1));
 			}
 			if ((fl & 1) != 0) {
-				base *= bare ? bare_color : grass_green(world_pos.xz);
+				base *= bare ? bare_color : grass.rgb;
 			} else if ((fl & 4) != 0 && bare) {
 				base = bare_color;
 			}
 		} else if ((fl & 1) != 0) {
-			base *= grass_green(world_pos.xz);
+			base *= grass.rgb;
 		}
 		if ((fl & 8) != 0) {
 			// the lip: a few pixels of grass along the top edge of the wall, each column a different length
 			float row = (floor(world_pos.y / pixel_size + 0.002) + 0.5) * pixel_size;
 			float depth = floor(row) + 1.0 - row;
 			float lip = 0.2 + 0.3 * (lod > 0.0 ? hash_i(ivec3(cell.x, 3, cell.z)) : 0.5);
-			base *= depth < lip ? grass_green(world_pos.xz) : side_earth;
+			base *= depth < lip ? grass.rgb : side_earth;
 		}
 		if (v_jitter > 0.0 && lod > 0.0) {
 			base *= 1.0 + (hash_i(ivec3(floor(world_pos - face * 0.01))) - 0.5) * 2.0 * v_jitter * lod;

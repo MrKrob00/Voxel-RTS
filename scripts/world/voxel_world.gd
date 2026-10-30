@@ -536,6 +536,25 @@ func _try_mesh(c: Chunk) -> void:
 	WorkerThreadPool.add_task(_mesh_task.bind(c, snap, grass, c.version))
 
 
+## The picture of the grass of a chunk (its columns and the border round them): the green of each column (the blobs of the map: worked out
+## here, once, not by every pixel of the shader) and, in the alpha, how much of the grass is worn away (the slice of GroundCover).
+func _ground_image(cover_slice: PackedByteArray, origin: Vector3i) -> Image:
+	if cover_slice.is_empty():
+		return null
+	var n := Blocks.CHUNK_SIZE + 2 * GroundCover.SLICE_BORDER
+	var data := PackedByteArray()
+	data.resize(n * n * 4)
+	for j in n:
+		for i in n:
+			var green := preset.grass_colour(origin.x - GroundCover.SLICE_BORDER + i + 0.5, origin.z - GroundCover.SLICE_BORDER + j + 0.5)
+			var at := (i + j * n) * 4
+			data[at] = roundi(green.r * 255.0)
+			data[at + 1] = roundi(green.g * 255.0)
+			data[at + 2] = roundi(green.b * 255.0)
+			data[at + 3] = cover_slice[i + j * n]
+	return Image.create_from_data(n, n, false, Image.FORMAT_RGBA8, data)
+
+
 func _mesh_task(c: Chunk, snap: Array, grass: PackedByteArray, version: int) -> void:
 	var out := ChunkMesher.build(snap, c.cpos * Blocks.CHUNK_SIZE, preset, grass)
 	# The images of the textures of the ground are made here, off the main thread; it only has to hand them to the renderer.
@@ -545,10 +564,8 @@ func _mesh_task(c: Chunk, snap: Array, grass: PackedByteArray, version: int) -> 
 	if not ao_data.is_empty():
 		var size := ChunkMesher.AO_TEX_SIZE
 		ao_image = Image.create_from_data(size.x, size.y * size.z, false, Image.FORMAT_RGBA8, ao_data)
-	var cover_slice: PackedByteArray = out[3]
-	var n := Blocks.CHUNK_SIZE + 2 * GroundCover.SLICE_BORDER
 	out[2] = ao_image
-	out[3] = Image.create_from_data(n, n, false, Image.FORMAT_R8, cover_slice) if not cover_slice.is_empty() else null
+	out[3] = _ground_image(out[3], c.cpos * Blocks.CHUNK_SIZE)
 	_mutex.lock()
 	_mesh_results.append([c, out, version])
 	_mutex.unlock()
