@@ -33,6 +33,7 @@ const COST := {Resources.Kind.PLANK: 3}
 const FILL_KINDS := [Resources.Kind.STONE, Resources.Kind.PLANT, Resources.Kind.COAL, Resources.Kind.IRON]
 const FILL_GAP := 0.1          ## between the walls and what is inside
 const FILL_CHUNKS := 40        ## pieces of rubble on the surface of what is inside
+const SHARDS := 72             ## the iron ore: flat angular chips of metal heaped on the surface (one box each, lighter and darker ones)
 
 var origin := Vector3i.ZERO
 var holding := Resources.Kind.NONE       ## what it holds right now (NONE when empty)
@@ -43,6 +44,7 @@ var _walls: Node3D
 var _fill: Node3D                        ## what a crate holds: a body that fills it up to the amount, and rubble on top (made once, kept)
 var _fill_body: MeshInstance3D
 var _fill_rubble: MultiMeshInstance3D
+var _fill_shards: MultiMeshInstance3D          ## the iron ore
 var _fill_kind := Resources.Kind.NONE
 var _label: Label3D
 
@@ -191,6 +193,17 @@ func build(cell: Vector3i) -> void:
 	_fill_rubble = MultiMeshInstance3D.new()
 	_fill_rubble.multimesh = rubble
 	_fill.add_child(_fill_rubble)
+	var shards := MultiMesh.new()
+	shards.transform_format = MultiMesh.TRANSFORM_3D
+	shards.use_colors = true
+	var chip := BoxMesh.new()
+	chip.size = Vector3(0.2, 0.08, 0.15)
+	shards.mesh = chip
+	shards.instance_count = SHARDS
+	_fill_shards = MultiMeshInstance3D.new()
+	_fill_shards.multimesh = shards
+	_fill_shards.material_override = Props.material(true)
+	_fill.add_child(_fill_shards)
 	_label = Label3D.new()
 	_label.font_size = 22
 	_label.pixel_size = 0.0045
@@ -282,6 +295,22 @@ func _show_fill() -> void:
 	_fill_body.scale = Vector3(inner, h, inner)
 	_fill_body.position = Vector3(SIZE * 0.5, PLATFORM_HEIGHT + h * 0.5, SIZE * 0.5)
 	var half := inner * 0.5 - 0.12
+	var iron := holding == Resources.Kind.IRON
+	_fill_rubble.visible = not iron
+	_fill_shards.visible = iron
+	if iron:
+		# Iron ore as in the original: a mound of bright and dark angular chips, highest in the middle.
+		_fill_body.material_override = _mat(Color("2b2f35"))
+		for k in SHARDS:
+			var u := _fract((k + 1) * _GOLDEN_U) * 2.0 - 1.0
+			var v := _fract((k + 1) * _GOLDEN_V) * 2.0 - 1.0
+			var mound := 0.2 * (1.0 - clampf((u * u + v * v) * 0.5, 0.0, 1.0))
+			var spin := Basis.from_euler(Vector3(_fract(sin(k * 12.9898) * 43758.5453), _fract(sin(k * 78.233) * 43758.5453), _fract(sin(k * 39.346) * 43758.5453)) * TAU)
+			var scale := 0.8 + 0.8 * _fract(sin(k * 93.989) * 43758.5453)
+			_fill_shards.multimesh.set_instance_transform(k, Transform3D(spin.scaled(Vector3(scale, scale, scale)), Vector3(SIZE * 0.5 + u * half, PLATFORM_HEIGHT + h + mound - 0.02, SIZE * 0.5 + v * half)))
+			var shade := 0.28 + 0.72 * _fract(sin(k * 53.171) * 43758.5453)
+			_fill_shards.multimesh.set_instance_color(k, Color(shade * 0.92, shade * 0.97, shade))
+		return
 	for k in FILL_CHUNKS:
 		var u := _fract((k + 1) * _GOLDEN_U) * 2.0 - 1.0
 		var v := _fract((k + 1) * _GOLDEN_V) * 2.0 - 1.0
