@@ -570,7 +570,7 @@ def frustum(cx, cz, y0, y1, w0, w1):
     return [(cx + sx * h0, y0, cz + sz * h0) for sx in (-1, 1) for sz in (-1, 1)] + [(cx + sx * h1, y1, cz + sz * h1) for sx in (-1, 1) for sz in (-1, 1)]
 
 
-FURNACE_WIDTHS = [(0.4, 1.76), (1.0, 1.76), (1.7, 1.36), (2.1, 1.14), (2.5, 1.0)]   # the width of the clay body at a height: a little under 2, straight up to one block with the plinth, then a concave bell (like a cooling tower) with a flat top, a ledge round the chimney
+FURNACE_WIDTHS = [(0.43, 1.84), (0.93, 1.84), (1.43, 1.41), (1.82, 1.11), (2.2, 0.94), (2.43, 0.94)]   # the width of the clay body at a height: a little under 2, straight up to one block with the plinth, then a concave bell (like a cooling tower) with a flat top, a ledge round the chimney
 
 
 def furnace_width(y):
@@ -606,35 +606,35 @@ def furnace():
     body, the tray (a flat slab with a low rim). Two arched mouths with a ring of stones round them, one in the front (on the tray) and one
     in the left side (looking along the front, the left is -z). x 0..3 (the front is +x), y 0..3, z 0..2."""
     cx, cz = 1.0, 1.0
-    top = 0.4
-    # the plinth: smaller than the footprint (3 x 2) on the whole, narrower at the bottom than at the top; the body stands a little inside its top
-    pieces = [[(1.5 + sx * 1.36, 0.0, 1.0 + sz * 0.86) for sx in (-1, 1) for sz in (-1, 1)] + [(1.5 + sx * 1.46, top, 1.0 + sz * 0.96) for sx in (-1, 1) for sz in (-1, 1)]]
-    lip, t = 0.12, 0.07
+    top = 0.43
+    # the plinth (measured on the original, 1 block = 1): 2.92 x 1.92 at the top, hardly narrower at the bottom, 0.43 thick; the body stands
+    # on it with a hair of stone round it
+    pieces = [[(1.5 + sx * 1.44, 0.0, 1.0 + sz * 0.94) for sx in (-1, 1) for sz in (-1, 1)] + [(1.5 + sx * 1.46, top, 1.0 + sz * 0.96) for sx in (-1, 1) for sz in (-1, 1)]]
+    lip, t = 0.10, 0.10
     pieces += [box(2.48, top + lip / 2, 0.04 + t / 2, 0.96, lip, t), box(2.48, top + lip / 2, 1.96 - t / 2, 0.96, lip, t), box(2.96 - t / 2, top + lip / 2, 1.0, t, lip, 1.92)]   # the rim of the tray
-    for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the body
+    for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the body: straight, a concave narrowing, a short vertical collar
         pieces.append(frustum(cx, cz, y0, y1, w0, w1))
-    # the chimney as in the original: it grows out of the flat top of the bell and is a hair narrower at the bottom than at the top
-    pieces.append(frustum(cx, cz, 2.5, 3.0, 0.66, 0.7))
-    # the mouths. They are not alike: the front one (towards the tray) is a round arch with a spout under it that pours the ingots onto the
-    # tray, lower; the left one is a taller, flat arch over a step of stone. The arches go straight up (their face is a vertical plane, not the slope
-    # of the body) and are rooted deep in the body, so they stay joined to it.
-    y0 = top
-    face = 0.88 + 0.06                      # the outer plane of the rings, from the middle of the body
-    niche = 0.15
-    front_ring = arch_profile(y0, 0.55 + 0.4, 0.2, rise=0.27 + 0.2)
-    front_hole = arch_profile(y0, 0.55, 0.2, rise=0.27)
-    left_ring = arch_profile(y0, 0.6 + 0.4, 0.3, rise=0.3 + 0.2)
-    left_hole = arch_profile(y0, 0.6, 0.3, rise=0.3)
-    pieces.append(arch_piece("x", cz, front_ring, lambda y: cx + 0.4, lambda y: cx + face))
-    pieces.append(arch_piece("z", cx, left_ring, lambda y: cz - 0.4, lambda y: cz - face))
+    # the chimney: a square tube, a hair narrower at the bottom than at the top, with a square hole
+    pieces.append(frustum(cx, cz, 2.43, 2.95, 0.64, 0.70))
+    pieces.append(("cut", box(cx, 2.85, cz, 0.27, 0.22, 0.27, 0.0)))
+    # the mouths: the same height, the same ring (1.2 wide, 0.2 thick, up to 0.88 over the platform); the arches go straight up (a vertical outer
+    # plane) and are rooted deep in the body. The front one (to the tray) is a round arch over a clay spout, the left one a flat arch over a stone step.
+    face = 0.92 + 0.06
+    niche = 0.25
+    ring = arch_profile(top, 1.2, 0.3, rise=0.58)
+    front_hole = arch_profile(top, 0.8, 0.3, rise=0.4)
+    step_top = top + 0.2
+    left_hole = arch_profile(step_top, 0.8, 0.2, rise=0.3)
+    pieces.append(arch_piece("x", cz, ring, lambda y: cx + 0.4, lambda y: cx + face))
+    pieces.append(arch_piece("z", cx, ring, lambda y: cz - 0.4, lambda y: cz - face))
     spout = []   # in plan it narrows outward (a V), its top slopes down onto the tray
-    for (xx, half_w, yt) in ((cx + 0.78, 0.3, top + 0.08), (cx + 1.2, 0.17, top)):
+    for (xx, half_w, yt) in ((cx + 0.7, 0.3, top + 0.1), (cx + 1.22, 0.17, top)):
         for sz in (-1, 1):
             spout += [(xx, top, cz + sz * half_w), (xx, yt, cz + sz * half_w)]
     pieces.append(spout)
-    pieces.append(box(cx, top + 0.06, cz - 0.88 - 0.05, 1.1, 0.12, 0.24))   # the step of the left mouth
-    pieces.append(("cut", arch_piece("x", cz, front_hole, lambda y: cx + 0.88 - niche, lambda y: cx + 1.4)))
-    pieces.append(("cut", arch_piece("z", cx, left_hole, lambda y: cz - 0.88 + niche, lambda y: cz - 1.4)))
+    pieces.append(box(cx, top + 0.1, cz - 0.92 - 0.075, 0.74, 0.2, 0.3))   # the step of the left mouth
+    pieces.append(("cut", arch_piece("x", cz, front_hole, lambda y: cx + 0.92 - niche, lambda y: cx + 1.4)))
+    pieces.append(("cut", arch_piece("z", cx, left_hole, lambda y: cz - 0.92 + niche, lambda y: cz - 1.4)))
     return pieces
 
 
