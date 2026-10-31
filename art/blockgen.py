@@ -698,8 +698,8 @@ def unit_t_pose(idle=False):
     pieces.append(rings([(0.27, 0.246, 0.213, 0.02), (0.34, 0.344, 0.295, 0.04), (0.46, 0.418, 0.336, 0.05), (0.56, 0.426, 0.348, 0.05),
                          (0.72, 0.414, 0.336, 0.04), (0.9, 0.389, 0.32, 0.02), (1.08, 0.369, 0.33, 0.0), (1.18, 0.353, 0.28, -0.02),
                          (1.26, 0.328, 0.22, -0.03), (1.33, 0.31, 0.16, -0.03), (1.37, 0.31, 0.12, -0.03)], 16))   # (no shoulders: the arms go straight into it)
-    # the head: a short capsule 0.66 wide with a round (half circle) top at 1.744, set forward (+0.12) so that it sticks out in front of the body; sunk into it down to y 1.08
-    pieces.append(rings([(1.08, 0.31, 0.28, 0.12), (1.133, 0.33, 0.3, 0.12), (1.414, 0.33, 0.3, 0.12), (1.516, 0.314, 0.285, 0.12), (1.608, 0.267, 0.243, 0.12), (1.674, 0.203, 0.185, 0.12), (1.715, 0.134, 0.122, 0.12), (1.737, 0.069, 0.062, 0.12), (1.744, 0.012, 0.01, 0.12), (1.744, 0.0, 0.0, 0.12)], 16))
+    # the head: a short capsule 0.66 wide with a round (half circle) top at 1.744, over the body (not set forward); sunk into it down to y 1.08
+    pieces.append(rings([(1.08, 0.31, 0.28, 0.02), (1.133, 0.33, 0.3, 0.02), (1.414, 0.33, 0.3, 0.02), (1.516, 0.314, 0.285, 0.02), (1.608, 0.267, 0.243, 0.02), (1.674, 0.203, 0.185, 0.02), (1.715, 0.134, 0.122, 0.02), (1.737, 0.069, 0.062, 0.02), (1.744, 0.012, 0.01, 0.02), (1.744, 0.0, 0.0, 0.02)], 16))
     for sx in (-1, 1):
         # a leg: from a knee hidden in the body straight down to the foot, close to the other one
         pieces.append([(sx * 0.25 + x, y, z) for (x, y, z) in rings([(0.10, 0.16, 0.17, 0.03), (0.22, 0.17, 0.18, 0.02), (0.36, 0.17, 0.18, 0.02),
