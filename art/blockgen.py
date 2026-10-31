@@ -679,7 +679,7 @@ def loft(rows, seg=20, cx=0.0, cz=0.0):
     return out
 
 
-def unit_t_pose(idle=False):
+def unit_t_pose(idle=False, part=None):
     """The worker (docs/unit-model.md: the numbers come from the Bricktron of Castle Story) in a T pose, ONE mesh, no face (the face is a texture:
     art/facegen.py). 1.74 high, standing on y = 0 between the feet, looking towards +z (the game's front of a unit; the load is on its back, -z)."""
     def rings(rows, seg):
@@ -692,19 +692,22 @@ def unit_t_pose(idle=False):
                 a = math.tau * j / seg
                 out.append((rx * math.cos(a), y, dz + rz * math.sin(a)))
         return out
-    pieces = []
-    # the body: a pear (widest 0.85 at y 0.56, the belly a little forward); its top rises to y 1.4 round the head (the shoulders come up to the
-    # bottom of the eyes at the sides) but is shallow at the front, so the face shows down to the chin (y 1.16)
-    pieces.append(rings([(0.27, 0.246, 0.213, 0.02), (0.34, 0.344, 0.295, 0.04), (0.46, 0.418, 0.336, 0.05), (0.56, 0.426, 0.348, 0.05),
-                         (0.72, 0.414, 0.336, 0.04), (0.9, 0.389, 0.32, 0.02), (1.08, 0.369, 0.33, 0.0), (1.18, 0.353, 0.28, -0.02),
-                         (1.26, 0.328, 0.22, -0.03), (1.33, 0.31, 0.16, -0.03), (1.37, 0.31, 0.12, -0.03)], 16))   # (no shoulders: the arms go straight into it)
+    lower, upper = [], []   # two meshes (part "lower" / "upper"; None: both as one): the pelvis with the belly and the legs, the chest with the head and the arms
+    # the pelvis with the belly: a pear (widest 0.85 at y 0.56, the belly a little forward), narrowing to a waist at y 0.80
+    lower.append(rings([(0.27, 0.246, 0.213, 0.02), (0.34, 0.344, 0.295, 0.04), (0.46, 0.418, 0.336, 0.05), (0.56, 0.426, 0.348, 0.05),
+                        (0.68, 0.405, 0.33, 0.04), (0.78, 0.36, 0.29, 0.03), (0.84, 0.30, 0.24, 0.02)], 16))
+    # the chest: from inside the belly (0.72, hidden) it flares out at the waist (a crease at y 0.80) and goes up to the head; no shoulders,
+    # the arms go straight into it; shallow at the front at the top, so the face shows down to the chin
+    upper.append(rings([(0.72, 0.30, 0.24, 0.02), (0.80, 0.375, 0.295, 0.02), (0.90, 0.395, 0.315, 0.02), (1.00, 0.39, 0.31, 0.01),
+                        (1.08, 0.37, 0.30, 0.0), (1.18, 0.353, 0.28, -0.02), (1.26, 0.328, 0.22, -0.03), (1.33, 0.31, 0.16, -0.03),
+                        (1.37, 0.31, 0.12, -0.03)], 16))
     # the head: a short capsule 0.66 wide with a round (half circle) top at 1.744, over the body (not set forward); sunk into it down to y 1.08
-    pieces.append(rings([(1.08, 0.31, 0.28, 0.02), (1.133, 0.33, 0.3, 0.02), (1.414, 0.33, 0.3, 0.02), (1.516, 0.314, 0.285, 0.02), (1.608, 0.267, 0.243, 0.02), (1.674, 0.203, 0.185, 0.02), (1.715, 0.134, 0.122, 0.02), (1.737, 0.069, 0.062, 0.02), (1.744, 0.012, 0.01, 0.02), (1.744, 0.0, 0.0, 0.02)], 16))
+    upper.append(rings([(1.08, 0.31, 0.28, 0.02), (1.133, 0.33, 0.3, 0.02), (1.414, 0.33, 0.3, 0.02), (1.516, 0.314, 0.285, 0.02), (1.608, 0.267, 0.243, 0.02), (1.674, 0.203, 0.185, 0.02), (1.715, 0.134, 0.122, 0.02), (1.737, 0.069, 0.062, 0.02), (1.744, 0.012, 0.01, 0.02), (1.744, 0.0, 0.0, 0.02)], 16))
     for sx in (-1, 1):
         # a leg: from a knee hidden in the body straight down to the foot, close to the other one
-        pieces.append([(sx * 0.25 + x, y, z) for (x, y, z) in rings([(0.10, 0.16, 0.17, 0.03), (0.22, 0.17, 0.18, 0.02), (0.36, 0.17, 0.18, 0.02),
+        lower.append([(sx * 0.25 + x, y, z) for (x, y, z) in rings([(0.10, 0.16, 0.17, 0.03), (0.22, 0.17, 0.18, 0.02), (0.36, 0.17, 0.18, 0.02),
                                                                       (0.42, 0.10, 0.11, 0.02)], 10)])
-        pieces.append([(sx * 0.25 + x, y, z) for (x, y, z) in rings([(0.0, 0.18, 0.21, 0.08), (0.04, 0.20, 0.25, 0.08), (0.10, 0.19, 0.23, 0.08),
+        lower.append([(sx * 0.25 + x, y, z) for (x, y, z) in rings([(0.0, 0.18, 0.21, 0.08), (0.04, 0.20, 0.25, 0.08), (0.10, 0.19, 0.23, 0.08),
                                                                       (0.15, 0.14, 0.16, 0.06)], 12)])   # a foot: an oval slipper, the toe forward
         if idle:   # a meaty arm going straight into the body (no shoulder), hanging down a little away from the belly; a big round fist
             shoulder, elbow, wrist = (sx * 0.42, 1.02, 0.17), (sx * 0.59, 0.80, 0.16), (sx * 0.60, 0.60, 0.135)
@@ -713,15 +716,19 @@ def unit_t_pose(idle=False):
             shoulder, elbow, wrist = (sx * 0.33, 1.05, 0.17), (sx * 0.70, 1.05, 0.16), (sx * 0.90, 1.05, 0.135)
             fist = (sx * 1.04, 1.05, 0.17)
         for (x0, y0, r0), (x1, y1, r1) in ((shoulder, elbow), (elbow, wrist)):   # thick, thinner to the wrist
-            pieces.append(ellipsoid(x0, y0, 0.0, r0, r0, r0, 5, 10) + ellipsoid(x1, y1, 0.0, r1, r1, r1, 5, 10))
-        pieces.append(ellipsoid(fist[0], fist[1], 0.02, fist[2], fist[2], fist[2], 5, 10))
-    return pieces
+            upper.append(ellipsoid(x0, y0, 0.0, r0, r0, r0, 5, 10) + ellipsoid(x1, y1, 0.0, r1, r1, r1, 5, 10))
+        upper.append(ellipsoid(fist[0], fist[1], 0.02, fist[2], fist[2], fist[2], 5, 10))
+    return lower if part == "lower" else upper if part == "upper" else lower + upper
 
 
 STRUCTURES = {
     "furnace": furnace,
     "unit":    unit_t_pose,
     "unit_idle": lambda: unit_t_pose(idle=True),
+    "unit_lower": lambda: unit_t_pose(part="lower"),
+    "unit_upper": lambda: unit_t_pose(part="upper"),
+    "unit_idle_lower": lambda: unit_t_pose(idle=True, part="lower"),
+    "unit_idle_upper": lambda: unit_t_pose(idle=True, part="upper"),
     "ingot":   ingot,
 }
 STONE_BLOCKS = ["brick", "cube", "stairs", "stairs_small", "corner_out_l", "corner_out_r", "corner_in_l", "corner_in_r", "corner_in_cell",
