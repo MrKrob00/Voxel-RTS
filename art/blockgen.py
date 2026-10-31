@@ -680,20 +680,34 @@ def loft(rows, seg=20, cx=0.0, cz=0.0):
 
 
 def unit_t_pose():
-    """A worker like the Bricktron of Castle Story (images/reference/cs_wiki_bricktron_closeup_grass_01.jpg), in a T pose, ONE mesh: a tall rounded
-    head without a neck, a fat pear of a body, stubby legs with round feet, short thick arms (here straight out to the sides), two tall dark oval
-    eyes and a small mouth. 1.15 high, standing on y = 0, looking towards -z (Godot's forward), centred on x = 0, z = 0."""
+    """The worker (docs/unit-model.md: the numbers come from the Bricktron of Castle Story) in a T pose, ONE mesh, no face (the face is a texture:
+    art/facegen.py). 2.0 high, standing on y = 0 between the feet, looking towards +z (the game's front of a unit; the load is on its back, -z)."""
+    def rings(rows, seg):
+        out = []
+        for y, rx, rz, dz in rows:
+            if rx <= 0.0:
+                out.append((0.0, y, dz))
+                continue
+            for j in range(seg):
+                a = math.tau * j / seg
+                out.append((rx * math.cos(a), y, dz + rz * math.sin(a)))
+        return out
     pieces = []
+    # the body: a pear, the belly (widest 1.0 at y 0.52) a little forward, narrow sloping shoulders (0.9) under the chin
+    pieces.append(rings([(0.24, 0.30, 0.26, 0.02), (0.32, 0.42, 0.36, 0.04), (0.44, 0.49, 0.41, 0.05), (0.56, 0.50, 0.425, 0.05),
+                         (0.70, 0.485, 0.41, 0.04), (0.86, 0.45, 0.38, 0.02), (1.00, 0.41, 0.34, 0.0), (1.12, 0.36, 0.30, 0.0),
+                         (1.22, 0.27, 0.24, 0.0)], 16))
+    # the head: a capsule 0.66 wide, 0.6 deep, from the shoulders (no neck) to 2.0
+    pieces.append(rings([(1.10, 0.24, 0.22, 0.02), (1.18, 0.31, 0.28, 0.02), (1.30, 0.33, 0.30, 0.02), (1.50, 0.33, 0.30, 0.02),
+                         (1.67, 0.325, 0.295, 0.02), (1.80, 0.29, 0.265, 0.02), (1.90, 0.22, 0.20, 0.02), (1.96, 0.14, 0.13, 0.02),
+                         (2.0, 0.0, 0.0, 0.02)], 16))
     for sx in (-1, 1):
-        pieces.append(loft([(0.0, 0.08, 0.1), (0.04, 0.115, 0.16), (0.1, 0.11, 0.15), (0.14, 0.07, 0.09)], 14, sx * 0.17, -0.03))   # a foot
-        pieces.append(cyl(sx * 0.17, 0.2, 0.0, 0.115, 0.125, 0.22, seg=14, b=0.0))                                                  # a short leg
-    pieces.append(loft([(0.1, 0.24, 0.2), (0.2, 0.39, 0.31), (0.32, 0.43, 0.34), (0.45, 0.39, 0.3), (0.57, 0.31, 0.25), (0.66, 0.2, 0.18)], 22))   # the body: a pear
-    pieces.append(loft([(0.62, 0.15, 0.15), (0.7, 0.2, 0.19), (0.84, 0.205, 0.2), (0.99, 0.185, 0.18), (1.08, 0.13, 0.125), (1.13, 0.06, 0.06)], 22))   # the head: a tall capsule
-    for sx in (-1, 1):                                                                         # the arms, straight out: a capsule and a round hand
-        pieces.append(ellipsoid(sx * 0.42, 0.58, 0.0, 0.1, 0.095, 0.095, 5, 12) + ellipsoid(sx * 0.66, 0.58, 0.0, 0.115, 0.105, 0.105, 5, 12))
-    for sx in (-1, 1):                                                                         # the eyes: two tall ovals on the face
-        pieces.append(ellipsoid(sx * 0.075, 0.87, -0.185, 0.03, 0.065, 0.03, 6, 12))
-    pieces.append(ellipsoid(0.0, 0.75, -0.19, 0.05, 0.014, 0.025, 4, 10))                       # the mouth
+        pieces.append(cyl(sx * 0.31, 0.22, 0.02, 0.12, 0.12, 0.24, seg=10, b=0.0))                       # a leg: short, almost hidden
+        pieces.append([(sx * 0.31 + x, y, z) for (x, y, z) in rings([(0.0, 0.13, 0.20, 0.08), (0.04, 0.17, 0.25, 0.08), (0.10, 0.16, 0.23, 0.08),
+                                                                      (0.14, 0.10, 0.15, 0.06)], 12)])   # a foot: an oval slipper, the toe forward
+        # an arm, straight out at the shoulders (y 1.05), thick and a little thinner at the wrist, and a round fist; it ends at x 1.15
+        pieces.append(ellipsoid(sx * 0.45, 1.05, 0.0, 0.12, 0.12, 0.12, 5, 10) + ellipsoid(sx * 0.9, 1.05, 0.0, 0.1, 0.1, 0.1, 5, 10))
+        pieces.append(ellipsoid(sx * 1.02, 1.05, 0.0, 0.13, 0.12, 0.13, 5, 10))
     return pieces
 
 
