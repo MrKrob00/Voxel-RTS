@@ -189,8 +189,11 @@ def merge(pieces):
             masks = m3d.Manifold.batch_boolean([m3d.Manifold.hull_points(np.array(m, dtype=np.float64)) for m in piece[2]], m3d.OpType.Add)
             return m3d.Manifold.hull_points(np.array(piece[1], dtype=np.float64)) ^ masks
         return m3d.Manifold.hull_points(np.array(piece, dtype=np.float64))
-    parts = [solid_of(piece) for piece in pieces]
+    cuts = [solid_of(piece[1]) for piece in pieces if isinstance(piece, tuple) and piece[0] == "cut"]   # ("cut", points): taken away from the union
+    parts = [solid_of(piece) for piece in pieces if not (isinstance(piece, tuple) and piece[0] == "cut")]
     union = m3d.Manifold.batch_boolean(parts, m3d.OpType.Add)
+    if cuts:
+        union = union - m3d.Manifold.batch_boolean(cuts, m3d.OpType.Add)
     mesh = union.to_mesh()
     vp, tv = mesh.vert_properties, mesh.tri_verts
     out = []
@@ -558,6 +561,77 @@ ROUND_STONE = ["tower_a", "tower_b", "tower_squat", "column"]   # the stone bloc
 CREN_BLOCKS = ["cren_slab", "cren_bracket", "cren_corner", "cren_slope", "cren_slope_corner", "cren_slope_long", "cren_hip", "cren_corbel_long",
                "cren_corbel", "cren_corbel_small"]
 MERGE_SETS = {"stone": None, "cren": CREN_BLOCKS}
+
+
+# ---- the structures (assets/structures/<id>.obj): bigger than a block, in their own frame: x along the length, y up, z across, all from 0 ----
+
+def frustum(cx, cz, y0, y1, w0, w1):
+    h0, h1 = w0 / 2, w1 / 2
+    return [(cx + sx * h0, y0, cz + sz * h0) for sx in (-1, 1) for sz in (-1, 1)] + [(cx + sx * h1, y1, cz + sz * h1) for sx in (-1, 1) for sz in (-1, 1)]
+
+
+FURNACE_WIDTHS = [(0.38, 1.84), (0.9, 1.58), (1.4, 1.28), (1.85, 1.0), (2.2, 0.86)]   # the width of the clay body at a height: a bell
+
+
+def furnace_width(y):
+    for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):
+        if y <= y1:
+            return w0 + (w1 - w0) * (y - y0) / (y1 - y0)
+    return FURNACE_WIDTHS[-1][1]
+
+
+def arch_profile(y0, width, rect_h, steps=8):
+    """The outline of an arched opening in (y, across): a rectangle with a half circle on top."""
+    r = width / 2
+    out = [(y0, -r), (y0, r), (y0 + rect_h, -r), (y0 + rect_h, r)]
+    for i in range(steps + 1):
+        a = math.pi * i / steps
+        out.append((y0 + rect_h + r * math.sin(a), r * math.cos(a)))
+    return out
+
+
+def arch_piece(face, centre, profile, inner, outer_of_y):
+    """The profile pushed along the face's axis from `inner` to `outer_of_y(y)`: 'x' faces look +x, 'z' faces look -z."""
+    pts = []
+    for (y, t) in profile:
+        for d in (inner, outer_of_y(y)):
+            pts.append((d, y, centre + t) if face == "x" else (centre + t, y, d))
+    return pts
+
+
+def furnace():
+    """The furnace: 3 x 2 blocks, 3 high, ONE mesh. A grey plinth the whole of the footprint; on its first two blocks the clay body, a bell of
+    four tiers narrowing up to a neck, a square chimney and a cap with a hole; in the third block, in front of the body, the tray (a flat
+    slab with a low rim). Two arched mouths with a ring of stones round them, one in the front (on the tray) and one in the left side
+    (looking along the front, the left is -z). x 0..3 (the front is +x), y 0..3, z 0..2."""
+    cx, cz = 1.0, 1.0
+    top = 0.38
+    pieces = [box(1.5, top / 2, 1.0, 3.0, top, 2.0)]                       # the plinth
+    lip, t = 0.15, 0.09
+    pieces += [box(2.5, top + lip / 2, t / 2, 1.0, lip, t), box(2.5, top + lip / 2, 2 - t / 2, 1.0, lip, t), box(3 - t / 2, top + lip / 2, 1.0, t, lip, 2.0)]   # the rim of the tray
+    for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the bell
+        pieces.append(frustum(cx, cz, y0, y1, w0, w1))
+    pieces.append(box(cx, 2.33, cz, 0.8, 0.26, 0.8))                         # the neck
+    pieces.append(box(cx, 2.63, cz, 0.7, 0.4, 0.7))                          # the chimney
+    cap_y, cap = 2.9, 0.22
+    pieces += [box(cx, cap_y, cz - 0.37, 0.96, cap, 0.22), box(cx, cap_y, cz + 0.37, 0.96, cap, 0.22),
+               box(cx - 0.37, cap_y, cz, 0.22, cap, 0.52), box(cx + 0.37, cap_y, cz, 0.22, cap, 0.52)]   # the cap, a square ring
+    # the mouths: a ring of stones standing out of the clay, and the opening cut into it
+    mouth_w, mouth_h = 0.68, 0.42
+    ring_profile = arch_profile(top, mouth_w + 0.26, mouth_h + 0.04)
+    hole_profile = arch_profile(top, mouth_w, mouth_h)
+    flank = lambda y: furnace_width(y) / 2 + 0.07
+    pieces.append(arch_piece("x", cz, ring_profile, cx + 0.3, lambda y: cx + flank(y)))
+    pieces.append(arch_piece("z", cx, ring_profile, cz - 0.3, lambda y: cz - flank(y)))
+    pieces.append(("cut", arch_piece("x", cz, hole_profile, cx + 0.4, lambda y: cx + 1.4)))
+    pieces.append(("cut", arch_piece("z", cx, hole_profile, cz - 0.4, lambda y: cz - 1.4)))
+    return pieces
+
+
+STRUCTURES = {
+    "furnace": furnace,
+    "ingot":   lambda: [box(0, 0, 0, 1.0, 0.3, 0.5, 0.05)],   # a slab with rounded edges, 1 x 0.3 x 0.5: scaled where it is used
+}
 STONE_BLOCKS = ["brick", "cube", "stairs", "stairs_small", "corner_out_l", "corner_out_r", "corner_in_l", "corner_in_r", "corner_in_cell",
                 "corner_out_cell", "tower_a", "tower_b", "tower_squat", "column", "tower_flared"]
 
@@ -654,6 +728,15 @@ def write_obj(name, tris):
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
+    if os.environ.get("BLOCKGEN_STRUCTURE"):   # BLOCKGEN_STRUCTURE=furnace (or ingot): that structure, as one mesh, into BLOCKGEN_OUT
+        for name in os.environ["BLOCKGEN_STRUCTURE"].split(","):
+            pieces = STRUCTURES[name]()
+            if name != "ingot":
+                pieces = [merge(pieces)]
+            tris = mesh_of(pieces, smooth=False)
+            write_obj(name, tris)
+            print("%-10s %d triangles" % (name, len(tris)))
+        raise SystemExit
     which = os.environ.get("BLOCKGEN_MERGE", "")
     chosen = (STONE_BLOCKS if which == "stone" else MERGE_SETS.get(which)) if which else None
     for name, make in BLOCKS.items():

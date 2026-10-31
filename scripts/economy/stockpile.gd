@@ -355,16 +355,36 @@ func _show_planks() -> void:
 		_piles.add_child(mi)
 
 
-## Iron ingots (0.92 x 0.3 x 0.46) lie in layers of eight, every layer across the one below: 16 of them are two layers.
+## Iron ingots (dark slabs with rounded edges, 0.9 x 0.3 x 0.45) lie in layers of eight, two columns of four, every layer across the one below:
+## 16 of them are two layers, like the pile in the original.
 func _show_ingots() -> void:
 	var m := _mat(Resources.COLORS[Resources.Kind.INGOT])
+	m.metallic = 0.55
+	m.roughness = 0.45
+	var slab := _ingot_mesh()
 	for i in count:
 		var layer := i / 8
 		var k := i % 8
 		var along_x := layer % 2 == 0
 		var a := 0.5 + (k % 2) * 1.0
 		var b := 0.25 + (k / 2) * 0.5
-		_box(_piles, Vector3(0.92, 0.3, 0.46) if along_x else Vector3(0.46, 0.3, 0.92), Vector3(a, PLATFORM_HEIGHT + 0.15 + layer * 0.31, b) if along_x else Vector3(b, PLATFORM_HEIGHT + 0.15 + layer * 0.31, a), m)
+		var mi := MeshInstance3D.new()
+		mi.mesh = slab
+		mi.material_override = m
+		mi.scale = Vector3(0.9, 1.0, 0.9)
+		mi.rotation.y = 0.0 if along_x else PI * 0.5
+		mi.position = Vector3(a, PLATFORM_HEIGHT + 0.15 + layer * 0.31, b) if along_x else Vector3(b, PLATFORM_HEIGHT + 0.15 + layer * 0.31, a)
+		_piles.add_child(mi)
+
+
+static var _ingot: Mesh
+
+
+## The slab of an iron ingot (art/blockgen.py: 1 x 0.3 x 0.5, rounded edges).
+static func _ingot_mesh() -> Mesh:
+	if _ingot == null:
+		_ingot = load("res://assets/structures/ingot.obj") as Mesh
+	return _ingot
 
 
 ## A stack of stone bricks, two layers of two (the crate's 2 x 2 x 2): one brick per two halves, a lone half as a cube on top.

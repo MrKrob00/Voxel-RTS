@@ -10,7 +10,7 @@ const NAMES := {
 	Kind.LOG: "Log", Kind.PLANK: "Plank", Kind.PLANT: "Grass", Kind.ROPE: "Rope", Kind.BRICK: "Brick half",
 }
 const COLORS := {
-	Kind.STONE: Color("8a8d91"), Kind.IRON: Color("a9c9dd"), Kind.AMBER: Color("f08a1c"), Kind.INGOT: Color("8fb4d4"),
+	Kind.STONE: Color("8a8d91"), Kind.IRON: Color("a9c9dd"), Kind.AMBER: Color("f08a1c"), Kind.INGOT: Color("5d636b"),
 	Kind.LOG: Color("7b5630"), Kind.PLANK: Color("c9985a"), Kind.PLANT: Color("5fa83a"), Kind.ROPE: Color("d9c28a"), Kind.BRICK: Color("9a9da2"),
 }
 ## How many a unit carries at once: three small things go on the back together (planks, pieces of stone, ore, amber, grass, ingots), a log
