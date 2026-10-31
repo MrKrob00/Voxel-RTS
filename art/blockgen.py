@@ -570,7 +570,7 @@ def frustum(cx, cz, y0, y1, w0, w1):
     return [(cx + sx * h0, y0, cz + sz * h0) for sx in (-1, 1) for sz in (-1, 1)] + [(cx + sx * h1, y1, cz + sz * h1) for sx in (-1, 1) for sz in (-1, 1)]
 
 
-FURNACE_WIDTHS = [(0.38, 1.84), (0.9, 1.58), (1.4, 1.28), (1.85, 1.0), (2.2, 0.86)]   # the width of the clay body at a height: a bell
+FURNACE_WIDTHS = [(0.35, 1.84), (1.0, 1.84), (1.45, 1.52), (1.85, 1.16), (2.15, 0.9), (2.3, 0.76)]   # the width of the clay body at a height: straight up to one block with the plinth, then a bell
 
 
 def furnace_width(y):
@@ -600,25 +600,25 @@ def arch_piece(face, centre, profile, inner, outer_of_y):
 
 
 def furnace():
-    """The furnace: 3 x 2 blocks, 3 high, ONE mesh. A grey plinth the whole of the footprint; on its first two blocks the clay body, a bell of
-    four tiers narrowing up to a neck, a square chimney and a cap with a hole; in the third block, in front of the body, the tray (a flat
-    slab with a low rim). Two arched mouths with a ring of stones round them, one in the front (on the tray) and one in the left side
-    (looking along the front, the left is -z). x 0..3 (the front is +x), y 0..3, z 0..2."""
+    """The furnace: 3 x 2 blocks, 3 high, ONE mesh. A grey plinth the whole of the footprint; on its first two blocks the clay body, straight up
+    to one block (with the plinth), then a bell narrowing to a small square chimney with a flared cap; in the third block, in front of the
+    body, the tray (a flat slab with a low rim). Two arched mouths with a ring of stones round them, one in the front (on the tray) and one
+    in the left side (looking along the front, the left is -z). x 0..3 (the front is +x), y 0..3, z 0..2."""
     cx, cz = 1.0, 1.0
-    top = 0.38
+    top = 0.35
     pieces = [box(1.5, top / 2, 1.0, 3.0, top, 2.0)]                       # the plinth
-    lip, t = 0.15, 0.09
+    lip, t = 0.13, 0.08
     pieces += [box(2.5, top + lip / 2, t / 2, 1.0, lip, t), box(2.5, top + lip / 2, 2 - t / 2, 1.0, lip, t), box(3 - t / 2, top + lip / 2, 1.0, t, lip, 2.0)]   # the rim of the tray
-    for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the bell
+    for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the body
         pieces.append(frustum(cx, cz, y0, y1, w0, w1))
-    pieces.append(box(cx, 2.33, cz, 0.8, 0.26, 0.8))                         # the neck
-    pieces.append(box(cx, 2.63, cz, 0.7, 0.4, 0.7))                          # the chimney
-    cap_y, cap = 2.9, 0.22
-    pieces += [box(cx, cap_y, cz - 0.37, 0.96, cap, 0.22), box(cx, cap_y, cz + 0.37, 0.96, cap, 0.22),
-               box(cx - 0.37, cap_y, cz, 0.22, cap, 0.52), box(cx + 0.37, cap_y, cz, 0.22, cap, 0.52)]   # the cap, a square ring
-    # the mouths: a ring of stones standing out of the clay, and the opening cut into it
-    mouth_w, mouth_h = 0.68, 0.42
-    ring_profile = arch_profile(top, mouth_w + 0.26, mouth_h + 0.04)
+    pieces.append(box(cx, 2.5, cz, 0.62, 0.4, 0.62))                         # the chimney: small, of the same clay
+    cap_y, cap, ow, iw = 2.82, 0.16, 0.84, 0.34                              # the cap: a flared square ring with a hole
+    ring = (ow - iw) / 2
+    pieces += [box(cx, cap_y, cz - (ow - ring) / 2, ow, cap, ring), box(cx, cap_y, cz + (ow - ring) / 2, ow, cap, ring),
+               box(cx - (ow - ring) / 2, cap_y, cz, ring, cap, iw), box(cx + (ow - ring) / 2, cap_y, cz, ring, cap, iw)]
+    # the mouths: a ring of stones standing out of the clay, and the opening cut into it (in the straight part of the body)
+    mouth_w, mouth_h = 0.8, 0.34
+    ring_profile = arch_profile(top, mouth_w + 0.24, mouth_h + 0.04)
     hole_profile = arch_profile(top, mouth_w, mouth_h)
     flank = lambda y: furnace_width(y) / 2 + 0.07
     pieces.append(arch_piece("x", cz, ring_profile, cx + 0.3, lambda y: cx + flank(y)))
@@ -628,9 +628,15 @@ def furnace():
     return pieces
 
 
+def ingot():
+    """An ingot: a bar 1 x 0.3 x 0.5 at the bottom, narrower at the top (0.84 x 0.36), edges chamfered. Scaled where it is used."""
+    def rect(y, lx, lz): return [(sx * lx / 2, y, sz * lz / 2) for sx in (-1, 1) for sz in (-1, 1)]
+    return [rect(-0.15, 0.94, 0.44) + rect(-0.12, 1.0, 0.5) + rect(0.1, 0.88, 0.4) + rect(0.15, 0.82, 0.34)]
+
+
 STRUCTURES = {
     "furnace": furnace,
-    "ingot":   lambda: [box(0, 0, 0, 1.0, 0.3, 0.5, 0.05)],   # a slab with rounded edges, 1 x 0.3 x 0.5: scaled where it is used
+    "ingot":   ingot,
 }
 STONE_BLOCKS = ["brick", "cube", "stairs", "stairs_small", "corner_out_l", "corner_out_r", "corner_in_l", "corner_in_r", "corner_in_cell",
                 "corner_out_cell", "tower_a", "tower_b", "tower_squat", "column", "tower_flared"]
