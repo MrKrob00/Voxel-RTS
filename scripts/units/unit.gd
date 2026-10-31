@@ -98,7 +98,7 @@ func _rebuild_carry() -> void:
 		Resources.Kind.PLANK:
 			# the real planks (the same as in a stockpile), up to three, standing upright in a row front to back, turned a quarter to the right
 			for i in n:
-				_carry_part(_box(Vector3(Stockpile.PLANK_SIZE.y - 0.02, Stockpile.PLANK_SIZE.x - 0.06, Stockpile.PLANK_SIZE.z - 0.04)), Vector3(0.0, 0.2, (i - (n - 1) * 0.5) * (Stockpile.PLANK_SIZE.y + 0.02)), Vector3(0.0, -PI * 0.5, 0.0), col)
+				_carry_part(_box(Vector3(Stockpile.PLANK_SIZE.y - 0.02, Stockpile.PLANK_SIZE.x - 0.06, Stockpile.PLANK_SIZE.z - 0.04)), Vector3(0.0, 0.4, (i - (n - 1) * 0.5) * (Stockpile.PLANK_SIZE.y + 0.02)), Vector3(0.0, -PI * 0.5, 0.0), col)
 		Resources.Kind.ROPE:
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.1
