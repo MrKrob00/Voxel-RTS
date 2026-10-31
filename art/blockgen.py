@@ -655,8 +655,51 @@ def ingot():
     return [rect(-0.16, 0.74, 0.40) + rect(-0.13, 0.80, 0.46) + rect(0.12, 0.66, 0.37) + rect(0.16, 0.60, 0.32)]
 
 
+def ellipsoid(cx, cy, cz, rx, ry, rz, rings=7, seg=14):
+    """The points of an ellipsoid (a hull of them is a smooth-looking blob)."""
+    out = [(cx, cy + ry, cz), (cx, cy - ry, cz)]
+    for i in range(1, rings):
+        a = math.pi * i / rings
+        for j in range(seg):
+            b = math.tau * j / seg
+            out.append((cx + rx * math.sin(a) * math.cos(b), cy + ry * math.cos(a), cz + rz * math.sin(a) * math.sin(b)))
+    return out
+
+
+def loft(rows, seg=20, cx=0.0, cz=0.0):
+    """Rings of ellipses, one over another: rows of (y, half width x, half depth z); a row with 0 size is a pole. The hull is a smooth blob."""
+    out = []
+    for y, rx, rz in rows:
+        if rx <= 0.0 or rz <= 0.0:
+            out.append((cx, y, cz))
+            continue
+        for j in range(seg):
+            a = math.tau * j / seg
+            out.append((cx + rx * math.cos(a), y, cz + rz * math.sin(a)))
+    return out
+
+
+def unit_t_pose():
+    """A worker like the Bricktron of Castle Story (images/reference/cs_wiki_bricktron_closeup_grass_01.jpg), in a T pose, ONE mesh: a tall rounded
+    head without a neck, a fat pear of a body, stubby legs with round feet, short thick arms (here straight out to the sides), two tall dark oval
+    eyes and a small mouth. 1.15 high, standing on y = 0, looking towards -z (Godot's forward), centred on x = 0, z = 0."""
+    pieces = []
+    for sx in (-1, 1):
+        pieces.append(loft([(0.0, 0.08, 0.1), (0.04, 0.115, 0.16), (0.1, 0.11, 0.15), (0.14, 0.07, 0.09)], 14, sx * 0.17, -0.03))   # a foot
+        pieces.append(cyl(sx * 0.17, 0.2, 0.0, 0.115, 0.125, 0.22, seg=14, b=0.0))                                                  # a short leg
+    pieces.append(loft([(0.1, 0.24, 0.2), (0.2, 0.39, 0.31), (0.32, 0.43, 0.34), (0.45, 0.39, 0.3), (0.57, 0.31, 0.25), (0.66, 0.2, 0.18)], 22))   # the body: a pear
+    pieces.append(loft([(0.62, 0.15, 0.15), (0.7, 0.2, 0.19), (0.84, 0.205, 0.2), (0.99, 0.185, 0.18), (1.08, 0.13, 0.125), (1.13, 0.06, 0.06)], 22))   # the head: a tall capsule
+    for sx in (-1, 1):                                                                         # the arms, straight out: a capsule and a round hand
+        pieces.append(ellipsoid(sx * 0.42, 0.58, 0.0, 0.1, 0.095, 0.095, 5, 12) + ellipsoid(sx * 0.66, 0.58, 0.0, 0.115, 0.105, 0.105, 5, 12))
+    for sx in (-1, 1):                                                                         # the eyes: two tall ovals on the face
+        pieces.append(ellipsoid(sx * 0.075, 0.87, -0.185, 0.03, 0.065, 0.03, 6, 12))
+    pieces.append(ellipsoid(0.0, 0.75, -0.19, 0.05, 0.014, 0.025, 4, 10))                       # the mouth
+    return pieces
+
+
 STRUCTURES = {
     "furnace": furnace,
+    "unit":    unit_t_pose,
     "ingot":   ingot,
 }
 STONE_BLOCKS = ["brick", "cube", "stairs", "stairs_small", "corner_out_l", "corner_out_r", "corner_in_l", "corner_in_r", "corner_in_cell",
