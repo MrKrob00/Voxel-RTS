@@ -693,11 +693,11 @@ def unit_t_pose(idle=False):
                 out.append((rx * math.cos(a), y, dz + rz * math.sin(a)))
         return out
     pieces = []
-    # the body: a pear (widest 1.0 at y 0.53, the belly a little forward); its top rises to y 1.4 round the head (the shoulders come up to the
+    # the body: a pear (widest 0.85 at y 0.56, the belly a little forward); its top rises to y 1.4 round the head (the shoulders come up to the
     # bottom of the eyes at the sides) but is shallow at the front, so the face shows down to the chin (y 1.16)
-    pieces.append(rings([(0.27, 0.30, 0.26, 0.02), (0.34, 0.42, 0.36, 0.04), (0.46, 0.51, 0.41, 0.05), (0.56, 0.52, 0.425, 0.05),
-                         (0.72, 0.505, 0.41, 0.04), (0.90, 0.475, 0.39, 0.02), (1.08, 0.45, 0.33, 0.0), (1.18, 0.43, 0.28, -0.02),
-                         (1.26, 0.40, 0.22, -0.03), (1.33, 0.36, 0.16, -0.03), (1.37, 0.32, 0.12, -0.03)], 16))   # (no shoulders: the arms go straight into it)
+    pieces.append(rings([(0.27, 0.246, 0.213, 0.02), (0.34, 0.344, 0.295, 0.04), (0.46, 0.418, 0.336, 0.05), (0.56, 0.426, 0.348, 0.05),
+                         (0.72, 0.414, 0.336, 0.04), (0.9, 0.389, 0.32, 0.02), (1.08, 0.369, 0.33, 0.0), (1.18, 0.353, 0.28, -0.02),
+                         (1.26, 0.328, 0.22, -0.03), (1.33, 0.31, 0.16, -0.03), (1.37, 0.31, 0.12, -0.03)], 16))   # (no shoulders: the arms go straight into it)
     # the head: a short capsule 0.66 wide with a round (half circle) top at 1.744, set forward (+0.12) so that it sticks out in front of the body; sunk into it down to y 1.08
     pieces.append(rings([(1.08, 0.31, 0.28, 0.12), (1.133, 0.33, 0.3, 0.12), (1.414, 0.33, 0.3, 0.12), (1.516, 0.314, 0.285, 0.12), (1.608, 0.267, 0.243, 0.12), (1.674, 0.203, 0.185, 0.12), (1.715, 0.134, 0.122, 0.12), (1.737, 0.069, 0.062, 0.12), (1.744, 0.012, 0.01, 0.12), (1.744, 0.0, 0.0, 0.12)], 16))
     for sx in (-1, 1):
@@ -707,11 +707,11 @@ def unit_t_pose(idle=False):
         pieces.append([(sx * 0.25 + x, y, z) for (x, y, z) in rings([(0.0, 0.18, 0.21, 0.08), (0.04, 0.20, 0.25, 0.08), (0.10, 0.19, 0.23, 0.08),
                                                                       (0.15, 0.14, 0.16, 0.06)], 12)])   # a foot: an oval slipper, the toe forward
         if idle:   # a meaty arm going straight into the body (no shoulder), hanging down a little away from the belly; a big round fist
-            shoulder, elbow, wrist = (sx * 0.50, 1.02, 0.17), (sx * 0.68, 0.80, 0.16), (sx * 0.69, 0.60, 0.135)
-            fist = (sx * 0.69, 0.50, 0.17)
+            shoulder, elbow, wrist = (sx * 0.42, 1.02, 0.17), (sx * 0.59, 0.80, 0.16), (sx * 0.60, 0.60, 0.135)
+            fist = (sx * 0.60, 0.50, 0.17)
         else:      # an arm straight out of the side of the body: it ends at x 1.24
-            shoulder, elbow, wrist = (sx * 0.40, 1.05, 0.17), (sx * 0.78, 1.05, 0.16), (sx * 0.98, 1.05, 0.135)
-            fist = (sx * 1.12, 1.05, 0.17)
+            shoulder, elbow, wrist = (sx * 0.33, 1.05, 0.17), (sx * 0.70, 1.05, 0.16), (sx * 0.90, 1.05, 0.135)
+            fist = (sx * 1.04, 1.05, 0.17)
         for (x0, y0, r0), (x1, y1, r1) in ((shoulder, elbow), (elbow, wrist)):   # thick, thinner to the wrist
             pieces.append(ellipsoid(x0, y0, 0.0, r0, r0, r0, 5, 10) + ellipsoid(x1, y1, 0.0, r1, r1, r1, 5, 10))
         pieces.append(ellipsoid(fist[0], fist[1], 0.02, fist[2], fist[2], fist[2], 5, 10))
