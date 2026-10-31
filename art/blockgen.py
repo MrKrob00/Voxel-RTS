@@ -721,14 +721,135 @@ def unit_t_pose(idle=False, part=None):
     return lower if part == "lower" else upper if part == "upper" else lower + upper
 
 
+# ---- the unit, sculpted: parts blended into each other (a smooth union of distance fields, no creases at the joins) --------------------------
+
+def _sd_ellipse(px, pz, rx, rz):
+    """About the signed distance from (px, pz) to an ellipse (negative inside)."""
+    k0 = math.hypot(px / rx, pz / rz)
+    k1 = math.hypot(px / (rx * rx), pz / (rz * rz))
+    return k0 * (k0 - 1.0) / k1 if k1 > 1e-9 else -min(rx, rz)
+
+
+def _sd_loft(p, rows, cx=0.0):
+    """About the signed distance to a stack of ellipse rings (y, half width, half depth, z offset), a pole where a row has no size."""
+    x, y, z = p[0] - cx, p[1], p[2]
+    y0, y1 = rows[0][0], rows[-1][0]
+    yc = min(max(y, y0), y1)
+    for i in range(len(rows) - 1):   # the sizes between the rings follow a smooth curve (Catmull-Rom), not straight lines: no bands
+        if rows[i][0] <= yc <= rows[i + 1][0]:
+            break
+    ya, yb = rows[i][0], rows[i + 1][0]
+    t = (yc - ya) / (yb - ya) if yb > ya else 0.0
+    def cr(k):
+        p0 = rows[max(i - 1, 0)][k]; p1 = rows[i][k]; p2 = rows[i + 1][k]; p3 = rows[min(i + 2, len(rows) - 1)][k]
+        return 0.5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (3 * p1 - p0 - 3 * p2 + p3) * t * t * t)
+    rx, rz, dz = cr(1), cr(2), cr(3)
+    side = _sd_ellipse(x, z - dz, max(rx, 1e-3), max(rz, 1e-3))
+    out = max(y0 - y, y - y1, 0.0)
+    if out > 0.0:
+        return math.hypot(max(side, 0.0), out)
+    return max(side, y0 - y, y - y1)
+
+
+def _sd_round_cone(p, a, b, ra, rb):
+    """The signed distance to a cone with round ends: a sphere of ra at a swept to a sphere of rb at b (Inigo Quilez)."""
+    ba = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+    l2 = dot(ba, ba)
+    rr = ra - rb
+    a2 = l2 - rr * rr
+    il2 = 1.0 / l2
+    pa = (p[0] - a[0], p[1] - a[1], p[2] - a[2])
+    yv = dot(pa, ba)
+    zv = yv - l2
+    xv = (pa[0] * l2 - ba[0] * yv, pa[1] * l2 - ba[1] * yv, pa[2] * l2 - ba[2] * yv)
+    x2 = dot(xv, xv)
+    y2 = yv * yv * l2
+    z2 = zv * zv * l2
+    k = math.copysign(1.0, rr) * rr * rr * x2
+    if math.copysign(1.0, zv) * a2 * z2 > k:
+        return math.sqrt(x2 + z2) * il2 - rb
+    if math.copysign(1.0, yv) * a2 * y2 < k:
+        return math.sqrt(x2 + y2) * il2 - ra
+    return (math.sqrt(x2 * a2 * il2) + yv * rr) * il2 - ra
+
+
+def _smin(a, b, k):
+    """A smooth minimum: the union of two shapes with a fillet of about k where they meet."""
+    h = max(k - abs(a - b), 0.0) / k
+    return min(a, b) - h * h * k * 0.25
+
+
+def unit_sculpt(idle=False, part=None):
+    """The worker (docs/unit-model.md) as sculpted meshes: every part flows into the next (a smooth union of distance fields). Two meshes for the
+    animation, part "lower" (the pelvis with the belly, the legs and the feet) and "upper" (the chest with the head and the arms); between them
+    a soft crease at the waist (y 0.80). Returns one ("tris", ...) piece."""
+    import numpy as np
+    import manifold3d as m3d
+    # the pelvis: like a pair of briefs, roomy (not skin-tight): from the waist (y 0.80) it widens to the hips and comes down round the tops of
+    # the legs, almost straight at the sides, to a flat-ish bottom at y 0.15; the legs come out from under it
+    belly = [(0.15, 0.28, 0.22, 0.03), (0.19, 0.37, 0.29, 0.03), (0.26, 0.405, 0.315, 0.04), (0.40, 0.415, 0.325, 0.04),
+             (0.56, 0.41, 0.325, 0.04), (0.68, 0.395, 0.315, 0.03), (0.78, 0.36, 0.29, 0.02), (0.84, 0.30, 0.24, 0.02)]   # (straight sides, a flat-ish bottom)
+    chest = [(0.72, 0.30, 0.24, 0.02), (0.80, 0.375, 0.295, 0.02), (0.90, 0.395, 0.315, 0.02), (1.00, 0.39, 0.31, 0.01),
+             (1.08, 0.37, 0.30, 0.0), (1.18, 0.353, 0.285, -0.03), (1.26, 0.328, 0.25, -0.06), (1.33, 0.31, 0.22, -0.07), (1.37, 0.30, 0.19, -0.07)]
+    head = [(1.08, 0.31, 0.28, 0.02), (1.133, 0.33, 0.3, 0.02), (1.414, 0.33, 0.3, 0.02), (1.516, 0.314, 0.285, 0.02), (1.608, 0.267, 0.243, 0.02),
+            (1.674, 0.203, 0.185, 0.02), (1.715, 0.134, 0.122, 0.02), (1.737, 0.069, 0.062, 0.02), (1.744, 0.0, 0.0, 0.02)]
+    leg = [(0.08, 0.155, 0.165, 0.03), (0.16, 0.165, 0.175, 0.02), (0.26, 0.165, 0.175, 0.02), (0.34, 0.12, 0.13, 0.02)]
+    foot = [(0.0, 0.18, 0.21, 0.08), (0.04, 0.20, 0.25, 0.08), (0.10, 0.19, 0.23, 0.08), (0.15, 0.14, 0.16, 0.06)]
+    arms = []
+    for sx in (-1, 1):
+        if idle:
+            sh, el, wr, fi = (sx * 0.42, 1.02, 0.0, 0.17), (sx * 0.57, 0.80, 0.0, 0.145), (sx * 0.59, 0.60, 0.0, 0.122), (sx * 0.59, 0.52, 0.02, 0.122)
+        else:
+            sh, el, wr, fi = (sx * 0.33, 1.05, 0.0, 0.17), (sx * 0.68, 1.05, 0.0, 0.145), (sx * 0.90, 1.05, 0.0, 0.122), (sx * 0.98, 1.05, 0.02, 0.122)
+        arms.append((sh, el, wr, fi))
+
+    def lower_sd(p):
+        d = _sd_loft(p, belly)
+        for sx in (-1, 1):
+            legd = _smin(_sd_loft(p, leg, sx * 0.25), _sd_loft(p, foot, sx * 0.25), 0.06)
+            d = _smin(d, legd, 0.02)   # (a leg comes out of the briefs: a small crease, not blended)
+        return d
+
+    def upper_sd(p):
+        d = _smin(_sd_loft(p, chest), _sd_loft(p, head), 0.08)
+        for sh, el, wr, fi in arms:
+            # thinner and thinner from the body to the fist: no bulge at the elbow, the fist no wider than the wrist
+            arm = min(_sd_round_cone(p, sh[:3], el[:3], sh[3], el[3]), _sd_round_cone(p, el[:3], wr[:3], el[3], wr[3]))
+            arm = min(arm, math.dist(p, fi[:3]) - fi[3])
+            d = _smin(d, arm, 0.10)
+        return d
+
+    span = 0.85 if idle else 1.3
+    out = []
+    for name, sd in (("lower", lower_sd), ("upper", upper_sd)):
+        if part not in (None, name):
+            continue
+        solid = m3d.Manifold.level_set(lambda x, y, z, sd=sd: -sd((x, y, z)), [-span, -0.02, -0.5, span, 1.8, 0.6], 0.06, 0.0, 0.0005)
+        mesh = solid.to_mesh()
+        vp, tv = mesh.vert_properties, mesh.tri_verts
+        normals = {}
+        e = 0.004
+        for i in range(len(vp)):   # smooth normals straight from the field (its gradient), not from the triangles
+            x, y, z = (float(v) for v in vp[i][:3])
+            g = (sd((x + e, y, z)) - sd((x - e, y, z)), sd((x, y + e, z)) - sd((x, y - e, z)), sd((x, y, z + e)) - sd((x, y, z - e)))
+            normals[i] = norm(g)
+        for a_, b_, c_ in tv:
+            pa, pb, pc = [tuple(round(float(v), 5) for v in vp[i][:3]) for i in (a_, b_, c_)]
+            nn = cross(sub(pb, pa), sub(pc, pa))
+            if dot(nn, nn) < 1e-12:
+                continue
+            out.append(((pa, normals[a_]), (pb, normals[b_]), (pc, normals[c_])))
+    return [("tris_n", out)]
+
+
 STRUCTURES = {
     "furnace": furnace,
-    "unit":    unit_t_pose,
-    "unit_idle": lambda: unit_t_pose(idle=True),
-    "unit_lower": lambda: unit_t_pose(part="lower"),
-    "unit_upper": lambda: unit_t_pose(part="upper"),
-    "unit_idle_lower": lambda: unit_t_pose(idle=True, part="lower"),
-    "unit_idle_upper": lambda: unit_t_pose(idle=True, part="upper"),
+    "unit":    unit_sculpt,
+    "unit_idle": lambda: unit_sculpt(idle=True),
+    "unit_lower": lambda: unit_sculpt(part="lower"),
+    "unit_upper": lambda: unit_sculpt(part="upper"),
+    "unit_idle_lower": lambda: unit_sculpt(idle=True, part="lower"),
+    "unit_idle_upper": lambda: unit_sculpt(idle=True, part="upper"),
     "ingot":   ingot,
 }
 STONE_BLOCKS = ["brick", "cube", "stairs", "stairs_small", "corner_out_l", "corner_out_r", "corner_in_l", "corner_in_r", "corner_in_cell",
@@ -789,6 +910,9 @@ def mesh_of(pieces, smooth=True):
     tris = []
     cos_limit = math.cos(math.radians(SMOOTH_DEG)) if smooth else 0.99999   # only faces in the same plane share a normal
     for piece in pieces:
+        if isinstance(piece, tuple) and piece[0] == "tris_n":   # triangles that come with their own vertex normals
+            tris.extend(piece[1])
+            continue
         faces = piece[1] if isinstance(piece, tuple) and piece[0] == "tris" else hull(piece)
         by_pos = {}
         for fi, (nn, poly) in enumerate(faces):
@@ -830,7 +954,7 @@ if __name__ == "__main__":
     if os.environ.get("BLOCKGEN_STRUCTURE"):   # BLOCKGEN_STRUCTURE=furnace (or ingot): that structure, as one mesh, into BLOCKGEN_OUT
         for name in os.environ["BLOCKGEN_STRUCTURE"].split(","):
             pieces = STRUCTURES[name]()
-            if name != "ingot":
+            if name != "ingot" and not (pieces and isinstance(pieces[0], tuple) and pieces[0][0] in ("tris", "tris_n")):
                 pieces = [merge(pieces)]
             tris = mesh_of(pieces, smooth=False)
             write_obj(name, tris)
