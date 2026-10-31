@@ -75,25 +75,26 @@ float furnace_noise(vec3 q) {
 			mix(mix(furnace_hash(i + vec3(0.0, 0.0, 1.0)), furnace_hash(i + vec3(1.0, 0.0, 1.0)), f.x), mix(furnace_hash(i + vec3(0.0, 1.0, 1.0)), furnace_hash(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);
 }
 
-// The ring of stones round a mouth, on the outer plane of the ring. `across` is the distance along the wall from the middle of the mouth, `up` the
-// height; the arch springs at SPRING; the stones are between r_in and r_out from the middle of the arch.
-vec3 furnace_ring(vec3 c, float across, float up, float r_in, float r_out) {
+// The ring of stones over a mouth (only the arch, from where the straight walls end: the ring does not go down to the platform), on the outer plane
+// of the ring. `across` is the distance along the wall from the middle of the mouth, `up` the height; the arch springs at SPRING; the ring is between
+// two half ellipses (semi-axes along the wall and up: inner, outer) and is cut into big wedge stones.
+vec3 furnace_ring(vec3 c, float across, float up, vec2 inner, vec2 outer) {
 	const float SPRING = 0.93;
-	float a = abs(across);
-	float d = up > SPRING ? length(vec2(a, up - SPRING)) : a;
-	if (d < r_in - 0.015 || d > r_out + 0.015) {
+	float h = up - SPRING;
+	if (h < -0.01) {
 		return c;
 	}
-	float t;        // how far along the ring: in stones
-	if (up > SPRING) {
-		t = atan(up - SPRING, a) / (PI * 0.5) * 5.0;
-	} else {
-		t = 5.0 + (SPRING - up) / 0.1;
+	vec2 q = vec2(abs(across), max(h, 0.0));
+	float vi = length(q / inner);
+	float vo = length(q / outer);
+	if (vi < 0.97 || vo > 1.03) {
+		return c;
 	}
+	float t = atan(q.y / outer.y, q.x / outer.x) / (PI * 0.5) * 3.0;   // three stones from the foot of the arch to its top, on each side
 	float wedge = floor(t);
-	vec3 ring = c * mix(vec3(0.96, 0.86, 0.78), vec3(1.04, 0.94, 0.86), mod(wedge, 2.0));
-	float joint = smoothstep(0.07, 0.0, min(fract(t), 1.0 - fract(t)));
-	float edge = smoothstep(0.025, 0.0, min(abs(d - r_in), abs(d - r_out)));
+	vec3 ring = c * mix(vec3(0.95, 0.84, 0.76), vec3(1.05, 0.95, 0.88), mod(wedge, 2.0));
+	float joint = smoothstep(0.06, 0.0, min(fract(t), 1.0 - fract(t)));
+	float edge = max(smoothstep(0.04, 0.0, abs(vi - 1.0)), smoothstep(0.03, 0.0, abs(vo - 1.0)));
 	return ring * (1.0 - 0.38 * max(joint, edge));
 }
 
@@ -107,17 +108,15 @@ vec3 furnace_albedo(vec3 p, vec3 nrm, vec4 col) {
 			c *= 1.0 - 0.3 * smoothstep(0.035, 0.0, abs(p.y - 0.93));   // the groove along the top of the straight walls
 		}
 		if (nrm.x > 0.7 && p.x > 1.01 + 0.78) {
-			c = furnace_ring(c, p.z - 1.04, p.y, 0.32, 0.52);       // the front mouth
+			c = furnace_ring(c, p.z - 1.04, p.y, vec2(0.30, 0.22), vec2(0.5, 0.40));       // the front mouth
 		} else if (nrm.z < -0.7 && p.z < 1.04 - 0.78) {
-			c = furnace_ring(c, p.x - 1.01, p.y, 0.45, 0.65);       // the left mouth
+			c = furnace_ring(c, p.x - 1.01, p.y, vec2(0.42, 0.22), vec2(0.62, 0.40));       // the left mouth
 		}
 	} else if (col.a > 0.5) {
 		c *= 0.92 + 0.16 * mottle;
 		float joint = 0.0;
-		if (nrm.y > 0.7) {
-			joint = smoothstep(0.025, 0.0, abs(fract(p.z * 0.5 + 0.25) - 0.5) * 2.0 - 0.96);   // joints across the slab and the platform top
-		} else if (abs(nrm.y) < 0.5) {
-			joint = smoothstep(0.02, 0.0, abs(p.y - 0.22));                                      // the course line on the sides
+		if (abs(nrm.y) < 0.5 && p.x < 1.95) {
+			joint = smoothstep(0.02, 0.0, abs(p.y - 0.22));   // the course line on the sides of the platform (the tops and the tray are plain)
 		}
 		c *= 1.0 - 0.25 * joint;
 	} else {

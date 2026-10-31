@@ -614,7 +614,7 @@ def furnace():
     # two trays stand out of it and still do not leave the volume: the flat stone slab in front (towards the tray side, +x) and the step at the
     # left mouth (-z). The body stands a hair inside the platform.
     pieces = [box(cx, top / 2, cz, 1.9, top, 1.8)]
-    pieces.append(box(2.48, 0.23, 1.0, 1.04, 0.46, 1.9))                      # the front tray: a slab, the ingots lie ON it
+    pieces.append(box(2.48, top / 2, 1.0, 1.04, top, 1.9))                      # the front tray: a slab level with the platform (no line between them), the ingots lie ON it
     for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the body: straight, a concave narrowing, a short vertical collar
         pieces.append(frustum(cx, cz, y0, y1, w0, w1))
     # the chimney: a square tube, a hair narrower at the bottom than at the top, with a square hole
@@ -627,10 +627,10 @@ def furnace():
     face = 0.86 + 0.06
     niche = 0.25
     spring = 0.93 - top                     # the straight part of the openings, from the platform
-    ring_front = arch_profile(top, 1.04, spring, rise=0.52)
-    ring_left = arch_profile(top, 1.3, spring, rise=0.52)
-    front_hole = arch_profile(top, 0.64, spring, rise=0.32)
-    left_hole = arch_profile(top, 0.9, spring, rise=0.32)
+    ring_front = arch_profile(0.93, 1.0, 0.0, rise=0.4)    # only the ARCH is a ring of stones: it begins where the straight walls end, not at the platform
+    ring_left = arch_profile(0.93, 1.24, 0.0, rise=0.4)
+    front_hole = arch_profile(top, 0.6, spring, rise=0.22)
+    left_hole = arch_profile(top, 0.84, spring, rise=0.22)
     pieces.append(arch_piece("x", cz, ring_front, lambda y: cx + 0.4, lambda y: cx + face))
     pieces.append(arch_piece("z", cx, ring_left, lambda y: cz - 0.4, lambda y: cz - face))
     # the front mouth, from the left across the bottom of the opening (the designer's sketch): the wall "-", the arch "(", a low wall "_", an EMPTY
@@ -639,7 +639,7 @@ def furnace():
     for side in (-1, 1):
         wall = []
         for xx in (cx + 0.5, cx + 0.88):
-            wall += [(xx, top, cz + side * 0.32), (xx, top + sill, cz + side * 0.32), (xx, top, cz), (xx, top + sill, cz + side * 0.12)]
+            wall += [(xx, top, cz + side * 0.3), (xx, top + sill, cz + side * 0.3), (xx, top, cz), (xx, top + sill, cz + side * 0.1)]
         pieces.append(("late", wall))   # (after the cut of the opening: it lies in the opening)
     pieces.append(("cut", arch_piece("x", cz, front_hole, lambda y: cx + 0.86 - niche, lambda y: cx + 1.4)))
     pieces.append(("cut", arch_piece("z", cx, left_hole, lambda y: cz - 0.86 + niche, lambda y: cz - 1.4)))
