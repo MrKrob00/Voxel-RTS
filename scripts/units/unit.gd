@@ -96,9 +96,9 @@ func _rebuild_carry() -> void:
 		Resources.Kind.LOG:
 			_carry_part(_cylinder(LooseLog.RADIUS, LooseLog.LENGTH), Vector3(0.0, 0.2, 0.0), Vector3.ZERO, col)   # the real log, standing upright on the back
 		Resources.Kind.PLANK:
-			# the real planks, up to three, standing upright side by side, as they stand on the stump
+			# the real planks (the same as in a stockpile), up to three, standing upright in a row front to back, turned a quarter to the right
 			for i in n:
-				_carry_part(_box(Vector3(Stockpile.PLANK_SIZE.y, Stockpile.PLANK_SIZE.x, Stockpile.PLANK_SIZE.z * 0.5)), Vector3((i - (n - 1) * 0.5) * (Stockpile.PLANK_SIZE.y + 0.03), 0.2, 0.0), Vector3.ZERO, col)
+				_carry_part(_box(Vector3(Stockpile.PLANK_SIZE.y - 0.02, Stockpile.PLANK_SIZE.x - 0.06, Stockpile.PLANK_SIZE.z - 0.04)), Vector3(0.0, 0.2, (i - (n - 1) * 0.5) * (Stockpile.PLANK_SIZE.y + 0.02)), Vector3(0.0, -PI * 0.5, 0.0), col)
 		Resources.Kind.ROPE:
 			var ring := TorusMesh.new()
 			ring.inner_radius = 0.1
