@@ -620,26 +620,27 @@ def furnace():
     # the chimney: a square tube, a hair narrower at the bottom than at the top, with a square hole
     pieces.append(frustum(cx, cz, 2.43, 2.78, 0.65, 0.70))
     pieces.append(("cut", box(cx, 2.7, cz, 0.27, 0.2, 0.27, 0.0)))
-    # the mouths: the same height, the same ring (1.2 wide, 0.2 thick, up to 0.88 over the platform); the arches go straight up (a vertical outer
-    # plane) and are rooted deep in the body. The front one (to the tray) is a round arch over a clay spout, the left one a flat arch over a stone step.
+    # the mouths: the same height, the same arch ring (0.2 thick). The walls go straight up from the platform; where the body begins to narrow
+    # (y 0.93) the arches begin: the openings are straight-sided up to there and then arched; the arches go straight up (a vertical outer plane)
+    # and are rooted deep in the body. The front one (to the tray) is a round arch over a low wall with a V notch, the left one a flat arch over a
+    # stone step.
     face = 0.86 + 0.06
     niche = 0.25
-    ring = arch_profile(top, 1.2, 0.3, rise=0.58)
-    front_hole = arch_profile(top, 0.8, 0.3, rise=0.4)
-    step_top = top + 0.2
-    left_hole = arch_profile(step_top, 0.8, 0.2, rise=0.3)
-    pieces.append(arch_piece("x", cz, ring, lambda y: cx + 0.4, lambda y: cx + face))
-    pieces.append(arch_piece("z", cx, ring, lambda y: cz - 0.4, lambda y: cz - face))
+    spring = 0.93 - top                     # the straight part of the openings, from the platform
+    ring_front = arch_profile(top, 1.04, spring, rise=0.52)
+    ring_left = arch_profile(top, 1.3, spring, rise=0.52)
+    front_hole = arch_profile(top, 0.64, spring, rise=0.32)
+    left_hole = arch_profile(top, 0.9, spring, rise=0.32)
+    pieces.append(arch_piece("x", cz, ring_front, lambda y: cx + 0.4, lambda y: cx + face))
+    pieces.append(arch_piece("z", cx, ring_left, lambda y: cz - 0.4, lambda y: cz - face))
     # the front mouth, from the left across the bottom of the opening (the designer's sketch): the wall "-", the arch "(", a low wall "_", an EMPTY
     # V-shaped notch "v" (through it the ingots are poured out onto the tray), a low wall "_", the arch ")", the wall "-"
     sill = 0.2
     for side in (-1, 1):
         wall = []
-        for (xx, yt_in, yt_out) in ((cx + 0.5, 0.0, sill), (cx + 0.88, 0.0, sill)):
-            wall += [(xx, top, cz + side * 0.4), (xx, top + sill, cz + side * 0.4),
-                     (xx, top, cz + side * 0.0), (xx, top + sill, cz + side * 0.14)]
+        for xx in (cx + 0.5, cx + 0.88):
+            wall += [(xx, top, cz + side * 0.32), (xx, top + sill, cz + side * 0.32), (xx, top, cz), (xx, top + sill, cz + side * 0.12)]
         pieces.append(("late", wall))   # (after the cut of the opening: it lies in the opening)
-    pieces.append(box(cx, (top + 0.2) / 2, 0.1, 0.74, top + 0.2, 0.2))   # the second tray, the step of the left mouth: it stands out of the platform but not out of the 3 x 2
     pieces.append(("cut", arch_piece("x", cz, front_hole, lambda y: cx + 0.86 - niche, lambda y: cx + 1.4)))
     pieces.append(("cut", arch_piece("z", cx, left_hole, lambda y: cz - 0.86 + niche, lambda y: cz - 1.4)))
     return pieces

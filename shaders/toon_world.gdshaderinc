@@ -55,6 +55,77 @@ varying vec3 world_normal;
 varying float v_flags;              // UV.x (a whole number: see above)
 varying float v_layer;      // UV2.x: the layer of the pictures of the chunk (GroundLayers)
 varying float v_jitter;             // UV.y
+#ifdef FURNACE
+// The furnace (shaders/furnace.gdshader): one mesh, its textures are worked out here from the place on the mesh (its own frame, x 0..3 along its
+// length, y up, z 0..2) and from the class of the surface, which the mesh carries in the alpha of its vertex colour: 1.0 clay, 0.66 stone, 0.33 the
+// dark of the niches. Clay is mottled and has a groove where the straight walls end; stone is mottled and has joints; the rings of the two mouths
+// are cut in wedges, one stone a wedge, each a little lighter or darker than the next.
+varying vec3 v_obj;
+varying vec3 v_obj_n;
+
+float furnace_hash(vec3 q) {
+	return fract(sin(dot(q, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+}
+
+float furnace_noise(vec3 q) {
+	vec3 i = floor(q);
+	vec3 f = fract(q);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(mix(furnace_hash(i), furnace_hash(i + vec3(1.0, 0.0, 0.0)), f.x), mix(furnace_hash(i + vec3(0.0, 1.0, 0.0)), furnace_hash(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+			mix(mix(furnace_hash(i + vec3(0.0, 0.0, 1.0)), furnace_hash(i + vec3(1.0, 0.0, 1.0)), f.x), mix(furnace_hash(i + vec3(0.0, 1.0, 1.0)), furnace_hash(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);
+}
+
+// The ring of stones round a mouth, on the outer plane of the ring. `across` is the distance along the wall from the middle of the mouth, `up` the
+// height; the arch springs at SPRING; the stones are between r_in and r_out from the middle of the arch.
+vec3 furnace_ring(vec3 c, float across, float up, float r_in, float r_out) {
+	const float SPRING = 0.93;
+	float a = abs(across);
+	float d = up > SPRING ? length(vec2(a, up - SPRING)) : a;
+	if (d < r_in - 0.015 || d > r_out + 0.015) {
+		return c;
+	}
+	float t;        // how far along the ring: in stones
+	if (up > SPRING) {
+		t = atan(up - SPRING, a) / (PI * 0.5) * 5.0;
+	} else {
+		t = 5.0 + (SPRING - up) / 0.1;
+	}
+	float wedge = floor(t);
+	vec3 ring = c * mix(vec3(0.96, 0.86, 0.78), vec3(1.04, 0.94, 0.86), mod(wedge, 2.0));
+	float joint = smoothstep(0.07, 0.0, min(fract(t), 1.0 - fract(t)));
+	float edge = smoothstep(0.025, 0.0, min(abs(d - r_in), abs(d - r_out)));
+	return ring * (1.0 - 0.38 * max(joint, edge));
+}
+
+vec3 furnace_albedo(vec3 p, vec3 nrm, vec4 col) {
+	vec3 c = col.rgb;
+	float mottle = furnace_noise(p * 6.0) * 0.55 + furnace_noise(p * 15.0) * 0.3;
+	if (col.a > 0.9) {
+		c *= 0.88 + 0.22 * mottle;
+		c = mix(c, c * vec3(1.07, 0.96, 0.86), furnace_noise(p * 2.5));
+		if (abs(nrm.y) < 0.5) {
+			c *= 1.0 - 0.3 * smoothstep(0.035, 0.0, abs(p.y - 0.93));   // the groove along the top of the straight walls
+		}
+		if (nrm.x > 0.7 && p.x > 1.01 + 0.78) {
+			c = furnace_ring(c, p.z - 1.04, p.y, 0.32, 0.52);       // the front mouth
+		} else if (nrm.z < -0.7 && p.z < 1.04 - 0.78) {
+			c = furnace_ring(c, p.x - 1.01, p.y, 0.45, 0.65);       // the left mouth
+		}
+	} else if (col.a > 0.5) {
+		c *= 0.92 + 0.16 * mottle;
+		float joint = 0.0;
+		if (nrm.y > 0.7) {
+			joint = smoothstep(0.025, 0.0, abs(fract(p.z * 0.5 + 0.25) - 0.5) * 2.0 - 0.96);   // joints across the slab and the platform top
+		} else if (abs(nrm.y) < 0.5) {
+			joint = smoothstep(0.02, 0.0, abs(p.y - 0.22));                                      // the course line on the sides
+		}
+		c *= 1.0 - 0.25 * joint;
+	} else {
+		c *= 0.9 + 0.2 * mottle;
+	}
+	return c;
+}
+#endif
 
 // A number in 0..1 from three whole numbers (the pixel of the world a fragment is in).
 float hash_i(ivec3 c) {
@@ -100,6 +171,10 @@ void vertex() {
 	v_flags = UV.x;
 	v_jitter = UV.y;
 	v_layer = UV2.x;
+#ifdef FURNACE
+	v_obj = VERTEX;
+	v_obj_n = NORMAL;
+#endif
 }
 
 // How lit the corners of the block face under this point are (the way ChunkMesher bakes it): 0.5 .. 1.0, smooth over the face.
@@ -145,6 +220,9 @@ void fragment() {
 	vec3 local_pos = world_pos - MODEL_MATRIX[3].xyz;   // (a chunk is only moved: no varying for the place in the chunk)
 	vec3 face = FRONT_FACING ? n : -n;   // (the back of a two-sided thing is lit the other way)
 	vec3 base = COLOR.rgb;
+#ifdef FURNACE
+	base = furnace_albedo(v_obj, normalize(v_obj_n), COLOR);
+#endif
 	if (terrain) {
 		int layer = int(v_layer + 0.5);
 		int fl = int(v_flags + 0.5);   // (the UV is the same on every vertex of a face, but interpolated it is not exact)
