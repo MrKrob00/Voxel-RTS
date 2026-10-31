@@ -681,7 +681,7 @@ def loft(rows, seg=20, cx=0.0, cz=0.0):
 
 def unit_t_pose(idle=False):
     """The worker (docs/unit-model.md: the numbers come from the Bricktron of Castle Story) in a T pose, ONE mesh, no face (the face is a texture:
-    art/facegen.py). 1.63 high, standing on y = 0 between the feet, looking towards +z (the game's front of a unit; the load is on its back, -z)."""
+    art/facegen.py). 1.74 high, standing on y = 0 between the feet, looking towards +z (the game's front of a unit; the load is on its back, -z)."""
     def rings(rows, seg):
         out = []
         for y, rx, rz, dz in rows:
@@ -698,8 +698,8 @@ def unit_t_pose(idle=False):
     pieces.append(rings([(0.27, 0.30, 0.26, 0.02), (0.34, 0.42, 0.36, 0.04), (0.46, 0.51, 0.41, 0.05), (0.56, 0.52, 0.425, 0.05),
                          (0.72, 0.505, 0.41, 0.04), (0.90, 0.475, 0.39, 0.02), (1.08, 0.45, 0.33, 0.0), (1.18, 0.43, 0.28, -0.02),
                          (1.26, 0.40, 0.22, -0.03), (1.33, 0.36, 0.16, -0.03), (1.37, 0.32, 0.12, -0.03)], 16))   # (no shoulders: the arms go straight into it)
-    # the head: a short capsule 0.66 wide, top at 1.63, set forward (+0.12) so that it sticks out in front of the body; sunk into it down to y 1.08
-    pieces.append(rings([(1.08, 0.31, 0.28, 0.12), (1.133, 0.33, 0.3, 0.12), (1.36, 0.33, 0.3, 0.12), (1.44, 0.325, 0.295, 0.12), (1.493, 0.31, 0.28, 0.12), (1.54, 0.285, 0.255, 0.12), (1.58, 0.245, 0.22, 0.12), (1.607, 0.19, 0.17, 0.12), (1.623, 0.12, 0.11, 0.12), (1.63, 0.05, 0.045, 0.12), (1.633, 0.0, 0.0, 0.12)], 16))
+    # the head: a short capsule 0.66 wide with a round (half circle) top at 1.744, set forward (+0.12) so that it sticks out in front of the body; sunk into it down to y 1.08
+    pieces.append(rings([(1.08, 0.31, 0.28, 0.12), (1.133, 0.33, 0.3, 0.12), (1.414, 0.33, 0.3, 0.12), (1.516, 0.314, 0.285, 0.12), (1.608, 0.267, 0.243, 0.12), (1.674, 0.203, 0.185, 0.12), (1.715, 0.134, 0.122, 0.12), (1.737, 0.069, 0.062, 0.12), (1.744, 0.012, 0.01, 0.12), (1.744, 0.0, 0.0, 0.12)], 16))
     for sx in (-1, 1):
         # a leg: from a knee hidden in the body straight down to the foot, close to the other one
         pieces.append([(sx * 0.25 + x, y, z) for (x, y, z) in rings([(0.10, 0.16, 0.17, 0.03), (0.22, 0.17, 0.18, 0.02), (0.36, 0.17, 0.18, 0.02),
