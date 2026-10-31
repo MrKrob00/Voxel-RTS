@@ -1,12 +1,12 @@
 class_name Furnace
 extends Station
-## The furnace: 3 blocks long, 2 wide and 3 high, built of 4 bricks. The player orders iron ingots (up to SLOTS: an ordered ingot takes
+## The furnace: 3 blocks long (2 of platform and the tray in front), 2 wide and 3 high. The player orders iron ingots (up to SLOTS: an ordered ingot takes
 ## a slot of the tray in front of it from the order until a unit has carried the made ingot away); units bring the ore and the amber it
 ## needs (RECIPE for every ingot) and the furnace smelts by itself, one ingot at a time, SMELT_TIME seconds each. The ingots lie in
 ## the tray: the slots of the made ones are solid, the ordered ones are blue ghosts (a tap on one takes an order back).
 ##
-## The model is made once in its own frame (length along x, the front with the tray on the z = 0 side, the body behind it) and turned
-## to `facing` (the way the front looks: 0 +x, 1 +z, 2 -x, 3 -z).
+## The model (art/blockgen.py, baked by scripts/tools/bake_furnace.gd) has its own frame: 3 along x with the tray at the +x end, 2 along z;
+## it is turned to `facing` (the way the front looks: 0 +x, 1 +z, 2 -x, 3 -z).
 
 const SLOTS := 8
 const SMELT_TIME := 8.0
@@ -28,12 +28,11 @@ var progress := 0.0               ## seconds of the ingot in the fire
 var _body: Node3D
 var _ghosts: Array[MeshInstance3D] = []
 var _ingots: Array[MeshInstance3D] = []
-var _glow: MeshInstance3D
 var _label: Label3D
 
 
 static func footprint(furnace_facing: int) -> Vector2i:
-	return Vector2i(DEPTH, LENGTH) if furnace_facing % 2 == 0 else Vector2i(LENGTH, DEPTH)
+	return Vector2i(LENGTH, DEPTH) if furnace_facing % 2 == 0 else Vector2i(DEPTH, LENGTH)
 
 
 func size() -> Vector2i:
@@ -125,6 +124,7 @@ func _process(delta: float) -> void:
 		progress = 0.0
 		_refresh()
 	if smelting:
+		_animate(delta)
 		progress += delta
 		if progress >= SMELT_TIME:
 			smelting = false
@@ -133,7 +133,42 @@ func _process(delta: float) -> void:
 			_refresh()
 
 
+## The smoke climbs out of the chimney and thins out (each puff grows, then shrinks away), the sparks fly up with it; the fire flickers.
+func _animate(delta: float) -> void:
+	_clock += delta
+	for i in PUFFS:
+		var t := fposmod(_clock * 0.35 + float(i) / PUFFS, 1.0)
+		var r := 0.26 + 0.4 * t
+		_puffs[i].position = CHIMNEY_TOP - Vector3(1.5, 0.0, 1.0) + Vector3(0.15 * t * sin(i * 2.1), 0.2 + 1.5 * t, 0.12 * t * cos(i * 1.7))
+		_puffs[i].scale = Vector3.ONE * r * (1.0 - smoothstep(0.6, 1.0, t))
+	for i in SPARKS:
+		var t := fposmod(_clock * 0.8 + float(i) / SPARKS, 1.0)
+		_sparks[i].position = CHIMNEY_TOP - Vector3(1.5, 0.0, 1.0) + Vector3(0.12 * sin(i * 3.3 + t * 5.0), 0.05 + 0.9 * t, 0.12 * cos(i * 2.3 + t * 4.0))
+		_sparks[i].scale = Vector3.ONE * (1.0 - t)
+	_fire_material.albedo_color = Color(1.0, 0.45 + 0.12 * sin(_clock * 9.0), 0.1)
+
+
 # --- how it looks -----------------------------------------------------------------------------------------------
+
+static var _model: Mesh
+static var _glow_model: Mesh
+static var _ingot: Mesh
+static var _clay_material: ShaderMaterial
+static var _pane_material: StandardMaterial3D
+static var _fire_material: StandardMaterial3D
+static var _smoke_material: StandardMaterial3D
+static var _spark_material: StandardMaterial3D
+static var _ghost_material: StandardMaterial3D
+
+const PUFFS := 5
+const SPARKS := 4
+const CHIMNEY_TOP := Vector3(1.01, 2.8, 1.04)   ## (the model's frame)
+
+var _puffs: Array[MeshInstance3D] = []
+var _sparks: Array[MeshInstance3D] = []
+var _fire: MeshInstance3D
+var _clock := 0.0
+
 
 func build(station_kind: int, cell: Vector3i) -> void:
 	kind = station_kind
@@ -141,62 +176,61 @@ func build(station_kind: int, cell: Vector3i) -> void:
 	enabled = true
 	name = "Furnace_%d_%d" % [cell.x, cell.z]
 	position = Vector3(cell.x, cell.y, cell.z)
+	_make_shared()
+	# the model is made with its front (the tray) towards +x, 3 along x and 2 along z; turned to `facing`
 	_body = Node3D.new()
 	_body.position = Vector3(size().x * 0.5, 0.0, size().y * 0.5)
-	_body.rotation.y = deg_to_rad([-90.0, 180.0, 90.0, 0.0][facing & 3])
+	_body.rotation.y = deg_to_rad([0.0, -90.0, 180.0, 90.0][facing & 3])
 	add_child(_body)
-	var clay := _mat(BRICK_RED)
-	var clay_dark := _mat(BRICK_DARK)
-	var stone := _mat(STONE_GREY)
-	# the body: stepped in four, the chimney on top
-	_cube(Vector3(2.7, 0.9, 0.95), Vector3(1.5, 0.45, 1.5), clay)
-	_cube(Vector3(2.2, 0.9, 0.85), Vector3(1.5, 1.35, 1.5), clay)
-	_cube(Vector3(1.6, 0.6, 0.7), Vector3(1.5, 2.1, 1.5), clay)
-	_cube(Vector3(0.62, 0.7, 0.62), Vector3(1.5, 2.65, 1.5), clay)
-	_cube(Vector3(0.84, 0.14, 0.84), Vector3(1.5, 2.93, 1.5), clay_dark)
-	# the two mouths of the fire, and what glows in them while it burns
-	for mx in [0.8, 2.2]:
-		_cube(Vector3(0.55, 0.5, 0.08), Vector3(mx, 0.4, 1.0), _mat(Color("2a1a10")))
-		_cube(Vector3(0.62, 0.1, 0.1), Vector3(mx, 0.69, 1.0), clay_dark)
-	_glow = MeshInstance3D.new()
-	var glow_mesh := BoxMesh.new()
-	glow_mesh.size = Vector3(0.45, 0.35, 0.06)
-	_glow.mesh = glow_mesh
-	var glow_material := StandardMaterial3D.new()
-	glow_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	glow_material.albedo_color = Color(1.0, 0.55, 0.15)
-	_glow.material_override = glow_material
-	_glow.position = Vector3(0.8, 0.38, 0.97) - Vector3(1.5, 0.0, 1.0)
-	_glow.visible = false
-	_body.add_child(_glow)
-	# the tray in front: a stone trough with dividers (its floor, the rim, three dividers)
-	_cube(Vector3(2.96, 0.16, 0.96), Vector3(1.5, 0.08, 0.5), stone)
-	_cube(Vector3(2.96, 0.3, 0.08), Vector3(1.5, 0.15, 0.04), stone)
-	_cube(Vector3(2.96, 0.3, 0.08), Vector3(1.5, 0.15, 0.96), stone)
-	_cube(Vector3(0.08, 0.3, 0.96), Vector3(0.04, 0.15, 0.5), stone)
-	_cube(Vector3(0.08, 0.3, 0.96), Vector3(2.96, 0.15, 0.5), stone)
-	for dx in [0.75, 1.5, 2.25]:
-		_cube(Vector3(0.05, 0.28, 0.9), Vector3(dx, 0.14, 0.5), stone)
-	# the eight slots: four ingots on end below, four lying across on top of them
-	var ghost_material := StandardMaterial3D.new()
-	ghost_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ghost_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	ghost_material.albedo_color = GHOST
+	var shift := Vector3(1.5, 0.0, 1.0)
+	var clay := MeshInstance3D.new()
+	clay.mesh = _model
+	clay.set_surface_override_material(0, _clay_material)
+	clay.set_surface_override_material(1, _pane_material)
+	clay.position = -shift
+	_body.add_child(clay)
+	_fire = MeshInstance3D.new()
+	_fire.mesh = _glow_model
+	_fire.material_override = _fire_material
+	_fire.position = -shift
+	_fire.visible = false
+	_body.add_child(_fire)
+	# the ingots of the tray: solid for the made ones, blue ghosts for the ordered ones
 	var ingot_material := _mat(Resources.COLORS[Resources.Kind.INGOT])
 	ingot_material.metallic = 0.6
 	ingot_material.roughness = 0.4
 	for i in SLOTS:
-		var at := slot_box(i)
 		for list in [_ghosts, _ingots]:
 			var mi := MeshInstance3D.new()
-			var bm := BoxMesh.new()
-			bm.size = at.size
-			mi.mesh = bm
-			mi.material_override = ghost_material if list == _ghosts else ingot_material
-			mi.position = at.get_center() - Vector3(1.5, 0.0, 1.0)
+			mi.mesh = _ingot
+			mi.material_override = _ghost_material if list == _ghosts else ingot_material
+			mi.transform = slot_transform(i)
+			mi.position -= shift
 			mi.visible = false
 			_body.add_child(mi)
 			list.append(mi)
+	# the smoke and the sparks over the chimney (they run only while it smelts)
+	var puff_mesh := SphereMesh.new()
+	puff_mesh.radius = 0.5
+	puff_mesh.height = 1.0
+	puff_mesh.radial_segments = 8
+	puff_mesh.rings = 4
+	for i in PUFFS:
+		var mi := MeshInstance3D.new()
+		mi.mesh = puff_mesh
+		mi.material_override = _smoke_material
+		mi.visible = false
+		_body.add_child(mi)
+		_puffs.append(mi)
+	var spark_mesh := BoxMesh.new()
+	spark_mesh.size = Vector3(0.09, 0.09, 0.09)
+	for i in SPARKS:
+		var mi := MeshInstance3D.new()
+		mi.mesh = spark_mesh
+		mi.material_override = _spark_material
+		mi.visible = false
+		_body.add_child(mi)
+		_sparks.append(mi)
 	_label = Label3D.new()
 	_label.font_size = 22
 	_label.pixel_size = 0.0045
@@ -208,22 +242,50 @@ func build(station_kind: int, cell: Vector3i) -> void:
 	_refresh()
 
 
-## The box of slot `i` in the furnace's own frame: 0..3 ingots standing, 4..7 lying across them.
-static func slot_box(i: int) -> AABB:
-	var x := 0.375 + 0.75 * (i % 4)
+## What every furnace shares: the meshes and the materials.
+static func _make_shared() -> void:
+	if _model != null:
+		return
+	_model = load("res://assets/structures/furnace.res") as Mesh
+	_glow_model = load("res://assets/structures/furnace_glow.res") as Mesh
+	_ingot = load("res://assets/structures/ingot.obj") as Mesh
+	_clay_material = ShaderMaterial.new()
+	_clay_material.shader = load("res://shaders/furnace.gdshader")
+	_clay_material.set_shader_parameter("day_light", DayCycle.light_texture())
+	_pane_material = StandardMaterial3D.new()
+	_pane_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_pane_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_pane_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_pane_material.albedo_color = Color(0.08, 0.04, 0.02, 0.25)
+	_fire_material = StandardMaterial3D.new()
+	_fire_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_fire_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_fire_material.albedo_color = Color(1.0, 0.5, 0.1)
+	_smoke_material = StandardMaterial3D.new()
+	_smoke_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_smoke_material.albedo_color = Color(0.78, 0.79, 0.82)
+	_spark_material = StandardMaterial3D.new()
+	_spark_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_spark_material.albedo_color = Color(1.0, 0.6, 0.15)
+	_ghost_material = StandardMaterial3D.new()
+	_ghost_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_ghost_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_ghost_material.albedo_color = GHOST
+
+
+## Where slot `i` is in the model's frame (x 0..3 with the tray at the +x end, z 0..2): 0..3 lie across the slab side by side, 4..7 lie
+## along it on top of them, two by two.
+static func slot_transform(i: int) -> Transform3D:
 	if i < 4:
-		return AABB(Vector3(x - 0.27, 0.16, 0.5 - 0.2), Vector3(0.54, 0.62, 0.4))
-	return AABB(Vector3(x - 0.33, 0.78, 0.5 - 0.42), Vector3(0.66, 0.26, 0.84))
+		return Transform3D(Basis.IDENTITY, Vector3(2.48, 0.43 + 0.16, 0.27 + i * 0.49))
+	var j := i - 4
+	return Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(2.25 + (j % 2) * 0.46, 0.43 + 0.32 + 0.16, 0.5 + (j / 2) * 1.0))
 
 
-func _cube(sz: Vector3, pos: Vector3, m: StandardMaterial3D) -> void:
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = sz
-	mi.mesh = bm
-	mi.material_override = m
-	mi.position = pos - Vector3(1.5, 0.0, 1.0)
-	_body.add_child(mi)
+## The box of slot `i` in the model's frame (an ingot is 0.8 x 0.32 x 0.46).
+static func slot_box(i: int) -> AABB:
+	var half := Vector3(0.4, 0.16, 0.23) if i < 4 else Vector3(0.23, 0.16, 0.4)
+	return AABB(slot_transform(i).origin - half, half * 2.0)
 
 
 func _refresh() -> void:
@@ -232,7 +294,11 @@ func _refresh() -> void:
 	for i in SLOTS:
 		_ingots[i].visible = i < made
 		_ghosts[i].visible = i >= made and i < made + queued
-	_glow.visible = smelting
+	_fire.visible = smelting
+	for mi in _puffs:
+		mi.visible = smelting
+	for mi in _sparks:
+		mi.visible = smelting
 	_label.text = "Furnace  %d/%d" % [queued + made, SLOTS] if queued + made > 0 else "Furnace"
 
 

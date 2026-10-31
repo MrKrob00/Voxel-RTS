@@ -38,7 +38,7 @@ func run() -> void:
 				_world.set_block(p, Blocks.make(Blocks.GRASS) if y == sp.y else (Blocks.make(Blocks.DIRT) if y < sp.y else Blocks.AIR))
 
 	# The furnace: 3 x 2 on the ground, 3 high; turned a quarter it is 2 x 3.
-	check(Furnace.footprint(1) == Vector2i(3, 2) and Furnace.footprint(0) == Vector2i(2, 3), "3 long, 2 wide, turned by its front")
+	check(Furnace.footprint(0) == Vector2i(3, 2) and Furnace.footprint(1) == Vector2i(2, 3), "3 long, 2 wide, turned by its front")
 	var furnace := _board.place_station(Station.Kind.FURNACE, base + Vector3i(4, 0, 3), false, 1) as Furnace
 	check(furnace != null, "a furnace stands (%s)" % _economy.last_error)
 	check(furnace.blocks(base + Vector3i(5, 2, 4)) and not furnace.blocks(base + Vector3i(5, 3, 4)) and not _units.nav.standable(base + Vector3i(5, 0, 4)), "three high, nobody walks through it")
@@ -79,7 +79,7 @@ func run() -> void:
 
 	# The plan: 4 bricks (eight halves).
 	var plan := _board.place_blueprint("station", Station.Kind.FURNACE, base + Vector3i(10, 0, 3), 0)
-	check(plan != null and plan.cost == {Resources.Kind.BRICK: 8} and plan.size == Vector2i(2, 3), "a blueprint of a furnace asks for four bricks")
+	check(plan != null and plan.cost == {Resources.Kind.BRICK: 8} and plan.size == Vector2i(3, 2), "a blueprint of a furnace asks for four bricks")
 
 
 func _step(n: int) -> void:
