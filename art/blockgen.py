@@ -693,21 +693,22 @@ def unit_t_pose():
                 out.append((rx * math.cos(a), y, dz + rz * math.sin(a)))
         return out
     pieces = []
-    # the body: a pear, the belly (widest 1.0 at y 0.52) a little forward, narrow sloping shoulders (0.9) under the chin
-    pieces.append(rings([(0.24, 0.30, 0.26, 0.02), (0.32, 0.42, 0.36, 0.04), (0.44, 0.49, 0.41, 0.05), (0.56, 0.50, 0.425, 0.05),
-                         (0.70, 0.485, 0.41, 0.04), (0.86, 0.45, 0.38, 0.02), (1.00, 0.41, 0.34, 0.0), (1.12, 0.36, 0.30, 0.0),
-                         (1.22, 0.27, 0.24, 0.0)], 16))
-    # the head: a capsule 0.66 wide, 0.6 deep, from the shoulders (no neck) to 2.0
-    pieces.append(rings([(1.10, 0.24, 0.22, 0.02), (1.18, 0.31, 0.28, 0.02), (1.30, 0.33, 0.30, 0.02), (1.50, 0.33, 0.30, 0.02),
-                         (1.67, 0.325, 0.295, 0.02), (1.80, 0.29, 0.265, 0.02), (1.90, 0.22, 0.20, 0.02), (1.96, 0.14, 0.13, 0.02),
-                         (2.0, 0.0, 0.0, 0.02)], 16))
+    # the body: a pear (widest 1.0 at y 0.53, the belly a little forward); its top rises to y 1.4 round the head (the shoulders come up to the
+    # bottom of the eyes at the sides) but is shallow at the front, so the face shows down to the chin (y 1.16)
+    pieces.append(rings([(0.27, 0.30, 0.26, 0.02), (0.34, 0.42, 0.36, 0.04), (0.46, 0.49, 0.41, 0.05), (0.56, 0.50, 0.425, 0.05),
+                         (0.72, 0.485, 0.41, 0.04), (0.90, 0.465, 0.39, 0.02), (1.08, 0.44, 0.33, 0.0), (1.20, 0.43, 0.28, -0.02),
+                         (1.30, 0.42, 0.23, -0.03), (1.39, 0.39, 0.17, -0.03), (1.45, 0.31, 0.12, -0.03)], 16))
+    # the head: 0.68 wide, 0.62 deep, straight sides, a flat dome (full width 0.26 under the top), sunk into the body down to y 1.08
+    pieces.append(rings([(1.08, 0.31, 0.28, 0.02), (1.16, 0.33, 0.30, 0.02), (1.48, 0.33, 0.30, 0.02), (1.58, 0.328, 0.295, 0.02),
+                         (1.67, 0.32, 0.285, 0.02), (1.76, 0.305, 0.27, 0.02), (1.84, 0.28, 0.245, 0.02), (1.90, 0.245, 0.215, 0.02),
+                         (1.945, 0.195, 0.17, 0.02), (1.978, 0.135, 0.12, 0.02), (1.996, 0.07, 0.06, 0.02), (2.0, 0.0, 0.0, 0.02)], 16))
     for sx in (-1, 1):
-        pieces.append(cyl(sx * 0.31, 0.22, 0.02, 0.12, 0.12, 0.24, seg=10, b=0.0))                       # a leg: short, almost hidden
-        pieces.append([(sx * 0.31 + x, y, z) for (x, y, z) in rings([(0.0, 0.13, 0.20, 0.08), (0.04, 0.17, 0.25, 0.08), (0.10, 0.16, 0.23, 0.08),
-                                                                      (0.14, 0.10, 0.15, 0.06)], 12)])   # a foot: an oval slipper, the toe forward
-        # an arm, straight out at the shoulders (y 1.05), thick and a little thinner at the wrist, and a round fist; it ends at x 1.15
-        pieces.append(ellipsoid(sx * 0.45, 1.05, 0.0, 0.12, 0.12, 0.12, 5, 10) + ellipsoid(sx * 0.9, 1.05, 0.0, 0.1, 0.1, 0.1, 5, 10))
-        pieces.append(ellipsoid(sx * 1.02, 1.05, 0.0, 0.13, 0.12, 0.13, 5, 10))
+        pieces.append(cyl(sx * 0.30, 0.21, 0.02, 0.13, 0.13, 0.22, seg=10, b=0.0))                        # a leg: short, almost hidden
+        pieces.append([(sx * 0.30 + x, y, z) for (x, y, z) in rings([(0.0, 0.18, 0.21, 0.08), (0.04, 0.21, 0.25, 0.08), (0.10, 0.20, 0.23, 0.08),
+                                                                      (0.15, 0.14, 0.16, 0.06)], 12)])   # a foot: an oval slipper, the toe forward
+        # an arm, straight out under the shoulders (y 1.15): thick (0.26), a little thinner at the wrist, a round fist; it ends at x 1.22
+        pieces.append(ellipsoid(sx * 0.42, 1.15, 0.0, 0.13, 0.13, 0.13, 5, 10) + ellipsoid(sx * 0.95, 1.15, 0.0, 0.11, 0.11, 0.11, 5, 10))
+        pieces.append(ellipsoid(sx * 1.08, 1.15, 0.0, 0.14, 0.14, 0.14, 5, 10))
     return pieces
 
 
