@@ -785,15 +785,16 @@ def unit_sculpt(idle=False, part=None):
     a soft crease at the waist (y 0.80). Returns one ("tris", ...) piece."""
     import numpy as np
     import manifold3d as m3d
-    # the pelvis: like a pair of briefs, roomy (not skin-tight): from the waist (y 0.80) it widens to the hips and comes down round the tops of
-    # the legs, almost straight at the sides, to a flat-ish bottom at y 0.15; the legs come out from under it
-    belly = [(0.15, 0.28, 0.22, 0.03), (0.19, 0.37, 0.29, 0.03), (0.26, 0.405, 0.315, 0.04), (0.40, 0.415, 0.325, 0.04),
-             (0.56, 0.41, 0.325, 0.04), (0.68, 0.395, 0.315, 0.03), (0.78, 0.36, 0.29, 0.02), (0.84, 0.30, 0.24, 0.02)]   # (straight sides, a flat-ish bottom)
+    # the pelvis with the belly, as in the original: a pear like roomy briefs (not skin-tight), from the waist (y 0.80) out to a round belly
+    # that hangs forward and round hips (widest 0.90 at y 0.48), then a round underside at y 0.21 (the legs show under it, as in the original); the legs come out from under it
+    belly = [(0.21, 0.16, 0.14, 0.03), (0.26, 0.30, 0.26, 0.03), (0.32, 0.38, 0.32, 0.04), (0.39, 0.43, 0.37, 0.05),
+             (0.48, 0.45, 0.40, 0.06), (0.58, 0.44, 0.39, 0.06), (0.68, 0.42, 0.36, 0.05), (0.76, 0.38, 0.31, 0.03),
+             (0.84, 0.31, 0.25, 0.02)]   # (a pear: the round belly forward, round hips, a round underside into the legs)
     chest = [(0.72, 0.30, 0.24, 0.02), (0.80, 0.375, 0.295, 0.02), (0.90, 0.395, 0.315, 0.02), (1.00, 0.39, 0.31, 0.01),
              (1.08, 0.37, 0.30, 0.0), (1.18, 0.353, 0.285, -0.03), (1.26, 0.328, 0.25, -0.06), (1.33, 0.31, 0.22, -0.07), (1.37, 0.30, 0.19, -0.07)]
     head = [(1.08, 0.31, 0.28, 0.02), (1.133, 0.33, 0.3, 0.02), (1.414, 0.33, 0.3, 0.02), (1.516, 0.314, 0.285, 0.02), (1.608, 0.267, 0.243, 0.02),
             (1.674, 0.203, 0.185, 0.02), (1.715, 0.134, 0.122, 0.02), (1.737, 0.069, 0.062, 0.02), (1.744, 0.0, 0.0, 0.02)]
-    leg = [(0.08, 0.155, 0.165, 0.03), (0.16, 0.165, 0.175, 0.02), (0.26, 0.165, 0.175, 0.02), (0.34, 0.12, 0.13, 0.02)]
+    leg = [(0.08, 0.155, 0.165, 0.03), (0.16, 0.165, 0.175, 0.02), (0.28, 0.17, 0.18, 0.02), (0.40, 0.13, 0.14, 0.02)]
     foot = [(0.0, 0.18, 0.21, 0.08), (0.04, 0.20, 0.25, 0.08), (0.10, 0.19, 0.23, 0.08), (0.15, 0.14, 0.16, 0.06)]
     arms = []
     for sx in (-1, 1):
