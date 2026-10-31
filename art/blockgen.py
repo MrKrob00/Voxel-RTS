@@ -570,7 +570,7 @@ def frustum(cx, cz, y0, y1, w0, w1):
     return [(cx + sx * h0, y0, cz + sz * h0) for sx in (-1, 1) for sz in (-1, 1)] + [(cx + sx * h1, y1, cz + sz * h1) for sx in (-1, 1) for sz in (-1, 1)]
 
 
-FURNACE_WIDTHS = [(0.35, 1.84), (1.0, 1.84), (1.45, 1.52), (1.85, 1.16), (2.15, 0.9), (2.3, 0.76)]   # the width of the clay body at a height: straight up to one block with the plinth, then a bell
+FURNACE_WIDTHS = [(0.35, 1.84), (1.0, 1.84), (1.55, 1.5), (2.0, 1.2), (2.4, 1.0)]   # the width of the clay body at a height: straight up to one block with the plinth, then a bell with a flat top (a ledge round the chimney)
 
 
 def furnace_width(y):
@@ -590,11 +590,11 @@ def arch_profile(y0, width, rect_h, steps=8):
     return out
 
 
-def arch_piece(face, centre, profile, inner, outer_of_y):
-    """The profile pushed along the face's axis from `inner` to `outer_of_y(y)`: 'x' faces look +x, 'z' faces look -z."""
+def arch_piece(face, centre, profile, inner_of_y, outer_of_y):
+    """The profile pushed along the face's axis from `inner_of_y(y)` to `outer_of_y(y)`: 'x' faces look +x, 'z' faces look -z."""
     pts = []
     for (y, t) in profile:
-        for d in (inner, outer_of_y(y)):
+        for d in (inner_of_y(y), outer_of_y(y)):
             pts.append((d, y, centre + t) if face == "x" else (centre + t, y, d))
     return pts
 
@@ -611,27 +611,26 @@ def furnace():
     pieces += [box(2.5, top + lip / 2, t / 2, 1.0, lip, t), box(2.5, top + lip / 2, 2 - t / 2, 1.0, lip, t), box(3 - t / 2, top + lip / 2, 1.0, t, lip, 2.0)]   # the rim of the tray
     for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the body
         pieces.append(frustum(cx, cz, y0, y1, w0, w1))
-    pieces.append(box(cx, 2.5, cz, 0.62, 0.4, 0.62))                         # the chimney: small, of the same clay
-    cap_y, cap, ow, iw = 2.82, 0.16, 0.84, 0.34                              # the cap: a flared square ring with a hole
-    ring = (ow - iw) / 2
-    pieces += [box(cx, cap_y, cz - (ow - ring) / 2, ow, cap, ring), box(cx, cap_y, cz + (ow - ring) / 2, ow, cap, ring),
-               box(cx - (ow - ring) / 2, cap_y, cz, ring, cap, iw), box(cx + (ow - ring) / 2, cap_y, cz, ring, cap, iw)]
-    # the mouths: a ring of stones standing out of the clay, and the opening cut into it (in the straight part of the body)
+    # the chimney as in the original: it grows out of the flat top of the bell narrow and flares outward to a rim with a flat top
+    pieces += [frustum(cx, cz, 2.4, 2.62, 0.56, 0.62), frustum(cx, cz, 2.62, 2.85, 0.62, 0.78), box(cx, 2.91, cz, 0.84, 0.12, 0.84)]
+    # the mouths: a ring of stones standing out of the clay, and a shallow dark niche cut into it (the furnace is solid inside)
     mouth_w, mouth_h = 0.8, 0.34
-    ring_profile = arch_profile(top, mouth_w + 0.24, mouth_h + 0.04)
+    niche = 0.15
+    ring_profile = arch_profile(top, mouth_w + 0.26, mouth_h + 0.04)
     hole_profile = arch_profile(top, mouth_w, mouth_h)
     flank = lambda y: furnace_width(y) / 2 + 0.07
-    pieces.append(arch_piece("x", cz, ring_profile, cx + 0.3, lambda y: cx + flank(y)))
-    pieces.append(arch_piece("z", cx, ring_profile, cz - 0.3, lambda y: cz - flank(y)))
-    pieces.append(("cut", arch_piece("x", cz, hole_profile, cx + 0.4, lambda y: cx + 1.4)))
-    pieces.append(("cut", arch_piece("z", cx, hole_profile, cz - 0.4, lambda y: cz - 1.4)))
+    pieces.append(arch_piece("x", cz, ring_profile, lambda y: cx + flank(y) - 0.2, lambda y: cx + flank(y)))
+    pieces.append(arch_piece("z", cx, ring_profile, lambda y: cz - flank(y) + 0.2, lambda y: cz - flank(y)))
+    pieces.append(("cut", arch_piece("x", cz, hole_profile, lambda y: cx + furnace_width(y) / 2 - niche, lambda y: cx + 1.4)))
+    pieces.append(("cut", arch_piece("z", cx, hole_profile, lambda y: cz - furnace_width(y) / 2 + niche, lambda y: cz - 1.4)))
     return pieces
 
 
 def ingot():
-    """An ingot: a bar 1 x 0.3 x 0.5 at the bottom, narrower at the top (0.84 x 0.36), edges chamfered. Scaled where it is used."""
+    """An ingot (its real proportions are about 7 : 2.4 : 1, a flat bar; this one is a stouter game bar, 0.8 x 0.46 x 0.32): a trapezoid prism,
+    narrower at the top (0.62 x 0.34), the edges chamfered."""
     def rect(y, lx, lz): return [(sx * lx / 2, y, sz * lz / 2) for sx in (-1, 1) for sz in (-1, 1)]
-    return [rect(-0.15, 0.94, 0.44) + rect(-0.12, 1.0, 0.5) + rect(0.1, 0.88, 0.4) + rect(0.15, 0.82, 0.34)]
+    return [rect(-0.16, 0.74, 0.40) + rect(-0.13, 0.80, 0.46) + rect(0.12, 0.66, 0.37) + rect(0.16, 0.60, 0.32)]
 
 
 STRUCTURES = {
