@@ -681,7 +681,7 @@ def loft(rows, seg=20, cx=0.0, cz=0.0):
 
 def unit_t_pose(idle=False):
     """The worker (docs/unit-model.md: the numbers come from the Bricktron of Castle Story) in a T pose, ONE mesh, no face (the face is a texture:
-    art/facegen.py). 1.88 high, standing on y = 0 between the feet, looking towards +z (the game's front of a unit; the load is on its back, -z)."""
+    art/facegen.py). 1.91 high, standing on y = 0 between the feet, looking towards +z (the game's front of a unit; the load is on its back, -z)."""
     def rings(rows, seg):
         out = []
         for y, rx, rz, dz in rows:
@@ -696,22 +696,24 @@ def unit_t_pose(idle=False):
     # the body: a pear (widest 1.0 at y 0.53, the belly a little forward); its top rises to y 1.4 round the head (the shoulders come up to the
     # bottom of the eyes at the sides) but is shallow at the front, so the face shows down to the chin (y 1.16)
     pieces.append(rings([(0.27, 0.30, 0.26, 0.02), (0.34, 0.42, 0.36, 0.04), (0.46, 0.51, 0.41, 0.05), (0.56, 0.52, 0.425, 0.05),
-                         (0.72, 0.505, 0.41, 0.04), (0.90, 0.475, 0.39, 0.02), (1.08, 0.49, 0.33, 0.0), (1.18, 0.49, 0.28, -0.02),
-                         (1.26, 0.46, 0.22, -0.03), (1.33, 0.385, 0.16, -0.03), (1.37, 0.32, 0.12, -0.03)], 16))   # (the shoulders slope down from the head)
-    # the head: an egg, the broad end down (0.72 wide low, at the cheeks), narrowing all the way up to a round top at 1.88; sunk into the body
-    pieces.append(rings([(1.08, 0.33, 0.29, 0.02), (1.20, 0.36, 0.31, 0.02), (1.32, 0.36, 0.31, 0.02), (1.44, 0.35, 0.305, 0.02),
-                         (1.54, 0.335, 0.295, 0.02), (1.63, 0.31, 0.275, 0.02), (1.71, 0.275, 0.245, 0.02), (1.78, 0.225, 0.20, 0.02),
-                         (1.83, 0.165, 0.15, 0.02), (1.865, 0.095, 0.085, 0.02), (1.88, 0.0, 0.0, 0.02)], 16))
+                         (0.72, 0.505, 0.41, 0.04), (0.90, 0.475, 0.39, 0.02), (1.08, 0.45, 0.33, 0.0), (1.18, 0.43, 0.28, -0.02),
+                         (1.26, 0.40, 0.22, -0.03), (1.33, 0.36, 0.16, -0.03), (1.37, 0.32, 0.12, -0.03)], 16))   # (no shoulders: the arms go straight into it)
+    # the head: a capsule 0.66 wide, top at 1.91, set forward (+0.12) so that it sticks out in front of the body; sunk into it down to y 1.08
+    pieces.append(rings([(1.08, 0.31, 0.28, 0.12), (1.16, 0.33, 0.30, 0.12), (1.50, 0.33, 0.30, 0.12), (1.62, 0.325, 0.295, 0.12),
+                         (1.70, 0.31, 0.28, 0.12), (1.77, 0.285, 0.255, 0.12), (1.83, 0.245, 0.22, 0.12), (1.87, 0.19, 0.17, 0.12),
+                         (1.895, 0.12, 0.11, 0.12), (1.905, 0.05, 0.045, 0.12), (1.91, 0.0, 0.0, 0.12)], 16))
     for sx in (-1, 1):
-        pieces.append([(sx * 0.30 + x, y, z) for (x, y, z) in rings([(0.10, 0.16, 0.17, 0.03), (0.22, 0.18, 0.19, 0.02), (0.36, 0.20, 0.21, 0.02)], 10)])   # a thick short leg
-        pieces.append([(sx * 0.30 + x, y, z) for (x, y, z) in rings([(0.0, 0.18, 0.21, 0.08), (0.04, 0.21, 0.25, 0.08), (0.10, 0.20, 0.23, 0.08),
+        # a leg: from a knee hidden in the body straight down to the foot, close to the other one
+        pieces.append([(sx * 0.25 + x, y, z) for (x, y, z) in rings([(0.10, 0.16, 0.17, 0.03), (0.22, 0.17, 0.18, 0.02), (0.36, 0.17, 0.18, 0.02),
+                                                                      (0.42, 0.10, 0.11, 0.02)], 10)])
+        pieces.append([(sx * 0.25 + x, y, z) for (x, y, z) in rings([(0.0, 0.18, 0.21, 0.08), (0.04, 0.20, 0.25, 0.08), (0.10, 0.19, 0.23, 0.08),
                                                                       (0.15, 0.14, 0.16, 0.06)], 12)])   # a foot: an oval slipper, the toe forward
-        if idle:   # a meaty arm hanging down at the side, the elbow a little out, close to the belly; a big round fist at y 0.35..0.69
-            shoulder, elbow, wrist = (sx * 0.55, 1.10, 0.185), (sx * 0.67, 0.84, 0.16), (sx * 0.66, 0.62, 0.135)
-            fist = (sx * 0.655, 0.52, 0.17)
-        else:      # an arm straight out under the shoulders: it ends at x 1.24
-            shoulder, elbow, wrist = (sx * 0.45, 1.10, 0.185), (sx * 0.78, 1.10, 0.16), (sx * 0.98, 1.10, 0.135)
-            fist = (sx * 1.12, 1.10, 0.17)
+        if idle:   # a meaty arm going straight into the body (no shoulder), hanging down pressed to the belly; a big round fist
+            shoulder, elbow, wrist = (sx * 0.48, 1.02, 0.17), (sx * 0.60, 0.80, 0.16), (sx * 0.60, 0.60, 0.135)
+            fist = (sx * 0.60, 0.50, 0.17)
+        else:      # an arm straight out of the side of the body: it ends at x 1.24
+            shoulder, elbow, wrist = (sx * 0.40, 1.05, 0.17), (sx * 0.78, 1.05, 0.16), (sx * 0.98, 1.05, 0.135)
+            fist = (sx * 1.12, 1.05, 0.17)
         for (x0, y0, r0), (x1, y1, r1) in ((shoulder, elbow), (elbow, wrist)):   # thick, thinner to the wrist
             pieces.append(ellipsoid(x0, y0, 0.0, r0, r0, r0, 5, 10) + ellipsoid(x1, y1, 0.0, r1, r1, r1, 5, 10))
         pieces.append(ellipsoid(fist[0], fist[1], 0.02, fist[2], fist[2], fist[2], 5, 10))

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""The face of the unit (docs/unit-model.md): assets/units/face.png. The texture covers the front of the head as a box, x -0.36..0.36 (u 0..1)
-and y 1.88..1.1 (v 0..1); everything outside the features is the colour of the skin (the rest of the body takes a pixel of it too).
+"""The face of the unit (docs/unit-model.md): assets/units/face.png. The texture covers the front of the head as a box, x -0.34..0.34 (u 0..1)
+and y 1.91..1.1 (v 0..1); everything outside the features is the colour of the skin (the rest of the body takes a pixel of it too).
 Two tall dark eyes with a white glint in their upper third, a small thin mouth a little sad. Run: python3 art/facegen.py (needs Pillow)."""
 
 import os
@@ -12,7 +12,7 @@ SKIN = (0xF8, 0xA8, 0x00)
 EYE = (0x2A, 0x2B, 0x40)
 GLINT = (0xF8, 0xFA, 0xF9)
 MOUTH = (0x6F, 0x38, 0x00)
-X0, X1, Y0, Y1 = -0.36, 0.36, 1.88, 1.1  # the box of the face in the model
+X0, X1, Y0, Y1 = -0.34, 0.34, 1.91, 1.1  # the box of the face in the model
 
 
 def px(x, y):
