@@ -610,13 +610,16 @@ def furnace():
     # the plinth (measured on the original, 1 block = 1): 2.92 x 1.92 at the top, hardly narrower at the bottom, 0.43 thick; the body stands
     # on it with a hair of stone round it
     pieces = [[(1.5 + sx * 1.44, 0.0, 1.0 + sz * 0.94) for sx in (-1, 1) for sz in (-1, 1)] + [(1.5 + sx * 1.46, top, 1.0 + sz * 0.96) for sx in (-1, 1) for sz in (-1, 1)]]
-    lip, t = 0.10, 0.10
-    pieces += [box(2.48, top + lip / 2, 0.04 + t / 2, 0.96, lip, t), box(2.48, top + lip / 2, 1.96 - t / 2, 0.96, lip, t), box(2.96 - t / 2, top + lip / 2, 1.0, t, lip, 1.92)]   # the rim of the tray
+    pieces.append(box(2.5, top + 0.06, 1.0, 1.0, 0.12, 2.0))   # the tray: a flat stone slab on the plinth that stands out of it, the ingots lie ON it
+    # three bricks behind the furnace: two side by side on the ground and one across them
+    for (bz, by) in ((0.65, 0.175), (1.35, 0.175)):
+        pieces.append(box(-0.22, by, bz, 0.35, 0.35, 0.7, 0.0))
+    pieces.append(box(-0.22, 0.525, 1.0, 0.35, 0.35, 0.7, 0.0))
     for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the body: straight, a concave narrowing, a short vertical collar
         pieces.append(frustum(cx, cz, y0, y1, w0, w1))
     # the chimney: a square tube, a hair narrower at the bottom than at the top, with a square hole
-    pieces.append(frustum(cx, cz, 2.43, 2.95, 0.64, 0.70))
-    pieces.append(("cut", box(cx, 2.85, cz, 0.27, 0.22, 0.27, 0.0)))
+    pieces.append(frustum(cx, cz, 2.43, 2.78, 0.65, 0.70))
+    pieces.append(("cut", box(cx, 2.7, cz, 0.27, 0.2, 0.27, 0.0)))
     # the mouths: the same height, the same ring (1.2 wide, 0.2 thick, up to 0.88 over the platform); the arches go straight up (a vertical outer
     # plane) and are rooted deep in the body. The front one (to the tray) is a round arch over a clay spout, the left one a flat arch over a stone step.
     face = 0.92 + 0.06
@@ -628,7 +631,7 @@ def furnace():
     pieces.append(arch_piece("x", cz, ring, lambda y: cx + 0.4, lambda y: cx + face))
     pieces.append(arch_piece("z", cx, ring, lambda y: cz - 0.4, lambda y: cz - face))
     spout = []   # in plan it narrows outward (a V), its top slopes down onto the tray
-    for (xx, half_w, yt) in ((cx + 0.7, 0.3, top + 0.1), (cx + 1.22, 0.17, top)):
+    for (xx, half_w, yt) in ((cx + 0.7, 0.3, top + 0.2), (cx + 1.22, 0.17, top + 0.12)):
         for sz in (-1, 1):
             spout += [(xx, top, cz + sz * half_w), (xx, yt, cz + sz * half_w)]
     pieces.append(spout)
