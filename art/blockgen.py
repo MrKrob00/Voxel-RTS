@@ -679,7 +679,7 @@ def loft(rows, seg=20, cx=0.0, cz=0.0):
     return out
 
 
-def unit_t_pose():
+def unit_t_pose(idle=False):
     """The worker (docs/unit-model.md: the numbers come from the Bricktron of Castle Story) in a T pose, ONE mesh, no face (the face is a texture:
     art/facegen.py). 2.0 high, standing on y = 0 between the feet, looking towards +z (the game's front of a unit; the load is on its back, -z)."""
     def rings(rows, seg):
@@ -695,8 +695,8 @@ def unit_t_pose():
     pieces = []
     # the body: a pear (widest 1.0 at y 0.53, the belly a little forward); its top rises to y 1.4 round the head (the shoulders come up to the
     # bottom of the eyes at the sides) but is shallow at the front, so the face shows down to the chin (y 1.16)
-    pieces.append(rings([(0.27, 0.30, 0.26, 0.02), (0.34, 0.42, 0.36, 0.04), (0.46, 0.49, 0.41, 0.05), (0.56, 0.50, 0.425, 0.05),
-                         (0.72, 0.485, 0.41, 0.04), (0.90, 0.465, 0.39, 0.02), (1.08, 0.44, 0.33, 0.0), (1.20, 0.43, 0.28, -0.02),
+    pieces.append(rings([(0.27, 0.30, 0.26, 0.02), (0.34, 0.42, 0.36, 0.04), (0.46, 0.51, 0.41, 0.05), (0.56, 0.52, 0.425, 0.05),
+                         (0.72, 0.505, 0.41, 0.04), (0.90, 0.465, 0.39, 0.02), (1.08, 0.44, 0.33, 0.0), (1.20, 0.43, 0.28, -0.02),
                          (1.30, 0.42, 0.23, -0.03), (1.39, 0.39, 0.17, -0.03), (1.45, 0.31, 0.12, -0.03)], 16))
     # the head: 0.68 wide, 0.62 deep, straight sides, a flat dome (full width 0.26 under the top), sunk into the body down to y 1.08
     pieces.append(rings([(1.08, 0.31, 0.28, 0.02), (1.16, 0.33, 0.30, 0.02), (1.48, 0.33, 0.30, 0.02), (1.58, 0.328, 0.295, 0.02),
@@ -706,6 +706,10 @@ def unit_t_pose():
         pieces.append(cyl(sx * 0.30, 0.21, 0.02, 0.13, 0.13, 0.22, seg=10, b=0.0))                        # a leg: short, almost hidden
         pieces.append([(sx * 0.30 + x, y, z) for (x, y, z) in rings([(0.0, 0.18, 0.21, 0.08), (0.04, 0.21, 0.25, 0.08), (0.10, 0.20, 0.23, 0.08),
                                                                       (0.15, 0.14, 0.16, 0.06)], 12)])   # a foot: an oval slipper, the toe forward
+        if idle:   # an arm hanging down at the side, close to the belly; the fist at y 0.4
+            pieces.append(ellipsoid(sx * 0.52, 1.15, 0.0, 0.13, 0.13, 0.13, 5, 10) + ellipsoid(sx * 0.64, 0.64, 0.0, 0.106, 0.106, 0.106, 5, 10))
+            pieces.append(ellipsoid(sx * 0.635, 0.53, 0.02, 0.13, 0.13, 0.13, 5, 10))
+            continue
         # an arm, straight out under the shoulders (y 1.15): thick (0.26), a little thinner at the wrist, a round fist; it ends at x 1.22
         pieces.append(ellipsoid(sx * 0.42, 1.15, 0.0, 0.13, 0.13, 0.13, 5, 10) + ellipsoid(sx * 0.95, 1.15, 0.0, 0.11, 0.11, 0.11, 5, 10))
         pieces.append(ellipsoid(sx * 1.08, 1.15, 0.0, 0.14, 0.14, 0.14, 5, 10))
@@ -715,6 +719,7 @@ def unit_t_pose():
 STRUCTURES = {
     "furnace": furnace,
     "unit":    unit_t_pose,
+    "unit_idle": lambda: unit_t_pose(idle=True),
     "ingot":   ingot,
 }
 STONE_BLOCKS = ["brick", "cube", "stairs", "stairs_small", "corner_out_l", "corner_out_r", "corner_in_l", "corner_in_r", "corner_in_cell",
