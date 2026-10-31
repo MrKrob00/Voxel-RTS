@@ -613,9 +613,9 @@ def furnace():
     # The whole furnace stays inside 3 x 2. The platform under the body is smaller than 2 x 2 (1.9 x 1.8, straight sides, no taper) so that the
     # two trays stand out of it and still do not leave the volume: the flat stone slab in front (towards the tray side, +x) and the step at the
     # left mouth (-z). The body stands a hair inside the platform.
-    pieces = [box(cx, top / 2, cz, 1.9, top, 1.8)]
-    pieces.append(box(2.405, 0.155, 1.0, 1.01, 0.31, 1.72))                      # the base under the tray: smaller than the slab on top of it
-    pieces.append(box(2.48, 0.37, 1.0, 1.04, 0.12, 1.9))                         # the tray slab, level with the platform, wider than its base: it juts out to the left, right and front
+    pieces = [box(cx, top / 2, cz, 1.72, top, 1.72)]       # flush with the foot of the body (no ledge round it)
+    pieces.append(box(2.39, 0.155, 1.0, 1.04, 0.31, 1.72))                      # the base under the tray: smaller than the slab on top of it
+    pieces.append(box(2.435, 0.37, 1.0, 1.13, 0.12, 1.9))                         # the tray slab, level with the platform, wider than its base: it juts out to the left, right and front
     for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the body: straight, a concave narrowing, a short vertical collar
         pieces.append(frustum(cx, cz, y0, y1, w0, w1))
     # the chimney: a square tube, a hair narrower at the bottom than at the top, with a square hole
