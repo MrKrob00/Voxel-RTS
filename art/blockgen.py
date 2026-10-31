@@ -614,6 +614,7 @@ def furnace():
     # two trays stand out of it and still do not leave the volume: the flat stone slab in front (towards the tray side, +x) and the step at the
     # left mouth (-z). The body stands a hair inside the platform.
     pieces = [box(cx, top / 2, cz, 1.72, top, 1.72)]       # flush with the foot of the body (no ledge round it)
+    pieces.append(box(cx, top / 2, 0.22, 1.24, top, 0.16))                      # the left tray: the platform juts out 0.04 under the left mouth (the width of its arch)
     pieces.append(box(2.39, 0.155, 1.0, 1.04, 0.31, 1.72))                      # the base under the tray: smaller than the slab on top of it
     pieces.append(box(2.435, 0.37, 1.0, 1.13, 0.12, 1.9))                         # the tray slab, level with the platform, wider than its base: it juts out to the left, right and front
     for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the body: straight, a concave narrowing, a short vertical collar
