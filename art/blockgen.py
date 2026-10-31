@@ -190,10 +190,13 @@ def merge(pieces):
             return m3d.Manifold.hull_points(np.array(piece[1], dtype=np.float64)) ^ masks
         return m3d.Manifold.hull_points(np.array(piece, dtype=np.float64))
     cuts = [solid_of(piece[1]) for piece in pieces if isinstance(piece, tuple) and piece[0] == "cut"]   # ("cut", points): taken away from the union
-    parts = [solid_of(piece) for piece in pieces if not (isinstance(piece, tuple) and piece[0] == "cut")]
+    late = [solid_of(piece[1]) for piece in pieces if isinstance(piece, tuple) and piece[0] == "late"]   # ("late", points): added after the cuts
+    parts = [solid_of(piece) for piece in pieces if not (isinstance(piece, tuple) and piece[0] in ("cut", "late"))]
     union = m3d.Manifold.batch_boolean(parts, m3d.OpType.Add)
     if cuts:
         union = union - m3d.Manifold.batch_boolean(cuts, m3d.OpType.Add)
+    if late:
+        union = union + m3d.Manifold.batch_boolean(late, m3d.OpType.Add)
     mesh = union.to_mesh()
     vp, tv = mesh.vert_properties, mesh.tri_verts
     out = []
@@ -570,7 +573,7 @@ def frustum(cx, cz, y0, y1, w0, w1):
     return [(cx + sx * h0, y0, cz + sz * h0) for sx in (-1, 1) for sz in (-1, 1)] + [(cx + sx * h1, y1, cz + sz * h1) for sx in (-1, 1) for sz in (-1, 1)]
 
 
-FURNACE_WIDTHS = [(0.43, 1.84), (0.93, 1.84), (1.43, 1.41), (1.82, 1.11), (2.2, 0.94), (2.43, 0.94)]   # the width of the clay body at a height: a little under 2, straight up to one block with the plinth, then a concave bell (like a cooling tower) with a flat top, a ledge round the chimney
+FURNACE_WIDTHS = [(0.43, 1.72), (0.93, 1.72), (1.43, 1.34), (1.82, 1.07), (2.2, 0.92), (2.43, 0.92)]   # the width of the clay body at a height: a little under 2, straight up to one block with the plinth, then a concave bell (like a cooling tower) with a flat top, a ledge round the chimney
 
 
 def furnace_width(y):
@@ -601,20 +604,17 @@ def arch_piece(face, centre, profile, inner_of_y, outer_of_y):
 
 
 def furnace():
-    """The furnace: 3 x 2 blocks, 3 high, ONE mesh. A grey plinth the whole of the footprint; on its first two blocks the clay body, straight up
-    to one block (with the plinth), then a bell narrowing to a small square chimney with a flared cap; in the third block, in front of the
-    body, the tray (a flat slab with a low rim). Two arched mouths with a ring of stones round them, one in the front (on the tray) and one
-    in the left side (looking along the front, the left is -z). x 0..3 (the front is +x), y 0..3, z 0..2."""
-    cx, cz = 1.0, 1.0
+    """The furnace: 3 x 2 blocks, 3 high, ONE mesh (x 0..3 with the front towards +x, y 0..3, z 0..2). A grey platform under the body (smaller than 2 x 2,
+    straight sides), a flat stone slab in front of it (the tray with the ingots), the clay body straight up to a block and then a bell narrowing to a
+    small square chimney with a square hole; two arched mouths with a ring of stones: the front one over a clay tongue ending in a V, the left one over
+    a stone step (the second tray). Everything stays inside 3 x 2."""
+    cx, cz = 1.01, 1.04
     top = 0.43
-    # the plinth (measured on the original, 1 block = 1): 2.92 x 1.92 at the top, hardly narrower at the bottom, 0.43 thick; the body stands
-    # on it with a hair of stone round it
-    pieces = [[(1.5 + sx * 1.44, 0.0, 1.0 + sz * 0.94) for sx in (-1, 1) for sz in (-1, 1)] + [(1.5 + sx * 1.46, top, 1.0 + sz * 0.96) for sx in (-1, 1) for sz in (-1, 1)]]
-    pieces.append(box(2.5, top + 0.06, 1.0, 1.0, 0.12, 2.0))   # the tray: a flat stone slab on the plinth that stands out of it, the ingots lie ON it
-    # three bricks behind the furnace: two side by side on the ground and one across them
-    for (bz, by) in ((0.65, 0.175), (1.35, 0.175)):
-        pieces.append(box(-0.22, by, bz, 0.35, 0.35, 0.7, 0.0))
-    pieces.append(box(-0.22, 0.525, 1.0, 0.35, 0.35, 0.7, 0.0))
+    # The whole furnace stays inside 3 x 2. The platform under the body is smaller than 2 x 2 (1.9 x 1.8, straight sides, no taper) so that the
+    # two trays stand out of it and still do not leave the volume: the flat stone slab in front (towards the tray side, +x) and the step at the
+    # left mouth (-z). The body stands a hair inside the platform.
+    pieces = [box(cx, top / 2, cz, 1.9, top, 1.8)]
+    pieces.append(box(2.48, 0.23, 1.0, 1.04, 0.46, 1.9))                      # the front tray: a slab, the ingots lie ON it
     for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the body: straight, a concave narrowing, a short vertical collar
         pieces.append(frustum(cx, cz, y0, y1, w0, w1))
     # the chimney: a square tube, a hair narrower at the bottom than at the top, with a square hole
@@ -622,7 +622,7 @@ def furnace():
     pieces.append(("cut", box(cx, 2.7, cz, 0.27, 0.2, 0.27, 0.0)))
     # the mouths: the same height, the same ring (1.2 wide, 0.2 thick, up to 0.88 over the platform); the arches go straight up (a vertical outer
     # plane) and are rooted deep in the body. The front one (to the tray) is a round arch over a clay spout, the left one a flat arch over a stone step.
-    face = 0.92 + 0.06
+    face = 0.86 + 0.06
     niche = 0.25
     ring = arch_profile(top, 1.2, 0.3, rise=0.58)
     front_hole = arch_profile(top, 0.8, 0.3, rise=0.4)
@@ -630,14 +630,16 @@ def furnace():
     left_hole = arch_profile(step_top, 0.8, 0.2, rise=0.3)
     pieces.append(arch_piece("x", cz, ring, lambda y: cx + 0.4, lambda y: cx + face))
     pieces.append(arch_piece("z", cx, ring, lambda y: cz - 0.4, lambda y: cz - face))
-    spout = []   # in plan it narrows outward (a V), its top slopes down onto the tray
-    for (xx, half_w, yt) in ((cx + 0.7, 0.3, top + 0.2), (cx + 1.22, 0.17, top + 0.12)):
-        for sz in (-1, 1):
-            spout += [(xx, top, cz + sz * half_w), (xx, yt, cz + sz * half_w)]
-    pieces.append(spout)
-    pieces.append(box(cx, top + 0.1, cz - 0.92 - 0.075, 0.74, 0.2, 0.3))   # the step of the left mouth
-    pieces.append(("cut", arch_piece("x", cz, front_hole, lambda y: cx + 0.92 - niche, lambda y: cx + 1.4)))
-    pieces.append(("cut", arch_piece("z", cx, left_hole, lambda y: cz - 0.92 + niche, lambda y: cz - 1.4)))
+    # on the floor of the front mouth a LOW clay tongue lies across the whole opening and comes out over the tray: a flat plate whose outer edge
+    # ends in a V (the designer's pencil on the render: "-v-", a bar across and a V in the middle of it); its top is a hair over the tray slab
+    tongue = []
+    for (xx, hw, yt) in ((cx + 0.55, 0.4, top + 0.09), (cx + 1.02, 0.4, top + 0.07), (cx + 1.08, 0.16, top + 0.06), (cx + 1.2, 0.0, top + 0.05)):
+        for sz in ((-1, 1) if hw > 0 else (0,)):
+            tongue += [(xx, top, cz + sz * hw), (xx, yt, cz + sz * hw)]
+    pieces.append(("late", tongue))   # (after the cut of the opening: it lies in the opening)
+    pieces.append(box(cx, (top + 0.2) / 2, 0.1, 0.74, top + 0.2, 0.2))   # the second tray, the step of the left mouth: it stands out of the platform but not out of the 3 x 2
+    pieces.append(("cut", arch_piece("x", cz, front_hole, lambda y: cx + 0.86 - niche, lambda y: cx + 1.4)))
+    pieces.append(("cut", arch_piece("z", cx, left_hole, lambda y: cz - 0.86 + niche, lambda y: cz - 1.4)))
     return pieces
 
 
