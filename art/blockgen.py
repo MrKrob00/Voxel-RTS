@@ -614,7 +614,8 @@ def furnace():
     # two trays stand out of it and still do not leave the volume: the flat stone slab in front (towards the tray side, +x) and the step at the
     # left mouth (-z). The body stands a hair inside the platform.
     pieces = [box(cx, top / 2, cz, 1.9, top, 1.8)]
-    pieces.append(box(2.48, top / 2, 1.0, 1.04, top, 1.9))                      # the front tray: a slab level with the platform (no line between them), the ingots lie ON it
+    pieces.append(box(2.405, 0.155, 1.0, 1.01, 0.31, 1.72))                      # the base under the tray: smaller than the slab on top of it
+    pieces.append(box(2.48, 0.37, 1.0, 1.04, 0.12, 1.9))                         # the tray slab, level with the platform, wider than its base: it juts out to the left, right and front
     for (y0, w0), (y1, w1) in zip(FURNACE_WIDTHS, FURNACE_WIDTHS[1:]):     # the body: straight, a concave narrowing, a short vertical collar
         pieces.append(frustum(cx, cz, y0, y1, w0, w1))
     # the chimney: a square tube, a hair narrower at the bottom than at the top, with a square hole
@@ -624,7 +625,7 @@ def furnace():
     # (y 0.93) the arches begin: the openings are straight-sided up to there and then arched; the arches go straight up (a vertical outer plane)
     # and are rooted deep in the body. The front one (to the tray) is a round arch over a low wall with a V notch, the left one a flat arch over a
     # stone step.
-    face = 0.86 + 0.06
+    face = 0.86
     niche = 0.25
     spring = 0.93 - top                     # the straight part of the openings, from the platform
     ring_front = arch_profile(0.93, 1.0, 0.0, rise=0.4)    # only the ARCH is a ring of stones: it begins where the straight walls end, not at the platform

@@ -90,30 +90,44 @@ vec3 furnace_ring(vec3 c, float across, float up, vec2 inner, vec2 outer) {
 	if (vi < 0.97 || vo > 1.03) {
 		return c;
 	}
-	float t = atan(q.y / outer.y, q.x / outer.x) / (PI * 0.5) * 3.0;   // three stones from the foot of the arch to its top, on each side
+	float t = atan(q.y / outer.y, across / outer.x) / PI * 5.0;   // five stones across the whole arch, the middle one the keystone
 	float wedge = floor(t);
-	vec3 ring = c * mix(vec3(0.95, 0.84, 0.76), vec3(1.05, 0.95, 0.88), mod(wedge, 2.0));
-	float joint = smoothstep(0.06, 0.0, min(fract(t), 1.0 - fract(t)));
+	vec3 ring = c * mix(vec3(0.98, 0.9, 0.84), vec3(1.04, 0.97, 0.92), mod(wedge, 2.0));
+	float joint = smoothstep(0.05, 0.0, min(fract(t), 1.0 - fract(t)));
 	float edge = max(smoothstep(0.04, 0.0, abs(vi - 1.0)), smoothstep(0.03, 0.0, abs(vo - 1.0)));
-	return ring * (1.0 - 0.38 * max(joint, edge));
+	return ring * (1.0 - 0.2 * max(joint, edge));
+}
+
+// Half the width of the clay body at a height (the same numbers as FURNACE_WIDTHS in art/blockgen.py).
+float furnace_half(float y) {
+	if (y <= 0.93) {
+		return 0.86;
+	}
+	if (y <= 1.43) {
+		return mix(0.86, 0.67, (y - 0.93) / 0.5);
+	}
+	if (y <= 1.82) {
+		return mix(0.67, 0.535, (y - 1.43) / 0.39);
+	}
+	return mix(0.535, 0.46, clamp((y - 1.82) / 0.38, 0.0, 1.0));
 }
 
 vec3 furnace_albedo(vec3 p, vec3 nrm, vec4 col) {
 	vec3 c = col.rgb;
 	float mottle = furnace_noise(p * 6.0) * 0.55 + furnace_noise(p * 15.0) * 0.3;
 	if (col.a > 0.9) {
-		c *= 0.88 + 0.22 * mottle;
-		c = mix(c, c * vec3(1.07, 0.96, 0.86), furnace_noise(p * 2.5));
+		c *= 0.94 + 0.14 * mottle;
+		c = mix(c, c * vec3(1.05, 0.97, 0.9), furnace_noise(p * 2.5));
 		if (abs(nrm.y) < 0.5) {
-			c *= 1.0 - 0.3 * smoothstep(0.035, 0.0, abs(p.y - 0.93));   // the groove along the top of the straight walls
+			c *= 1.0 - 0.2 * smoothstep(0.035, 0.0, abs(p.y - 0.93));   // the groove along the top of the straight walls
 		}
-		if (nrm.x > 0.7 && p.x > 1.01 + 0.78) {
+		if (nrm.x > 0.7 && p.x > 1.01 + furnace_half(p.y) - 0.03) {
 			c = furnace_ring(c, p.z - 1.04, p.y, vec2(0.30, 0.22), vec2(0.5, 0.40));       // the front mouth
-		} else if (nrm.z < -0.7 && p.z < 1.04 - 0.78) {
+		} else if (nrm.z < -0.7 && p.z < 1.04 - furnace_half(p.y) + 0.03) {
 			c = furnace_ring(c, p.x - 1.01, p.y, vec2(0.42, 0.22), vec2(0.62, 0.40));       // the left mouth
 		}
 	} else if (col.a > 0.5) {
-		c *= 0.92 + 0.16 * mottle;
+		c *= 0.95 + 0.1 * mottle;
 		float joint = 0.0;
 		if (abs(nrm.y) < 0.5 && p.x < 1.95) {
 			joint = smoothstep(0.02, 0.0, abs(p.y - 0.22));   // the course line on the sides of the platform (the tops and the tray are plain)
