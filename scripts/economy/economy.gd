@@ -372,12 +372,6 @@ func deposit(s: Stockpile, kind: int, n: int) -> int:
 	return put
 
 
-## The switch of a stockpile was turned on while it is full of stone: it packs now.
-func pack_now(s: Stockpile) -> void:
-	_pack_into_bricks(s)
-	changed.emit()
-
-
 ## The full crate of stone becomes a stack of 4 stone bricks of 2x1x1 (two layers of two): the material of walls. The same stockpile,
 ## now holding bricks (it looks like a stack: see Stockpile.form).
 func _pack_into_bricks(s: Stockpile) -> void:

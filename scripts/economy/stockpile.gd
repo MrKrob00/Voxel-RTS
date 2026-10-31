@@ -35,7 +35,6 @@ const SHARDS := 72             ## the iron ore: flat angular chips of metal heap
 
 var origin := Vector3i.ZERO
 var holding := Resources.Kind.NONE       ## what it holds right now (NONE when empty)
-var auto_bricks := true                  ## a crate filled to the brim with stone turns into four bricks by itself (the round menu of the stockpile switches it)
 var count := 0                           ## how many of them
 var _piles: Node3D
 var _floor: Node3D
@@ -151,7 +150,7 @@ func take(kind: int, n: int) -> int:
 
 ## True when a crate has been filled with stone to the brim: time to turn it into bricks.
 func packed_stone() -> bool:
-	return auto_bricks and holding == Resources.Kind.STONE and count >= capacity_for(Resources.Kind.STONE)
+	return holding == Resources.Kind.STONE and count >= capacity_for(Resources.Kind.STONE)
 
 
 ## Where a unit may stand to use it: any standable cell touching the platform (from the 12 around it).

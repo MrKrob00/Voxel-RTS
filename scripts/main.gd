@@ -359,28 +359,6 @@ func _furnace_menu(f: Furnace) -> void:
 	hud.open_radial(rig.camera.unproject_position(f.center() + Vector3(0.0, 1.0, 0.0)), "Smelt Iron", about, cost, items)
 
 
-func _stockpile_under(screen_pos: Vector2) -> Stockpile:
-	var from := rig.camera.project_ray_origin(screen_pos)
-	var dir := rig.camera.project_ray_normal(screen_pos)
-	for s in economy.stockpiles:
-		if AABB(Vector3(s.origin), Vector3(Stockpile.SIZE, Stockpile.WALL_HEIGHT, Stockpile.SIZE)).intersects_ray(from, dir) != null:
-			return s
-	return null
-
-
-## The round menu of a stockpile: whether a crate filled to the brim with stone turns into four bricks by itself.
-func _stockpile_menu(s: Stockpile) -> void:
-	var items := [
-		{"mode": Tools.Mode.STONE_CUBE, "label": "Bricks", "active": s.auto_bricks, "call": func() -> void:
-			s.auto_bricks = not s.auto_bricks
-			hud.show_message("Stockpile: a full crate of stone %s" % ("turns into 4 bricks" if s.auto_bricks else "stays a crate"))
-			if s.auto_bricks and s.packed_stone():
-				economy.pack_now(s)},
-	]
-	var held := "%s %d/%d" % [Resources.label(s.holding), s.count, s.capacity_for(s.holding)] if s.count > 0 else "empty"
-	hud.open_radial(rig.camera.unproject_position(s.center_point() + Vector3(0.0, 1.0, 0.0)), "Stockpile", held, "A full crate of stone (80) makes 4 bricks, when this is on", items)
-
-
 func _furnace_under(screen_pos: Vector2) -> Furnace:
 	var from := rig.camera.project_ray_origin(screen_pos)
 	var dir := rig.camera.project_ray_normal(screen_pos)
@@ -426,11 +404,6 @@ func _on_primary(pos: Vector2) -> void:
 		return
 	if mode == Tools.Mode.SELECT and _tap_furnace_slot(pos):
 		return
-	if mode == Tools.Mode.SELECT and units.selection.is_empty():
-		var pile := _stockpile_under(pos)
-		if pile != null:
-			_stockpile_menu(pile)   # (with units selected a tap on it is a move order, as ever)
-			return
 	if mode == Tools.Mode.SELECT:
 		var furnace := _furnace_under(pos)   # (the ray goes through it to the ground behind: it has no collision, so it is aimed by its box)
 		if furnace != null:

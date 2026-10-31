@@ -7,7 +7,7 @@ extends CanvasLayer
 ##     dots (tapping a card selects its workers);
 ##   - the actions of the active tool (level - / +, turn, done) above the ribbon at the right; home at the right edge.
 ## It adapts to the screen: the window scales it from a 1280 x 720 reference (720 x 1280 in portrait); on a narrow screen the side
-## panel takes the width and the ribbon goes above the dock; the display's safe area (notches, rounded corners) is kept clear.
+## panel takes the width; the display's safe area (notches, rounded corners) is kept clear.
 ## The HUD knows nothing about the game: it shows what it is told (set_*) and says what the player did (signals).
 
 signal tool_chosen(mode: int)
@@ -661,11 +661,11 @@ func _relayout() -> void:
 	if _compact:
 		side_w = size.x - il - ir - RIGHT_W
 
-	# Bottom: the dock; the ribbon of task cards beside it (landscape) or above it (narrow).
+	# Bottom: the dock; the ribbon of task cards beside it.
 	_dock.reset_size()
 	_dock.position = Vector2(il, size.y - ib - _dock.size.y)
-	var ribbon_x := il if _compact else il + maxf(_dock.size.x, side_w) + 8.0
-	var ribbon_y := _dock.position.y - RIBBON_H - 6.0 if _compact else size.y - ib - RIBBON_H
+	var ribbon_x := il + _dock.size.x + 8.0 if _compact else il + maxf(_dock.size.x, side_w) + 8.0   # (beside the dock, at the bottom, in both layouts)
+	var ribbon_y := size.y - ib - RIBBON_H
 	_ribbon_scroll.custom_minimum_size = Vector2(size.x - ribbon_x - ir - (0.0 if _compact else RIGHT_W), RIBBON_H)
 	_ribbon_scroll.size = _ribbon_scroll.custom_minimum_size
 	_ribbon_scroll.position = Vector2(ribbon_x, ribbon_y)
@@ -686,7 +686,7 @@ func _relayout() -> void:
 	_probe.position = Vector2(_home.position.x - _probe.custom_minimum_size.x - 6.0, top)
 	_place_probe()
 	_picker.position = Vector2(size.x - ir - _picker.size.x, minf(top + 76.0, size.y - _picker.size.y - ib - 90.0))
-	_cell_info.position = Vector2(il + (0.0 if _compact else side_w + 8.0), _dock.position.y - 22.0 if _compact else ribbon_y - 24.0)
+	_cell_info.position = Vector2(il + (0.0 if _compact else side_w + 8.0), ribbon_y - 24.0)
 	_relayout_toast()
 
 
