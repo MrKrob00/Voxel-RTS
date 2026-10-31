@@ -785,13 +785,14 @@ def unit_sculpt(idle=False, part=None):
     a soft crease at the waist (y 0.80). Returns one ("tris", ...) piece."""
     import numpy as np
     import manifold3d as m3d
-    # the pelvis with the belly, as in the original: a pear like roomy briefs (not skin-tight), from the waist (y 0.80) out to a round belly
-    # that hangs forward and round hips (widest 0.90 at y 0.48), then a round underside at y 0.21 (the legs show under it, as in the original); the legs come out from under it
-    belly = [(0.21, 0.16, 0.14, 0.03), (0.26, 0.30, 0.26, 0.03), (0.32, 0.38, 0.32, 0.04), (0.39, 0.43, 0.37, 0.05),
-             (0.48, 0.45, 0.40, 0.06), (0.58, 0.44, 0.39, 0.06), (0.68, 0.42, 0.36, 0.05), (0.76, 0.38, 0.31, 0.03),
-             (0.84, 0.31, 0.25, 0.02)]   # (a pear: the round belly forward, round hips, a round underside into the legs)
-    chest = [(0.72, 0.30, 0.24, 0.02), (0.80, 0.375, 0.295, 0.02), (0.90, 0.395, 0.315, 0.02), (1.00, 0.39, 0.31, 0.01),
-             (1.08, 0.37, 0.30, 0.0), (1.18, 0.353, 0.285, -0.03), (1.26, 0.328, 0.25, -0.06), (1.33, 0.31, 0.22, -0.07), (1.37, 0.30, 0.19, -0.07)]
+    # the torso: ONE gentle pear, no waist: the lower part made anew in proportion to the chest: from a round underside (y 0.22, the legs show
+    # under it) out to the belly (widest 0.86 at y 0.44..0.56, only a little wider than the chest, a little forward), then up to the chest (0.80) and under the head; no shoulders, the
+    # arms go straight into it; shallow at the front at the top, so the face shows down to the chin. It is cut in two at y 0.80 for the
+    # animation (the pelvis with the belly, the chest): the cut does not show (one surface, its triangles shared out).
+    torso = [(0.22, 0.20, 0.17, 0.03), (0.27, 0.33, 0.28, 0.03), (0.34, 0.40, 0.33, 0.04), (0.44, 0.43, 0.36, 0.05), (0.56, 0.43, 0.365, 0.05),
+             (0.68, 0.42, 0.355, 0.04), (0.82, 0.41, 0.345, 0.03), (0.94, 0.40, 0.33, 0.02), (1.04, 0.385, 0.31, 0.01),
+             (1.12, 0.365, 0.30, 0.0), (1.20, 0.35, 0.285, -0.03), (1.27, 0.328, 0.25, -0.06), (1.33, 0.31, 0.22, -0.07), (1.37, 0.30, 0.19, -0.07)]
+    CUT = 0.80
     head = [(1.08, 0.31, 0.28, 0.02), (1.133, 0.33, 0.3, 0.02), (1.414, 0.33, 0.3, 0.02), (1.516, 0.314, 0.285, 0.02), (1.608, 0.267, 0.243, 0.02),
             (1.674, 0.203, 0.185, 0.02), (1.715, 0.134, 0.122, 0.02), (1.737, 0.069, 0.062, 0.02), (1.744, 0.0, 0.0, 0.02)]
     leg = [(0.08, 0.155, 0.165, 0.03), (0.16, 0.165, 0.175, 0.02), (0.28, 0.17, 0.18, 0.02), (0.40, 0.13, 0.14, 0.02)]
@@ -799,46 +800,54 @@ def unit_sculpt(idle=False, part=None):
     arms = []
     for sx in (-1, 1):
         if idle:
-            sh, el, wr, fi = (sx * 0.42, 1.02, 0.0, 0.17), (sx * 0.57, 0.80, 0.0, 0.145), (sx * 0.59, 0.60, 0.0, 0.122), (sx * 0.59, 0.52, 0.02, 0.122)
+            sh, el, wr, fi = (sx * 0.44, 1.02, 0.0, 0.17), (sx * 0.60, 0.80, 0.0, 0.145), (sx * 0.625, 0.60, 0.0, 0.122), (sx * 0.625, 0.52, 0.02, 0.122)
         else:
             sh, el, wr, fi = (sx * 0.33, 1.05, 0.0, 0.17), (sx * 0.68, 1.05, 0.0, 0.145), (sx * 0.90, 1.05, 0.0, 0.122), (sx * 0.98, 1.05, 0.02, 0.122)
         arms.append((sh, el, wr, fi))
 
-    def lower_sd(p):
-        d = _sd_loft(p, belly)
+    def legs_sd(p):
+        d = 1e9
         for sx in (-1, 1):
-            legd = _smin(_sd_loft(p, leg, sx * 0.25), _sd_loft(p, foot, sx * 0.25), 0.06)
-            d = _smin(d, legd, 0.02)   # (a leg comes out of the briefs: a small crease, not blended)
+            d = min(d, _smin(_sd_loft(p, leg, sx * 0.25), _sd_loft(p, foot, sx * 0.25), 0.06))
         return d
 
-    def upper_sd(p):
-        d = _smin(_sd_loft(p, chest), _sd_loft(p, head), 0.08)
+    def arms_sd(p):
+        d = 1e9
         for sh, el, wr, fi in arms:
             # thinner and thinner from the body to the fist: no bulge at the elbow, the fist no wider than the wrist
             arm = min(_sd_round_cone(p, sh[:3], el[:3], sh[3], el[3]), _sd_round_cone(p, el[:3], wr[:3], el[3], wr[3]))
-            arm = min(arm, math.dist(p, fi[:3]) - fi[3])
-            d = _smin(d, arm, 0.10)
+            d = min(d, arm, math.dist(p, fi[:3]) - fi[3])
         return d
 
+    def body_sd(p):
+        d = _smin(_sd_loft(p, torso), _sd_loft(p, head), 0.08)
+        k = 0.10 * min(max((p[1] - 0.85) / 0.15, 0.0), 1.0) + 1e-4   # the arms blend into the body only at the top; lower down they hang free
+        d = _smin(d, arms_sd(p), k)
+        return _smin(d, legs_sd(p), 0.02)   # (a leg comes out from under the belly: a small crease, not blended)
+
+    # ONE surface for the whole body (so no seam shows), then its triangles are shared out: the legs and the torso under the cut go to the
+    # lower mesh, the rest (the torso over the cut, the head, the arms) to the upper one; the two meshes meet on the same vertices
     span = 0.85 if idle else 1.3
+    solid = m3d.Manifold.level_set(lambda x, y, z: -body_sd((x, y, z)), [-span, -0.02, -0.5, span, 1.8, 0.6], 0.06, 0.0, 0.0005)
+    mesh = solid.to_mesh()
+    vp, tv = mesh.vert_properties, mesh.tri_verts
+    normals = {}
+    e = 0.004
+    sd = body_sd
+    for i in range(len(vp)):   # smooth normals straight from the field (its gradient), not from the triangles
+        x, y, z = (float(v) for v in vp[i][:3])
+        g = (sd((x + e, y, z)) - sd((x - e, y, z)), sd((x, y + e, z)) - sd((x, y - e, z)), sd((x, y, z + e)) - sd((x, y, z - e)))
+        normals[i] = norm(g)
     out = []
-    for name, sd in (("lower", lower_sd), ("upper", upper_sd)):
-        if part not in (None, name):
+    for a_, b_, c_ in tv:
+        pa, pb, pc = [tuple(round(float(v), 5) for v in vp[i][:3]) for i in (a_, b_, c_)]
+        nn = cross(sub(pb, pa), sub(pc, pa))
+        if dot(nn, nn) < 1e-12:
             continue
-        solid = m3d.Manifold.level_set(lambda x, y, z, sd=sd: -sd((x, y, z)), [-span, -0.02, -0.5, span, 1.8, 0.6], 0.06, 0.0, 0.0005)
-        mesh = solid.to_mesh()
-        vp, tv = mesh.vert_properties, mesh.tri_verts
-        normals = {}
-        e = 0.004
-        for i in range(len(vp)):   # smooth normals straight from the field (its gradient), not from the triangles
-            x, y, z = (float(v) for v in vp[i][:3])
-            g = (sd((x + e, y, z)) - sd((x - e, y, z)), sd((x, y + e, z)) - sd((x, y - e, z)), sd((x, y, z + e)) - sd((x, y, z - e)))
-            normals[i] = norm(g)
-        for a_, b_, c_ in tv:
-            pa, pb, pc = [tuple(round(float(v), 5) for v in vp[i][:3]) for i in (a_, b_, c_)]
-            nn = cross(sub(pb, pa), sub(pc, pa))
-            if dot(nn, nn) < 1e-12:
-                continue
+        c = ((pa[0] + pb[0] + pc[0]) / 3, (pa[1] + pb[1] + pc[1]) / 3, (pa[2] + pb[2] + pc[2]) / 3)
+        near = min((legs_sd(c), "legs"), (arms_sd(c), "arms"), (_sd_loft(c, head), "head"), (_sd_loft(c, torso), "torso"))[1]
+        lower_tri = near == "legs" or (near == "torso" and c[1] < CUT)
+        if part is None or part == ("lower" if lower_tri else "upper"):
             out.append(((pa, normals[a_]), (pb, normals[b_]), (pc, normals[c_])))
     return [("tris_n", out)]
 
