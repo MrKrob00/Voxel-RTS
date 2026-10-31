@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw
 
 SIZE = 256
 SS = 4                                   # drawn 4 times larger and scaled down: smooth edges
-SKIN = (0xFF, 0xC0, 0x00)
+SKIN = (0xF8, 0xA8, 0x00)
 EYE = (0x2A, 0x2B, 0x40)
 GLINT = (0xF8, 0xFA, 0xF9)
 MOUTH = (0x6F, 0x38, 0x00)
@@ -23,7 +23,7 @@ def main():
     img = Image.new("RGB", (SIZE * SS, SIZE * SS), SKIN)
     d = ImageDraw.Draw(img)
     for sx in (-1, 1):
-        cx, cy, w, h = sx * 0.13, 1.48, 0.07, 0.15          # an eye: a tall oval
+        cx, cy, w, h = sx * 0.125, 1.48, 0.07, 0.158         # an eye: a tall oval
         a, b = px(cx - w / 2, cy + h / 2), px(cx + w / 2, cy - h / 2)
         d.ellipse([a, b], fill=EYE)
         gw, gh = w * 0.45, h * 0.28                         # its glint, in the upper third
