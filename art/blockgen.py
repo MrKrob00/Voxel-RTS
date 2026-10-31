@@ -630,13 +630,15 @@ def furnace():
     left_hole = arch_profile(step_top, 0.8, 0.2, rise=0.3)
     pieces.append(arch_piece("x", cz, ring, lambda y: cx + 0.4, lambda y: cx + face))
     pieces.append(arch_piece("z", cx, ring, lambda y: cz - 0.4, lambda y: cz - face))
-    # on the floor of the front mouth a LOW clay tongue lies across the whole opening and comes out over the tray: a flat plate whose outer edge
-    # ends in a V (the designer's pencil on the render: "-v-", a bar across and a V in the middle of it); its top is a hair over the tray slab
-    tongue = []
-    for (xx, hw, yt) in ((cx + 0.55, 0.4, top + 0.09), (cx + 1.02, 0.4, top + 0.07), (cx + 1.08, 0.16, top + 0.06), (cx + 1.2, 0.0, top + 0.05)):
-        for sz in ((-1, 1) if hw > 0 else (0,)):
-            tongue += [(xx, top, cz + sz * hw), (xx, yt, cz + sz * hw)]
-    pieces.append(("late", tongue))   # (after the cut of the opening: it lies in the opening)
+    # the front mouth, from the left across the bottom of the opening (the designer's sketch): the wall "-", the arch "(", a low wall "_", an EMPTY
+    # V-shaped notch "v" (through it the ingots are poured out onto the tray), a low wall "_", the arch ")", the wall "-"
+    sill = 0.2
+    for side in (-1, 1):
+        wall = []
+        for (xx, yt_in, yt_out) in ((cx + 0.5, 0.0, sill), (cx + 0.88, 0.0, sill)):
+            wall += [(xx, top, cz + side * 0.4), (xx, top + sill, cz + side * 0.4),
+                     (xx, top, cz + side * 0.0), (xx, top + sill, cz + side * 0.14)]
+        pieces.append(("late", wall))   # (after the cut of the opening: it lies in the opening)
     pieces.append(box(cx, (top + 0.2) / 2, 0.1, 0.74, top + 0.2, 0.2))   # the second tray, the step of the left mouth: it stands out of the platform but not out of the 3 x 2
     pieces.append(("cut", arch_piece("x", cz, front_hole, lambda y: cx + 0.86 - niche, lambda y: cx + 1.4)))
     pieces.append(("cut", arch_piece("z", cx, left_hole, lambda y: cz - 0.86 + niche, lambda y: cz - 1.4)))
